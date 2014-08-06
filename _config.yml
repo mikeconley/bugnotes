@@ -1,7 +1,7 @@
 # Site settings
 title: "Mike Conley's Bug Notes"
 email: mconley@mozilla.com
-description: "Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description."
+description: "A place where I publish my raw, unedited notes on completed bugs."
 baseurl: "http://people.mozilla.org/~mconley2/bugnotes"
 url: "http://people.mozilla.org/~mconley2/bugnotes"
 twitter_username: mike_conley
@@ -9,6 +9,6 @@ github_username:  mikeconley
 
 # Build settings
 markdown: kramdown
-permalink: pretty
+permalink: /:title.html
 
 exclude: [node_modules]

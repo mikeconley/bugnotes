@@ -4,8 +4,12 @@ title: About
 permalink: /about/
 ---
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](http://jekyllrb.com/)
+I've been writing notes while working on various Mozilla bugs, and I thought it might be interesting to publish the raw, unedited notes once I've finished a bug.
 
-You can find the source code for the Jekyll new theme at: [github.com/jglovier/jekyll-new](https://github.com/jglovier/jekyll-new)
+These are my unfiltered thoughts as I work on a bug. Some of them will be long, contain stacktraces and snippets of code and IRC conversations. Some will be short and quick.
 
-You can find the source code for Jekyll at [github.com/jekyll/jekyll](https://github.com/jekyll/jekyll)
+I don't know if this will ever be useful, but I thought I'd put this stuff out there in case anybody was curious.
+
+I create my notes with [Evernote](http://evernote.com/), export to HTML, and build the site using [Jekyll](https://github.com/jekyll/jekyll).
+
+[You might also enjoy my personal blog.](http://www.mikeconley.ca)
