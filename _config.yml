@@ -1,12 +1,14 @@
 # Site settings
-title: Your awesome title
-email: your-email@domain.com
+title: "Mike Conley's Bug Notes"
+email: mconley@mozilla.com
 description: "Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description."
-baseurl: ""
-url: "http://yourdomain.com"
-twitter_username: jekyllrb
-github_username:  jekyll
+baseurl: "http://people.mozilla.org/~mconley2/bugnotes"
+url: "http://people.mozilla.org/~mconley2/bugnotes"
+twitter_username: mike_conley
+github_username:  mikeconley
 
 # Build settings
 markdown: kramdown
 permalink: pretty
+
+exclude: [node_modules]
