@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 5.5.2 (402634)"/><meta name="keywords" content="FixedByOther"/><meta name="author" content="dc2511"/><meta name="created" content="2014-07-29 21:29:10 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1036433"/><meta name="updated" content="2014-08-02 00:33:40 +0000"/><title>Bug 1036433 - can't log into work.com in a remote tab</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+<div><span style="font-size: 18px;">Investigation</span></div>
+<div><span style="font-size: 18px;"><br/></span></div>
+<div>What does work.com try to do when logging in without e10s?</div>
+<div><br/></div>
+<div>Guhhhhh GWT compiled code. This SUCKS.</div>
+<div><br/></div>
+<div>So it looks like there are a number of things going on:</div>
+<div><br/></div>
+<div>An event handler is attached to the login button which submits the form. The form submits in the background, and we get some HTTP response back. I _think_ this sets a cookie?</div>
+<div><br/></div>
+<div>And then we try to redirect, I think.</div>
+<div><br/></div>
+<div>In e10s, we never get to $onSubmitComplete…</div>
+<div><br/></div>
+<div>Never get to runScheduledTasks…</div>
+<div><br/></div>
+<div>Stack on good:</div>
+<div><br/></div>
+<div><img src="Bug%201036433%20-%20can't%20log%20into%20work.com%20in%20a%20remote%20tab.resources/e1c55eef634597e386e51875705eeec8.png" height="291" width="1018"/><br/></div>
+<div><span style="font-size: 18px;"><br/></span></div>
+<div>So there's some kind of …. hand-rolled event queue system here. Or something. What the hell.</div>
+<div><br/></div>
+<div><img src="Bug%201036433%20-%20can't%20log%20into%20work.com%20in%20a%20remote%20tab.resources/6271123c116e8d219492c48c6d417f43.jpeg" height="203" width="652"/><br/></div>
+<div><br/></div>
+<div>Ok, here's where we queue the event… there's an onload event from an iframe… </div>
+<div><br/></div>
+<div>Uh… no submit event fired from form element? What the hell?</div>
+<div><br/></div>
+<div>Ah… gecko doesn't listen to onsubmit. <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLFormElement.submit">https://developer.mozilla.org/en-US/docs/Web/API/HTMLFormElement.submit</a></div>
+<div><br/></div>
+<div>Ok, so… so no load event is fired for the iframe that is src'd at javascript:''… why would that ever fire a load event? What triggers that load event?</div>
+<div><br/></div>
+<div>Let's work from the click event down. What occurs?</div>
+<div><br/></div>
+<div>AHAHAHHA Wait - I think I've figured it out.</div>
+<div><br/></div>
+<div>The target of the form is one of these iframes. </div>
+<div><br/></div>
+<div>
+<div><b>Content Encoding Error</b></div>
+<div><b><br/></b></div>
+<div><b>The page you are trying to view cannot be shown because it uses an invalid or unsupported form of compression.</b></div>
+<div><b><br/></b></div>
+<div><b>    Please contact the website owners to inform them of this problem.</b></div>
+<div><br/></div>
+</div>
+<div>That's what's showing up in the frame in the e10s tab.</div>
+<div><br/></div>
+<div>WHEREAS, I get "SUCCESS" in the non-e10s tab.</div>
+<div><br/></div>
+<div>AH HAH. GOT YOU.</div>
+<div><br/></div>
+<div>So piecing through all this GWT compiled JS took a while, but I think I know what's going on.
+<div><br/></div>
+<div>There's a hidden iframe on the page that is the target of the authorization form, and there are event listeners on that iframe that read out the result of the document that it loads, and redirect / react based on that result.</div>
+<div><br/></div>
+<div>With non-e10s, the form submits, and the iframe POST's the user's credentials to <a href="https://app.work.com/j_spring_security_check">https://app.work.com/j_spring_security_check</a>. That 302's and redirects the iframe to one of two places</div>
+<div><br/></div>
+<div><a href="https://app.work.com/authorized">https://app.work.com/authorized</a></div>
+<div><br/></div>
+<div>or</div>
+<div><br/></div>
+<div><a href="https://app.work.com/unauthorized">https://app.work.com/unauthorized</a></div>
+<div><br/></div>
+<div>The authorized page contains the string "SUCCESS", and the unauthorized page contains the string "UNAUTHORIZED". The event listeners in the parent of the iframe listen for the load event, check those strings, and "do the right thing" based on those two possible states.</div>
+<div><br/></div>
+<div>With e10s, it seems this doesn't work. The iframe never fires the load event because the content at</div>
+<div><a href="https://app.work.com/authorized">https://app.work.com/authorized</a> and <a href="https://app.work.com/unauthorized">https://app.work.com/unauthorized</a> cannot be read - it fails out with a "Content Encoding Error".</div>
+<div><br/></div>
+<div><br/></div>
+<div>STR:</div>
+<div><br/></div>
+<div>1) Open up an e10s window</div>
+<div>2) Browse to <a href="https://app.work.com/unauthorized">https://app.work.com/unauthorized</a></div>
+<div><br/></div>
+<div>ER:</div>
+<div><br/></div>
+<div>"UNAUTHORIZED" shown as content.</div>
+<div><br/></div>
+<div>AR:</div>
+<div><br/></div>
+<div><br/></div>
+<div>"Content Encoding Error</div>
+<div><br/></div>
+<div><br/></div>
+<div>The page you are trying to view cannot be shown because it uses an invalid or unsupported form of compression.</div>
+<div><br/></div>
+<div><br/></div>
+<div>Please contact the website owners to inform them of this problem."</div>
+</div>
+<div><span style="font-size: 18px;"><br/></span></div>
+<div><span style="font-size: 18px;">Solution(s)</span></div>
+<div><br/></div>
+<div><br/></div>
+<div>It's possible this is going to be fixed by bug 1012917 or bug 1043256.</div>
+<div><br/></div>
+<div><br/></div>
+<div><span style="font-size: 18px;"><br/></span></div>
+<div><span style="font-size: 18px;">Testing</span></div>
+<div><span style="font-size: 18px;"><br/></span></div>
+<span style="font-size: 18px;">Checklist</span>
+<div><input type="checkbox"/>(Tangent) File a bug about how I can't remove the exception on remembering passwords in in-content prefs.<br/></div>
+</body></html>
