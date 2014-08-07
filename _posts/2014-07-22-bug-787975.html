@@ -1,0 +1,93 @@
+---
+layout: post
+title:  "Bug 787975 - Do not cross the client/server boundaries in the JSTerm $0 helper"
+date:   2014-07-22
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=787975">
+ Bug 787975 - Do not cross the client/server boundaries in the JSTerm $0 helper
+</a>
+<div>
+ (From the bug -
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=787975#c1">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=787975#c1
+ </a>
+ ):
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ :msucan:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <pre>
+<font face="Arial">Patrick: I was looking into writing a patch for this bug. Did some code checks and it seems we track node selection only in the client. So when the server would try to get $0 it has no way to know which is the currently selected element.
+
+Do we want to track the selected element in the server? Or should we send the nodeActor ID of the selected element every time when we ask for JS eval from the client? I think the latter is to be preferred.
+</font>
+</pre>
+ <pre>
+<font face="Arial"><br/></font>
+</pre>
+ <pre>
+<font face="Arial">:pbrosset / :patrick:</font>
+</pre>
+ <pre>
+<font face="Arial">Yeah, I'd go for solution two (tracking on the client only and sending the ID to the server). I think anything that keeps the server from getting stateful is a good idea.</font>
+</pre>
+ <pre>
+<font face="Arial"><br/></font>
+</pre>
+ <pre>
+<font face="Arial" style="font-size: 18px;">Investigation</font>
+</pre>
+ <pre>
+<font face="Arial">Ok, so we want to send the nodeActor ID of the selected element, if any, to the server, any time we ask for JS eval from the client…</font>
+</pre>
+ <pre>
+<font face="Arial">I assume that means that the client is asking the server to eval JS. That makes the most sense. If so, where does that occur?</font>
+</pre>
+ <pre>
+<font face="Arial"><br/></font>
+</pre>
+ <pre>
+<font face="Arial">JSTerm.execute seems to be the thing.</font>
+</pre>
+ <pre>
+<font face="Arial"><br/></font>
+</pre>
+ <pre>
+From msucan:
+</pre>
+ <pre>
+JSTermHelpers(obj) function is invoked with the webconsole actor instance as the first argument. You can see all new functions and getters are added to the actor.sandbox object.
+
+In evalWithDebugger() use the selectionActor id to get the actor from the server connection, then get the real dom node from the actor, then store it temporarily on the webconsole actor object, eg. this.selectedNode, like we do for evalInput. In the $0 getter you can return aOwner.selectedNode. You will most likely need to call aOwner.makeDebuggeeValue(aOwner.selectedNode).
+
+To get the raw node use: this.conn.getActor(nodeActorID).rawNode.
+
+The native Debugger evalInGlobalWithBindings() adds all the properties on top of the properties of the global object, the window. So if we bind $0 during eval and your page also sets $0 in the |window| global, then during eval you have to explicitly ask for it by writing window.$0. I dont know the c++ tech details of how that is done. JSTerm helpers are executed in chrome context, not in the low privileges context of the web page - that would limit what we can do with them. From jsterm helpers you have access to the console actor, and to the whole debugger api - so you can also get stuff from the page.
+
+
+</pre>
+ <pre>
+<font face="Arial">Ok, so web console actor's sandbox.$0 becomes the function.</font>
+</pre>
+ <pre>
+<font face="Arial">Got it! WOOOOOOO</font>
+</pre>
+ <pre>
+<font face="Arial">Ok, review is in. Just some nits, and I can land this puppy.</font>
+</pre>
+ <pre>
+<font face="Arial"><br/></font>
+</pre>
+ <pre>
+<font face="Arial">Landed here: </font><a href="https://hg.mozilla.org/integration/fx-team/rev/b55408fd3fa5">https://hg.mozilla.org/integration/fx-team/rev/b55408fd3fa5</a>
+</pre>
+</div>
