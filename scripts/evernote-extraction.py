@@ -1,12 +1,20 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import glob
+import io
 import logging
 import os
+import posixpath
+import re
+import shutil
 import sys
+import urllib
+import urlparse
 
 from bs4 import BeautifulSoup
+from jinja2 import Template
 
 
 """
@@ -16,17 +24,122 @@ and toss it into a Jekyll post.
 
 
 DEFAULT_DEST = "../_posts"
+DEFAULT_ASSETS = "../assets"
+EXPECTED_BUG_HOSTNAME = "bugzilla.mozilla.org"
+DEFAULT_FRONT_MATTER = """---
+layout: post
+title:  "{{ post_title }}"
+date:   {{ post_date }}
+tags:
+---
 
 
-def extract(document, resources, destination, date):
-    logging.info("Extracting post body...")
-    contents = ''.join([str(tag) for tag in document.body.contents])
+"""
 
-    logging.info("Extracting document %s with %s to %s on %s" %
-                 (len(document), len(resources), destination, date))
+def extract(document, resources, destination, assets, date, folder, dry_run=False):
+    logging.info("Identifying associated bug...")
+    bug_tag = document.find("meta", {"name":"source-url"})
+    if not bug_tag:
+        logging.error("Could not find a bug in the HTML document in %s"
+                     % folder)
+        return
+
+    bug_url = bug_tag['content']
+    logging.debug("Extracted URL from source-url meta tag: %s" % bug_url)
+    bug_url = urlparse.urlparse(bug_url)
+
+    if bug_url.hostname != EXPECTED_BUG_HOSTNAME:
+        logging.error("Expected a bug URL with hostname %s"
+                      % EXPECTED_BUG_HOSTNAME)
+        return
+
+    query_dict = urlparse.parse_qs(bug_url.query)
+    if 'id' not in query_dict:
+        logging.error("Expected a bug ID in the URL %s" % bug_url.geturl())
+        return
+
+    bug_id = str(query_dict['id'][0])
+    logging.info("Found a reference to bug #%s" % bug_id)
+
+    bug_title_tag = document.find("title")
+    if not bug_title_tag:
+        logging.error("Could not find a title for the HTML document in %s"
+                      % folder)
+        return
+    bug_title = bug_title_tag.string
+    logging.info("Found a bug title: %s" % bug_title)
+
+    if len(resources):
+        # We have resources, meaning we're going to need to do some
+        # swaps in the content, and we'll need to move these assets
+        # into the assets folder.
+        # Right now, I'm just doing replacements for image tags.
+        images = document.findAll("img")
+        resource_basenames = [os.path.basename(resource)
+                              for resource in resources]
+        for image in images:
+            filename = posixpath.basename(image['src'])
+            if filename not in resource_basenames:
+                logging.error("Found a reference to a reference we can't "
+                              "find: %s" % filename)
+                return
+            image['src'] = "{{ site.url }}/" + posixpath.join("assets", bug_id + "-" + filename)
+
+        for resource in resources:
+            new_filename = bug_id + "-" + os.path.basename(resource)
+            new_location = os.path.join(assets, new_filename)
+            logging.debug("Copying %s to %s..." % (resource, new_location))
+            if not dry_run:
+                shutil.copyfile(resource, new_location)
+
+    logging.info("Adding bug link to head of post...")
+    link = document.new_tag("a")
+    link.string = bug_title
+    link["href"] = bug_url.geturl()
+    document.body.insert(0, link)
+
+    # Extract the created date from the document if we aren't overriding.
+    if not date:
+        created_tag = document.find("meta", {"name":"created"})
+        date = created_tag["content"].split(" ")[0]
+
+    logging.debug("Using date: %s" % date)
+
+    try:
+        datetime.datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        logging.error("Did not understand date: %s - expected format "
+                      "is YYYY-MM-DD" % date)
+
+    post_filename = date + "-bug-" + bug_id + ".html"
+
+    logging.info("Generating front matter...")
+    # TODO: Front Matter?
+    fm_template = Template(DEFAULT_FRONT_MATTER)
+    front_matter = fm_template.render(post_title=bug_title, post_date=date)
+
+    logging.info("Extracting document body and inserting into post")
+    content_string = ''.join([str(thing) for thing in document.body.contents])
+    content = BeautifulSoup(content_string)
+
+    post_path = os.path.join(destination, post_filename)
+    if os.path.exists(post_path):
+        logging.error("A file already exists at %s. Skipping..." % post_path)
+        return
+
+    logging.info("Writing to %s" % post_path)
+    if not dry_run:
+        with io.open(post_path, 'w', encoding='utf8') as f:
+            f.write(front_matter)
+            f.write(content.prettify())
+
+    logging.info("Done!")
 
 
 def main(options):
+    if options.dry_run:
+        logging.info("Doing a dry run.")
+
     logging.debug("Iterating %s supposed folders." % len(options.folders))
     for folder in options.folders:
         logging.info("Attempting an extraction from %s" % folder)
@@ -61,11 +174,12 @@ def main(options):
             # list.
             resource_folder = resources_folders[0]
             for resource_file in os.listdir(resource_folder):
-                resources.append(resource_file)
+                resources.append(os.path.join(resource_folder, resource_file))
 
         # Now send it all off to the glue factory!
         extract(document, resources, destination=options.destination,
-                date=options.date)
+                assets=options.assets, date=options.date, folder=folder,
+                dry_run=options.dry_run)
 
 
 if __name__ == "__main__":
@@ -77,6 +191,12 @@ if __name__ == "__main__":
                         help=("Folder to output the extractions to. "
                               "Defaults to %s" % DEFAULT_DEST),
                         default=DEFAULT_DEST)
+    parser.add_argument("--assets", action="store", dest="assets",
+                        help=("Folder to output the assets to. "
+                              "Defaults to %s" % DEFAULT_ASSETS),
+                        default=DEFAULT_ASSETS)
+    parser.add_argument("--dry-run", action="store_true", dest="dry_run",
+                        help="Just simulate extraction and copying.")
     parser.add_argument("--verbose", action="store_true",
                         help="Print debugging messages to the console.")
     parser.add_argument("folders", metavar="FOLDER", nargs="+",
