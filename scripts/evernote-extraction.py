@@ -36,7 +36,7 @@ tags:
 
 """
 
-def extract(document, resources, destination, assets, date, folder, dry_run=False):
+def extract(document, resources, destination, assets, folder, dry_run=False):
     logging.info("Identifying associated bug...")
     bug_tag = document.find("meta", {"name":"source-url"})
     if not bug_tag:
@@ -98,23 +98,12 @@ def extract(document, resources, destination, assets, date, folder, dry_run=Fals
     link["href"] = bug_url.geturl()
     document.body.insert(0, link)
 
-    # Extract the created date from the document if we aren't overriding.
-    if not date:
-        created_tag = document.find("meta", {"name":"created"})
-        date = created_tag["content"].split(" ")[0]
-
-    logging.debug("Using date: %s" % date)
-
-    try:
-        datetime.datetime.strptime(date, "%Y-%m-%d")
-    except ValueError:
-        logging.error("Did not understand date: %s - expected format "
-                      "is YYYY-MM-DD" % date)
+    date = datetime.date.today().strftime('%Y-%m-%d')
 
     post_filename = date + "-bug-" + bug_id + ".html"
 
     logging.info("Generating front matter...")
-    # TODO: Front Matter?
+
     fm_template = Template(DEFAULT_FRONT_MATTER)
     front_matter = fm_template.render(post_title=bug_title, post_date=date)
 
@@ -178,15 +167,12 @@ def main(options):
 
         # Now send it all off to the glue factory!
         extract(document, resources, destination=options.destination,
-                assets=options.assets, date=options.date, folder=folder,
+                assets=options.assets, folder=folder,
                 dry_run=options.dry_run)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--date", action="store", dest="date",
-                        help=("Overrides the created date in the Evernote "
-                              "document. Use YYYY-MM-DD."))
     parser.add_argument("--destination", action="store", dest="destination",
                         help=("Folder to output the extractions to. "
                               "Defaults to %s" % DEFAULT_DEST),

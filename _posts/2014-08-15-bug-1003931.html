@@ -1,0 +1,378 @@
+---
+layout: post
+title:  "Bug 1003931 - Right click option on bookmark menu not behaving properly"
+date:   2014-08-15
+tags:
+---
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1003931">
+ Bug 1003931 - Right click option on bookmark menu not behaving properly
+</a>
+<pre>
+This bug is caused by this rule:
+
+:-moz-any(#TabsToolbar, #nav-bar) .toolbarbutton-1:not([disabled=true]):hover &gt; .toolbarbutton-menubutton-button &gt; .toolbarbutton-icon,
+
+at:
+
+<a href="http://hg.mozilla.org/mozilla-central/file/08c23f12a43e/browser/themes/linux/browser.css#l589">http://hg.mozilla.org/mozilla-central/file/08c23f12a43e/browser/themes/linux/browser.css#l589</a>
+
+Investigating why now…
+</pre>
+<pre>
+<br/>
+</pre>
+<pre>
+_moz-menuactive attribute is being set and then unset.
+</pre>
+<pre>
+This is the unset call:
+</pre>
+<pre>
+#0  nsMenuFrame::SelectMenu (this=0x8ea1c430, aActivateFlag=false) at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuFrame.cpp:636
+</pre>
+<div>
+ #1  0xb2256ba0 in nsMenuPopupFrame::ChangeMenuItem (this=0x99aa9bf8, aMenuItem=0x0, aSelectFirstItem=false) at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuPopupFrame.cpp:1633
+</div>
+<div>
+ #2  0xb224de66 in nsMenuFrame::HandleEvent (this=0x8ea1c430, aPresContext=0x9cfc5400, aEvent=0x98a397d0, aEventStatus=0xbf86b89c) at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuFrame.cpp:480
+</div>
+<div>
+ #3  0xb1340f84 in mozilla::ESMEventCB::HandleEvent (this=0xbf86b934, aVisitor=...) at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3552
+</div>
+<div>
+ #4  0xb13631d8 in mozilla::EventTargetChainItem::HandleEventTargetChain (aChain=..., aVisitor=..., aCallback=0xbf86b934, aCd=...)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/dom/events/EventDispatcher.cpp:335
+</div>
+<div>
+ #5  0xb13642f6 in mozilla::EventDispatcher::Dispatch (aTarget=0x9c198790, aPresContext=0x9cfc5400, aEvent=0x98a397d0, aDOMEvent=0x0, aEventStatus=0xbf86b920, aCallback=0xbf86b934, aTargets=0x0)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/dom/events/EventDispatcher.cpp:606
+</div>
+<div>
+ #6  0xb13391f4 in mozilla::EventStateManager::DispatchMouseOrPointerEvent (this=0xa60e15e0, aMouseEvent=0xbf86bef0, aMessage=332, aTargetContent=0x9c198790, aRelatedContent=0x0)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3660
+</div>
+<div>
+ #7  0xb13395cc in mozilla::EventStateManager::NotifyMouseOut (this=0xa60e15e0, aMouseEvent=0xbf86bef0, aMovingInto=0x0) at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3803
+</div>
+<div>
+ #8  0xb133a0c5 in mozilla::EventStateManager::GenerateMouseEnterExit (this=0xa60e15e0, aMouseEvent=0xbf86bef0) at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:4052
+</div>
+<div>
+ #9  0xb13305e3 in mozilla::EventStateManager::PreHandleEvent (this=0xa60e15e0, aPresContext=0x9cfc5400, aEvent=0xbf86bef0, aTargetFrame=0x99aa9bf8, aStatus=0xbf86be10)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:594
+</div>
+<div>
+ #10 0xb1fbf812 in PresShell::HandleEventInternal (this=0x9cf40e00, aEvent=0xbf86bef0, aStatus=0xbf86be10) at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7753
+</div>
+<div>
+ #11 0xb1fbea9a in PresShell::HandlePositionedEvent (this=0x9cf40e00, aTargetFrame=0x99aa9bf8, aEvent=0xbf86bef0, aEventStatus=0xbf86be10)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7505
+</div>
+<div>
+ #12 0xb1fbe0ef in PresShell::HandleEvent (this=0x9cf40e00, aFrame=0x99aa9bf8, aEvent=0xbf86bef0, aDontRetargetEvents=false, aEventStatus=0xbf86be10)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7305
+</div>
+<div>
+ #13 0xb177128d in nsViewManager::DispatchEvent (this=0x9def1b50, aEvent=0xbf86bef0, aView=0x99aa8970, aStatus=0xbf86be10) at /media/Projects/mozilla/mozilla-central/view/src/nsViewManager.cpp:775
+</div>
+<div>
+ #14 0xb176eaac in nsView::HandleEvent (this=0x99aa8970, aEvent=0xbf86bef0, aUseAttachedEvents=false) at /media/Projects/mozilla/mozilla-central/view/src/nsView.cpp:1097
+</div>
+<div>
+ #15 0xb17bac39 in nsWindow::DispatchEvent (this=0x8e69f200, aEvent=0xbf86bef0, aStatus=@0xbf86beec: nsEventStatus_eIgnore) at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:478
+</div>
+<div>
+ #16 0xb17bf811 in nsWindow::OnLeaveNotifyEvent (this=0x8e69f200, aEvent=0x98827da0) at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:2496
+</div>
+<div>
+ #17 0xb17c63cb in leave_notify_event_cb (widget=0x8ea852f8, event=0x98827da0) at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:5266
+</div>
+<div>
+ #18 0xaed5debe in ?? () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+</div>
+<div>
+ #19 0xaf1b8a7e in g_closure_invoke () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+</div>
+<div>
+ #20 0xaf1cb029 in ?? () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+</div>
+<div>
+ #21 0xaf1d268f in g_signal_emit_valist () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+</div>
+<div>
+ #22 0xaf1d2bf3 in g_signal_emit () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+</div>
+<div>
+ #23 0xaee8aa53 in ?? () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+</div>
+<div>
+ #24 0xaed5c860 in gtk_main_do_event () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+</div>
+<div>
+ #25 0xae944188 in ?? () from /usr/lib/i386-linux-gnu/libgdk-x11-2.0.so.0
+</div>
+<div>
+ #26 0xaf0e61e3 in g_main_context_dispatch () from /lib/i386-linux-gnu/libglib-2.0.so.0
+</div>
+<div>
+ #27 0xaf0e6468 in ?? () from /lib/i386-linux-gnu/libglib-2.0.so.0
+</div>
+<div>
+ #28 0xaf0e6528 in g_main_context_iteration () from /lib/i386-linux-gnu/libglib-2.0.so.0
+</div>
+<div>
+ #29 0xb17b3dbc in nsAppShell::ProcessNextNativeEvent (this=0xa864c0b0, mayWait=false) at /media/Projects/mozilla/mozilla-central/widget/gtk/nsAppShell.cpp:156
+</div>
+<div>
+ #30 0xb178ad5e in nsBaseAppShell::DoProcessNextNativeEvent (this=0xa864c0b0, mayWait=false, recursionDepth=0) at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:140
+</div>
+<div>
+ #31 0xb178b10f in nsBaseAppShell::OnProcessNextEvent (this=0xa864c0b0, thr=0xad542b00, mayWait=false, recursionDepth=0) at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:280
+</div>
+<div>
+ #32 0xaf8ea224 in nsThread::ProcessNextEvent (this=0xad542b00, aMayWait=false, aResult=0xbf86c53f) at /media/Projects/mozilla/mozilla-central/xpcom/threads/nsThread.cpp:741
+</div>
+<div>
+ #33 0xaf91f97a in NS_ProcessNextEvent (aThread=0xad542b00, aMayWait=false) at /media/Projects/mozilla/mozilla-central/xpcom/glue/nsThreadUtils.cpp:265
+</div>
+<div>
+ #34 0xafdb3918 in mozilla::ipc::MessagePump::Run (this=0xad53ea00, aDelegate=0xb7219b40) at /media/Projects/mozilla/mozilla-central/ipc/glue/MessagePump.cpp:99
+</div>
+<div>
+ #35 0xafd56bc4 in MessageLoop::RunInternal (this=0xb7219b40) at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:229
+</div>
+<div>
+ #36 0xafd56b4f in MessageLoop::RunHandler (this=0xb7219b40) at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:222
+</div>
+<div>
+ #37 0xafd56af3 in MessageLoop::Run (this=0xb7219b40) at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:196
+</div>
+<div>
+ #38 0xb178ae09 in nsBaseAppShell::Run (this=0xa864c0b0) at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:164
+</div>
+<div>
+ #39 0xb288cc1e in nsAppStartup::Run (this=0xa862a160) at /media/Projects/mozilla/mozilla-central/toolkit/components/startup/nsAppStartup.cpp:278
+</div>
+<div>
+ #40 0xb2904f70 in XREMain::XRE_mainRun (this=0xbf86c840) at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4013
+</div>
+<div>
+ #41 0xb29052a8 in XREMain::XRE_main (this=0xbf86c840, argc=4, argv=0xbf86db64, aAppData=0xbf86c9a0) at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4084
+</div>
+<div>
+ #42 0xb290550a in XRE_main (argc=4, argv=0xbf86db64, aAppData=0xbf86c9a0, aFlags=0) at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4298
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Very interesting. Blocked on need info from Enn / karat.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ (In reply to Mike Conley (:mconley) from comment #17)
+ <div>
+  &gt; So you're not hitting leave_notify_event_cb when you mouse around in
+ </div>
+ <div>
+  &gt; that context menu like I am in the trace in comment 15?
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  That is correct.  I only have leave_notify_event_cb called when leaving the
+ </div>
+ <div>
+  context menu (and then subsequently when leaving other windows), but I do
+ </div>
+ <div>
+  reproduce this bug.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm - so maybe I dirtied the backtrace by mousing over to my ssh or something, and that caused leave_notify_event_cb?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yep. This is more like it:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <pre>
+#0  nsMenuFrame::SelectMenu (this=0xa0d86b38, aActivateFlag=false)
+    at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuFrame.cpp:597
+#1  0xb21fbba0 in nsMenuPopupFrame::ChangeMenuItem (this=0x98babbf8, aMenuItem=0x0, aSelectFirstItem=false)
+    at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuPopupFrame.cpp:1633
+#2  0xb21f2e66 in nsMenuFrame::HandleEvent (this=0xa0d86b38, aPresContext=0xa6db0800, aEvent=0x942d73e0,
+    aEventStatus=0xbfc61bfc) at /media/Projects/mozilla/mozilla-central/layout/xul/nsMenuFrame.cpp:480
+#3  0xb12e5f84 in mozilla::ESMEventCB::HandleEvent (this=0xbfc61c94, aVisitor=...)
+    at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3552
+#4  0xb13081d8 in mozilla::EventTargetChainItem::HandleEventTargetChain (aChain=..., aVisitor=...,
+    aCallback=0xbfc61c94, aCd=...) at /media/Projects/mozilla/mozilla-central/dom/events/EventDispatcher.cpp:335
+#5  0xb13092f6 in mozilla::EventDispatcher::Dispatch (aTarget=0x9c2a4b00, aPresContext=0xa6db0800, aEvent=
+    0x942d73e0, aDOMEvent=0x0, aEventStatus=0xbfc61c80, aCallback=0xbfc61c94, aTargets=0x0)
+    at /media/Projects/mozilla/mozilla-central/dom/events/EventDispatcher.cpp:606
+#6  0xb12de1f4 in mozilla::EventStateManager::DispatchMouseOrPointerEvent (this=0x9d043690,
+    aMouseEvent=0xbfc6231c, aMessage=332, aTargetContent=0x9c2a4b00, aRelatedContent=0x9c2a4ab0)
+    at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3660
+#7  0xb12de5cc in mozilla::EventStateManager::NotifyMouseOut (this=0x9d043690, aMouseEvent=0xbfc6231c,
+    aMovingInto=0x9c2a4ab0) at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3803
+#8  0xb12de871 in mozilla::EventStateManager::NotifyMouseOver (this=0x9d043690, aMouseEvent=0xbfc6231c,
+    aContent=0x9c2a4ab0) at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:3861
+#9  0xb12def2d in mozilla::EventStateManager::GenerateMouseEnterExit (this=0x9d043690, aMouseEvent=0xbfc6231c)
+    at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:4009
+#10 0xb12d5655 in mozilla::EventStateManager::PreHandleEvent (this=0x9d043690, aPresContext=0xa6db0800,
+    aEvent=0xbfc6231c, aTargetFrame=0xa0d865c0, aStatus=0xbfc62200)
+    at /media/Projects/mozilla/mozilla-central/dom/events/EventStateManager.cpp:610
+#11 0xb1f64812 in PresShell::HandleEventInternal (this=0x9d018340, aEvent=0xbfc6231c, aStatus=0xbfc62200)
+    at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7753
+#12 0xb1f63a9a in PresShell::HandlePositionedEvent (this=0x9d018340, aTargetFrame=0xa0d865c0, aEvent=0xbfc6231c,
+    aEventStatus=0xbfc62200) at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7505
+#13 0xb1f630ef in PresShell::HandleEvent (this=0x9d018340, aFrame=0x98babbf8, aEvent=0xbfc6231c,
+    aDontRetargetEvents=false, aEventStatus=0xbfc62200)
+    at /media/Projects/mozilla/mozilla-central/layout/base/nsPresShell.cpp:7305
+#14 0xb171628d in nsViewManager::DispatchEvent (this=0x9dff1be0, aEvent=0xbfc6231c, aView=0x98ba9c90,
+    aStatus=0xbfc62200) at /media/Projects/mozilla/mozilla-central/view/src/nsViewManager.cpp:775
+#15 0xb1713aac in nsView::HandleEvent (this=0x98ba9c90, aEvent=0xbfc6231c, aUseAttachedEvents=false)
+    at /media/Projects/mozilla/mozilla-central/view/src/nsView.cpp:1097
+#16 0xb175fc39 in nsWindow::DispatchEvent (this=0x976f2a00, aEvent=0xbfc6231c,
+    aStatus=@0xbfc62314: nsEventStatus_eIgnore)
+    at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:478
+#17 0xb1764c1e in nsWindow::OnMotionNotifyEvent (this=0x976f2a00, aEvent=0x94513d40)
+    at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:2576
+#18 0xb176b478 in motion_notify_event_cb (widget=0x8fd190d0, event=0x94513d40)
+    at /media/Projects/mozilla/mozilla-central/widget/gtk/nsWindow.cpp:5297
+#19 0xaeceaebe in ?? () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+#20 0xaf145a7e in g_closure_invoke () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+#21 0xaf158029 in ?? () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+#22 0xaf15f68f in g_signal_emit_valist () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+#23 0xaf15fbf3 in g_signal_emit () from /usr/lib/i386-linux-gnu/libgobject-2.0.so.0
+#24 0xaee17a53 in ?? () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+#25 0xaece9294 in gtk_propagate_event () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+#26 0xaece9690 in gtk_main_do_event () from /usr/lib/i386-linux-gnu/libgtk-x11-2.0.so.0
+#27 0xae8d1188 in ?? () from /usr/lib/i386-linux-gnu/libgdk-x11-2.0.so.0
+#28 0xaf0731e3 in g_main_context_dispatch () from /lib/i386-linux-gnu/libglib-2.0.so.0
+#29 0xaf073468 in ?? () from /lib/i386-linux-gnu/libglib-2.0.so.0
+#30 0xaf073528 in g_main_context_iteration () from /lib/i386-linux-gnu/libglib-2.0.so.0
+#31 0xb1758dbc in nsAppShell::ProcessNextNativeEvent (this=0xa94019c0, mayWait=false)
+    at /media/Projects/mozilla/mozilla-central/widget/gtk/nsAppShell.cpp:156
+#32 0xb172fd5e in nsBaseAppShell::DoProcessNextNativeEvent (this=0xa94019c0, mayWait=false, recursionDepth=0)
+    at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:140
+#33 0xb173010f in nsBaseAppShell::OnProcessNextEvent (this=0xa94019c0, thr=0xad542b00, mayWait=false,
+    recursionDepth=0) at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:280
+#34 0xaf88f224 in nsThread::ProcessNextEvent (this=0xad542b00, aMayWait=false, aResult=0xbfc62a3f)
+    at /media/Projects/mozilla/mozilla-central/xpcom/threads/nsThread.cpp:741
+#35 0xaf8c497a in NS_ProcessNextEvent (aThread=0xad542b00, aMayWait=false)
+    at /media/Projects/mozilla/mozilla-central/xpcom/glue/nsThreadUtils.cpp:265
+#36 0xafd58918 in mozilla::ipc::MessagePump::Run (this=0xad53ea90, aDelegate=0xb7119b40)
+    at /media/Projects/mozilla/mozilla-central/ipc/glue/MessagePump.cpp:99
+#37 0xafcfbbc4 in MessageLoop::RunInternal (this=0xb7119b40)
+    at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:229
+#38 0xafcfbb4f in MessageLoop::RunHandler (this=0xb7119b40)
+    at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:222
+#39 0xafcfbaf3 in MessageLoop::Run (this=0xb7119b40)
+    at /media/Projects/mozilla/mozilla-central/ipc/chromium/src/base/message_loop.cc:196
+#40 0xb172fe09 in nsBaseAppShell::Run (this=0xa94019c0)
+    at /media/Projects/mozilla/mozilla-central/widget/xpwidgets/nsBaseAppShell.cpp:164
+#41 0xb2831c1e in nsAppStartup::Run (this=0xa872a1f0)
+    at /media/Projects/mozilla/mozilla-central/toolkit/components/startup/nsAppStartup.cpp:278
+#42 0xb28a9f70 in XREMain::XRE_mainRun (this=0xbfc62d40)
+    at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4013
+#43 0xb28aa2a8 in XREMain::XRE_main (this=0xbfc62d40, argc=4, argv=0xbfc64064, aAppData=0xbfc62ea0)
+    at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4084
+#44 0xb28aa50a in XRE_main (argc=4, argv=0xbfc64064, aAppData=0xbfc62ea0, aFlags=0)
+    at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4298
+#45 0x0804bbdf in do_main (argc=4, argv=0xbfc64064, xreDirectory=0xb7170480)
+    at /media/Projects/mozilla/mozilla-central/browser/app/nsBrowserApp.cpp:282
+#46 0x0804c08b in main (argc=4, argv=0xbfc64064)
+    at /media/Projects/mozilla/mozilla-central/browser/app/nsBrowserApp.cpp:643
+</pre>
+ <pre>
+<br/>
+</pre>
+ <pre>
+I _think_ the pointer motion events are being dispatched to the wrong window.
+</pre>
+ <pre>
+<br/>
+</pre>
+ <pre>
+Hrm - also <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=492960">https://bugzilla.mozilla.org/show_bug.cgi?id=492960</a>… this might be a long-standing widgetry / menu bug. :/
+</pre>
+ <pre>
+<br/>
+</pre>
+ <pre>
+From Enn at <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1003931#c24">https://bugzilla.mozilla.org/show_bug.cgi?id=1003931#c24</a>:
+</pre>
+</div>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">
+ <div>
+  <pre>
+The block which calls nsLayoutUtils::GetPopupFrameForEventCoordinates at <a href="http://mxr.mozilla.org/mozilla-central/source/layout/base/nsPresShell.cpp#7002">http://mxr.mozilla.org/mozilla-central/source/layout/base/nsPresShell.cpp#7002</a>
+</pre>
+ </div>
+ <div>
+  <pre>
+is where events are redirected to the right popup. Check here to see what frame is being returned and what is being returned from GetVisiblePopups.
+</pre>
+ </div>
+ <div>
+  <pre>
+I think a synthetic mousemove occurs when the mouse cursor is changed, and when something is scrolled, although I don't think either of those is happening here.
+</pre>
+ </div>
+</blockquote>
+<div style="white-space: pre; font-family: monospace;">
+ <font face="monospace">
+  <span style="white-space: pre;">
+   <br/>
+  </span>
+ </font>
+</div>
+<span style="white-space: pre;">
+ Moving the placesContext menu into the toolbar button was a solution I adapted from Paolo's solution in bug 492960, but it didn't work…maybe that's because he's doing something tricky there…
+</span>
+<div>
+ <span style="white-space: pre;">
+  Doesn't look like it. Weird.
+ </span>
+</div>
+<div>
+ <span style="white-space: pre;">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="white-space: pre;">
+  <br/>
+ </span>
+</div>
