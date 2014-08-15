@@ -83,7 +83,7 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
                 logging.error("Found a reference to a reference we can't "
                               "find: %s" % filename)
                 return
-            image['src'] = "{{ site.url }}/" + posixpath.join("assets", bug_id + "-" + filename)
+            image['src'] = "../" + posixpath.join("assets", bug_id + "-" + filename)
 
         for resource in resources:
             new_filename = bug_id + "-" + os.path.basename(resource)
