@@ -1,0 +1,755 @@
+---
+layout: post
+title:  "Bug 1050447 - Address bar lost focus after opening a new tab using Electrolysis"
+date:   2014-08-15
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1050447">
+ Bug 1050447 - Address bar lost focus after opening a new tab using Electrolysis
+</a>
+Guh - this looks like my fault from bug 1009628.
+<div>
+ <br/>
+</div>
+<div>
+ So I think I rejigged some of the focus stuff in that patch, and moved it into its own function. I'll look into that now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "_adjustFocusAfterTabSwitch" is the name of the function in the tabbrowser binding (tabbrowser.xml).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <font face="Andale Mono">
+  // Focus the location bar if it was previously focused for that tab.
+ </font>
+ <div>
+  <font face="Andale Mono">
+   // In full screen mode, only bother making the location bar visible
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   // if the tab is a blank one.
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   if (newBrowser._urlbarFocused &amp;&amp; gURLBar) {
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   <br/>
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   // Explicitly close the popup if the URL bar retains focus
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   gURLBar.closePopup();
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   <br/>
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   if (!window.fullScreen) {
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   gURLBar.focus();
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   return;
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   }
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   <br/>
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   if (isTabEmpty(this.mCurrentTab)) {
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   focusAndSelectUrlBar();
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   return;
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   }
+  </font>
+ </div>
+ <div>
+  <font face="Andale Mono">
+   }
+  </font>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This code seems like the relevant stuff in that function.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So is it running? Browser Toolbox to the rescue! I think I'm going to try attaching remotely, since we're dealing with focus. I'll attach my MacBook's Firefox devtools to my PC's Firefox.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wow, it'd help if I wasn't on the guest network. That wasted me like 10 minutes. :/ I've removed the guest network from my list of networks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ BAH. Remote debugging is totally horked. Looks like I should try this locally instead. Maybe I can live with that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ newBrowser._urlbarFocused isn't defined… that's why we're not entering this block. What happens in non-e10s? So I think _urlbarFocused would only ever be set if this browser had been looked at before. So I don't think that's what's wrong here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ _adjustFocusAfterSwitch uses focusAndSelectUrlBar to, well, focus and select the URL bar. I wonder if there are other callers to this that are failing - maybe this function isn't the one I need to care about, even though it seems like it should be…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm - when printf debugging, it looks like _adjustFocusAfterTabSwitch always just focuses the browser. Interesting… so my suspicion was right: something else is focusing and selecting the URL bar.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll set a breakpoint on focusAndSelectUrlBar to see if anybody else calls it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yep, we have another caller:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <img height="163" src="../assets/1050447-57c7fc589b16d8d56551d0dffba2bd61.jpeg" width="573"/>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah hah, so, theory: old code assumed that _adjustFocusAfterTabSwitch had already run before BrowserOpenTab's openUILinkIn / openLinkIn calls focusAndSelectUrlBar. That assumption is now false because _adjustFocusAfterTabSwitch occurs asynchronously now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Time to prove it. I've got my printf's in the _adjustFocusAfterTabSwitch method. If I see those print out before I hit my focusAndSelectUrlBar breakpoint in non-e10s, and then see them print out _after_ I hit focusAndSelectUrlBar in e10s, then I've figured it out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ <ul>
+  <li>
+   Saw printf's and then hit breakpoint
+  </li>
+ </ul>
+ <div>
+  e10s:
+ </div>
+</div>
+<div>
+ <ul>
+  <li>
+   Saw printf's and then hit breakpoint
+  </li>
+ </ul>
+ <div>
+  … hm, ok, not that simple. Something else is causing us to move focus then… or focusAndSelectUrlBar is not executing….
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NO I was right. I think it was just that the console wasn't flushing fast enough. A breakpoint in the nsFocusManager::SetFocus and repeated calls to DumpJSStack() confirms that we're calling _adjustFocusAfterTabSwitch first in the non-e10s case, and last in the e10s case.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Possible solutions:
+</div>
+<div>
+ <ul>
+  <li>
+   This seems to be only a problem with new tabs, so perhaps we can get tabbrowser.xml to skip _adjustFocusAfterTabSwitch if the tab switch is caused by us opening a new tab?
+  </li>
+  <li>
+   Can we make openUILinkIn / openLinkIn call focusAndSelectUrlBar after MozAfterRemotePaint is fired?
+  </li>
+  <li style="list-style: none; display: inline">
+   <ul>
+    <li>
+     This worries me - that'd mean that there's the potential for 300 milliseconds of no focus switch (while we wait for the timeout promise to execute), and the chrome interaction is supposed to be as instantaneous as possible…
+    </li>
+   </ul>
+  </li>
+ </ul>
+ <font face="Andale Mono">
+  if (!loadInBackground &amp;&amp; w.isBlankPageURL(url))
+ </font>
+ <div>
+  <font face="Andale Mono">
+   w.focusAndSelectUrlBar();
+  </font>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's from utilityOverlay.js's openLinkIn function… is it possible to have this wait for MozAfterRemotePaint to focus?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Perhaps we can move the responsibility of focusing the URL bar from the utility overlay and into tabbrowser.xml…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I tried my first idea - add an option to loadOneTab and addTab which adds a one-time ability on that tab to skip focus after it's been opened. Dao might have some reservations about this, but at least it gets the ball rolling.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote: You can view the progress of your build at the following URL:
+</div>
+<div>
+ remote:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=c9589a0610e2">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=c9589a0610e2
+ </a>
+</div>
+<div>
+ remote: Alternatively, view them on Treeherder (experimental):
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c9589a0610e2">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c9589a0610e2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I've asked Dao for feedback on my patch, we'll see what he thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ew - try results are in.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 23 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/modules/test/browser_BrowserUITelemetry_buckets.js | leaked window property: aSkipFocusContent - leaked window property: aSkipFocusContent
+</div>
+<div>
+ 185 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/dom/indexedDB/test/browser_perwindow_privateBrowsing.js | uncaught exception - ReferenceError: aSkipFocusContent is not defined at chrome://browser/content/tabbrowser.xml:1619
+</div>
+<div>
+ 196 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/dom/indexedDB/test/browser_perwindow_privateBrowsing.js | Test timed out - Test timed out
+</div>
+<div>
+ 18 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/netwerk/test/browser/browser_NetUtil.js | leaked window property: aSkipFocusContent - leaked window property: aSkipFocusContent
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Gah, didn't define the aSkipFocusContent variable, so they're being assigned as globals. Lovely. Fixed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  More failures from mochitest-other:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  https://tbpl.mozilla.org/php/getParsedLog.php?id=45545934&amp;tree=Try
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   998 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_scroll.xul | uncaught exception - ReferenceError: aSkipFocusContent is not defined at chrome://browser/content/tabbrowser.xml:1348
+  </span>
+  <br/>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   1005 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_selection.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1013 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_selection.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1021 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_selection_aria.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1028 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_statechange.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1036 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1045 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_text_alg.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1053 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_textattrchange.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1061 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_textselchange.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1069 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_tree.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1127 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/events/test_valuechange.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1186 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/focus/test_focusedChild.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1568 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/focus/test_takeFocus.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1704 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/focus/test_takeFocus.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1817 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_browser.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   1825 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_browser.html | called finish() multiple times
+   <br/>
+   2001 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_canvas_hitregion.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   2009 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_canvas_hitregion.html | called finish() multiple times
+   <br/>
+   2185 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   2193 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_general.html | called finish() multiple times
+   <br/>
+   2402 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_menu.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   2410 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_menu.xul | called finish() multiple times
+   <br/>
+   2584 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_shadowroot.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   2592 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_shadowroot.html | called finish() multiple times
+   <br/>
+   2765 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   2798 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3030 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3036 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom_text.html | [SimpleTest.finish()] waitForFocus() was called a different number of times from the number of callbacks run.  Maybe the test terminated prematurely -- be sure to use SimpleTest.waitForExplicitFinish(). - got 1, expected 0
+   <br/>
+   3213 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom_tree.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3246 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom_tree.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3250 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hittest/test_zoom_tree.xul | called finish() multiple times
+   <br/>
+   3514 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hyperlink/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3722 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hyperlink/test_general.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3835 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hypertext/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   3843 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/hypertext/test_general.html | called finish() multiple times
+   <br/>
+   4024 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/hypertext/test_update.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4137 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_alive.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4316 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_integration.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4353 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_integration.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4589 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4620 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4820 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   4827 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_content_text.html | [SimpleTest.finish()] waitForFocus() was called a different number of times from the number of callbacks run.  Maybe the test terminated prematurely -- be sure to use SimpleTest.waitForExplicitFinish(). - got 1, expected 0
+   <br/>
+   5022 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_explicit_names.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   5033 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_explicit_names.html | called finish() multiple times
+   <br/>
+   5178 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_gesture_tracker.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   5194 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_gesture_tracker.html | uncaught exception - Error: Only one top-level window could used with AccessFu at resource://gre/modules/accessibility/Utils.jsm:38
+   <br/>
+   5196 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_gesture_tracker.html | called finish() multiple times
+   <br/>
+   5341 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_landmarks.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   5352 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_landmarks.html | called finish() multiple times
+   <br/>
+   5605 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_live_regions.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   5621 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_live_regions.html | uncaught exception - Error: Only one top-level window could used with AccessFu at resource://gre/modules/accessibility/Utils.jsm:38
+   <br/>
+   5623 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_live_regions.html | called finish() multiple times
+   <br/>
+   5775 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_output.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   5786 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_output.html | called finish() multiple times
+   <br/>
+   6054 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_pointer_relay.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6070 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_pointer_relay.html | uncaught exception - Error: Only one top-level window could used with AccessFu at resource://gre/modules/accessibility/Utils.jsm:38
+   <br/>
+   6072 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_pointer_relay.html | called finish() multiple times
+   <br/>
+   6224 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_tables.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6235 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_tables.html | called finish() multiple times
+   <br/>
+   6491 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_traversal.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6529 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/jsat/test_traversal.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6829 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6889 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   6905 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | called finish() multiple times
+   <br/>
+   6917 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   7185 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   7193 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | [SimpleTest.finish()] waitForFocus() was called a different number of times from the number of callbacks run.  Maybe the test terminated prematurely -- be sure to use SimpleTest.waitForExplicitFinish(). - got 1, expected 0
+   <br/>
+   7313 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_browserui.xul | uncaught exception - ReferenceError: aSkipFocusContent is not defined at chrome://browser/content/tabbrowser.xml:1619
+   <br/>
+   7454 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_counterstyle.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   7465 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_counterstyle.html | called finish() multiple times
+   <br/>
+   7718 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   7739 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   7744 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_general.html | called finish() multiple times
+   <br/>
+   8200 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_general.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   8217 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_general.xul | called finish() multiple times
+   <br/>
+   8470 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_link.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   8481 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_link.html | called finish() multiple times
+   <br/>
+   8636 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_list.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   8791 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_markup.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   8958 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_svg.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   8969 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_svg.html | called finish() multiple times
+   <br/>
+   9121 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/name/test_tree.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9276 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9314 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9629 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9637 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9645 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | called finish() multiple times
+   <br/>
+   9773 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9939 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   9949 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/pivot/test_virtualcursor_text.html | [SimpleTest.finish()] waitForFocus() was called a different number of times from the number of callbacks run.  Maybe the test terminated prematurely -- be sure to use SimpleTest.waitForExplicitFinish(). - got 1, expected 0
+   <br/>
+   10430 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_bindings.xhtml | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   10441 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_bindings.xhtml | called finish() multiple times
+   <br/>
+   10693 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_embeds.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   10731 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_embeds.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   10736 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_embeds.xul | called finish() multiple times
+   <br/>
+   10946 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_general.html | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   10954 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_general.html | [SimpleTest.finish()] waitForFocus() was called a different number of times from the number of callbacks run.  Maybe the test terminated prematurely -- be sure to use SimpleTest.waitForExplicitFinish(). - got 1, expected 0
+   <br/>
+   11313 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_general.xul | uncaught exception - TypeError: browserAt(...) is undefined at chrome://mochitests/content/a11y/accessible/tests/mochitest/browser.js:82
+   <br/>
+   11318 INFO TEST-UNEXPECTED-ERROR | chrome://mochitests/content/a11y/accessible/tests/mochitest/relations/test_general.xul | called finish() multiple times
+   <br/>
+   First 100 of 358 failures shown.
+  </span>
+  <br/>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   <br/>
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   I think this is maybe caused by the first error:
+  </span>
+  <span style="font-size: 13px;">
+   ReferenceError: aSkipFocusContent is not defined at chrome://browser/content/tabbrowser.xml:1348. I think this is a cascading failure because of that, and my fixes (which also fix the leak) should, I believe, take care of this.
+  </span>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ New try push:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote: You can view the progress of your build at the following URL:
+</div>
+<div>
+ remote:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=377e920ba4cf">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=377e920ba4cf
+ </a>
+</div>
+<div>
+ remote: Alternatively, view them on Treeherder (experimental):
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=377e920ba4cf">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=377e920ba4cf
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yeah, that looks way better.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Dao's feedback:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  "openLinkIn itself could set a flag on the tab return by loadOneTab without adding a parameter specifically for this."
+ </span>
+ <br/>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br/>
+ </span>
+</div>
+<div>
+ Hrm. Yeah, it could… I don't like the fact that tab switching code diverges between e10s and non-e10s though.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ With my way, the behaviour is a little more consistent - with this new parameter, we skip focusing the content for both e10s and non-e10s.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From Unfocused:
+</div>
+<div>
+ <br/>
+</div>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">
+ <div>
+  <span style="font-size: 13px;">
+   Hmm, I guess this works. Feels a bit iffy though.
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   <br/>
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   An alternative could be to give focusAndSelectUrlBar() the tab as an argument, and have it set ._urlbarFocused - which _adjustFocusAfterTabSwitch() will then use.
+  </span>
+ </div>
+</blockquote>
+<div>
+ <br/>
+</div>
+<div>
+ Hm - this has the same problem of slightly diverging between what e10s and non-e10s does, since adjustFocusAfterTabSwitch will still run first in the non-e10s case.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Bah, I guess it's not too, too bad. If both Unfocused and Dao are cool with this, I won't be too worried.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll push to try once the trees reopen.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote: You can view the progress of your build at the following URL:
+</div>
+<div>
+ remote:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=3a5caa60ff64">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=3a5caa60ff64
+ </a>
+</div>
+<div>
+ remote: Alternatively, view them on Treeherder (experimental):
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=3a5caa60ff64">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=3a5caa60ff64
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Whoops - didn't realize that the "urlbarFocused" private property is something that _adjustFocusAfterTabSwitch already looks for. I can take advantage of that though, and use it instead of adding a new one and removing it / bailing early.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll push it (again) to try once the trees re-open.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <strike>
+  remote:
+  <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=b1991abdbdc2">
+   https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=b1991abdbdc2
+  </a>
+ </strike>
+ BLARH - pushed an old patch.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=5930f31837d5">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=5930f31837d5
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo! r+ from Unfocused. Let's land this puppeh.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TODO:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug on busted remote debugging. Filed bug 1054338.
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to make it easier to copy a call stack from devtools debugger. Filed bug 1054329.
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
