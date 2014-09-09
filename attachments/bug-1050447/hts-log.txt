@@ -1,0 +1,14 @@
+HTTrack3.48-14 launched on Fri, 15 Aug 2014 16:52:14 at http://people.mozilla.org/~mconley2/bugnotes/bug-1050447.html
+(httrack -n http://people.mozilla.org/~mconley2/bugnotes/bug-1050447.html -r1 - -O attachments/bug-1050447/ )
+
+Information, Warnings and Errors reported for this mirror:
+note:	the hts-log.txt file, and hts-cache folder, may contain sensitive information,
+	such as username/password authentication for websites mirrored in this project
+	do not share these files/folders if you want these information to remain private
+
+16:52:16	Error: 	"Not Found" (404) at link people.mozilla.org/~mconley2/bugnoteshttp://people.mozilla.org/~mconley2/bugnotes/bug-1050447.html (from people.mozilla.org/~mconley2/bugnotes/bug-1050447.html)
+16:52:16	Warning: 	Warning: store text/css without scan: attachments/bug-1050447/people.mozilla.org/_mconley2/bugnotes/css/main.css
+16:52:16	Error: 	"Not Found" (404) at link people.mozilla.org/~mconley2/assets/1050447-57c7fc589b16d8d56551d0dffba2bd61.jpeg (from people.mozilla.org/~mconley2/bugnotes/bug-1050447.html)
+
+HTTrack Website Copier/3.48-14 mirror complete in 2 seconds : 5 links scanned, 2 files written (53551 bytes overall) [12167 bytes received at 6083 bytes/sec], 54270 bytes transferred using HTTP compression in 5 files, ratio 19%, 5.0 requests per connection
+(2 errors, 1 warnings, 0 messages)
