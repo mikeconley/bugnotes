@@ -78,7 +78,7 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
         resource_basenames = [os.path.basename(resource)
                               for resource in resources]
         for image in images:
-            filename = posixpath.basename(image['src'])
+            filename = posixpath.basename(urllib.unquote(image['src']))
             if filename not in resource_basenames:
                 logging.error("Found a reference to a reference we can't "
                               "find: %s" % filename)
