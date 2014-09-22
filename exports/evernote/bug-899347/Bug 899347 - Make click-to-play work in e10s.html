@@ -1,0 +1,861 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 5.5.2 (402634)"/><meta name="keywords" content="M3, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-08-19 21:16:29 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=899347"/><meta name="updated" content="2014-09-18 23:35:09 +0000"/><title>Bug 899347 - Make click-to-play work in e10s</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+mbrubeck was working on this in his spare cycles, but he's on vacation until August 25th, and I might be able to drive it through to completion while he's gone.
+<div><br/></div>
+<div>GWAERRRR - there have been changes in browser-plugins since mbrubeck worked on this stuff. The patch doesn't apply cleanly, and… well, I don't want to just clobber everything.</div>
+<div><br/></div>
+<div>So - I need to figure out what's changed since mbrubeck worked on this stuff, and then see what in mbrubeck's patch I need to modify in order for it all to keep working.</div>
+<div><br/></div>
+<div>mbrubeck posted his patch around July 1st. Commits to browser-plugins around that time:</div>
+<div><br/></div>
+<div><span style="font-size: 14px;"><b><br/></b></span></div>
+<div><span style="font-size: 14px;"><b>Birunthan Mohanathas - Bug 994708 - Part 2: Record submission event for plugin crashes. r=gps</b></span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">This is pretty straight forward - it's just decorating the crash submission with the plugin process type.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 14px;"><b>Felipe Gomes - Bug 1009760 - Support displaying of crash notification for GMP plugins. r=gfritzsche</b></span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>This one… is more complicated. GMP = <a href="https://wiki.mozilla.org/GeckoMediaPlugins">GeckoMediaPlugins</a>. These are 3rd party codecs, EME and CDMs.</div>
+<div><br/></div>
+<div>So we've added a new type of plugin… and felipe added support for showing when they crash. Simple enough.</div>
+<div><br/></div>
+<div>Let's take a closer look at the patch:</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/rev/41df67208b1b">https://hg.mozilla.org/mozilla-central/rev/41df67208b1b</a></div>
+<div><br/></div>
+<div>This reorganized a number of things in browser-plugins.js. Oooh! and it added a test. Good. </div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 14px;"><b>Georg Fritzsche - Bug 1043531 - Let frontend deal properly with PluginCrashed without a browser dump id. r=ttaubert</b></span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 14px;"><b><br/></b></span></div>
+<div>This seems pretty straight forward… not worried about this one.</div>
+<div><br/></div>
+<div><span style="font-size: 14px;"><b>Georg Fritzsche - Bug 1045500 - Skip processing the plugin name for plugin crashes in the front-end for GMP plugins. r=ttaubert</b></span><br/></div>
+<div><span style="font-size: 14px;"><b><br/></b></span></div>
+<div>Also pretty straight forward…</div>
+<div><br/></div>
+<div><br/></div>
+<div><span style="font-size: 14px;"><b>Birunthan Mohanathas - Bug 972237 - Fix missing plugin overlay with some zoom levels and add test. r=mikedeboer</b></span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 14px;"><b><br/></b></span></div>
+<div>This seems also straight forward - and changes how the plugin overlay works with zoom levels. And its got a test!!</div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">So it's felipe's patch in bug 1009760 that I need to integrate. Now let's look and see what mbrubeck's patch did.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Adds an initialize function that adds message listeners to all sorts of plugin messages.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Adds an "_unremotePrincipal" function that will take some CPOW'd principal or object with principal properties, and turn it into a real nsIPrincipal in the chrome process.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">The event handler is removed, and I'm guessing it gets moved into content.js. (Well, kinda - it gets moved to PluginContent.jsm, which is imported into content.js).</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Handlers for click-to-play get removed, and again, I'm guessing it gets moved to content.js. (Same as above).</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Ahhh, interesting - so mbrubeck copied browser/base/content/browser-plugins to browser/modules/PluginContent.jsm, and then did a ton of mods on it. I guess that helps preserve history instead of a manual copy paste.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">I wonder if maybe this would be a lot simpler if I updated my tree back to when mbrubeck was working on this, applied the patch, and then attempted to rebase it on tip?</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Let's try that.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Hm… seems to have kinda worked. handleEvent seems to have diverged quite a bit… I wonder if mbrubeck did some cleanup in here…</div>
+<div><br/></div>
+<div>I… I kinda have stuff working kinda. For non-e10s, anyway. The crashinfobar test shows an info bar. That's good.</div>
+<div><br/></div>
+<div>The notification bar isn't being detected in the test. Why? Because the frame script hears the event, fires an async message, but after it fires it, the event keeps bubbling up and the test expects the notification to appear once it sees the event. When the event is done bubbling, that's when the message is handled and the notification bar is displayed.</div>
+<div><br/></div>
+<div>So we've changed the order of events. Again. So I need a way of waiting for the message to be handled before checking for the existence of the notification.</div>
+<div><br/></div>
+<div>Is there prior art for waiting for a notification? It's unfortunate that it doesn't seem to emit events on showing… hm - I see several instances of us using waitForCondition for this sort of thing. I used it, and that seemed to fix that test.</div>
+<div><br/></div>
+<div>I'm looking at <span style="font-size: 13px;">browser/base/content/test/plugins/browser_CTP_crashreporting.js now, and it looks like this one is busted because it attempts to read information about the content - like, it tests style attributes, checkbox values, etc.</span></div>
+<div><br/></div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>browser_CTP_crashreporting.js and browser_pluginCrashCommentAndURL.js</b></div>
+<div><br/></div>
+<div>I'm actually finding only two instances of this occurring - one in browser_CTP_crashreporting.js and browser_pluginCrashCommentAndURL.js. Here are the two usages:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">function onCrash() {<br/>
+  try {<br/>
+    let plugin = gBrowser.contentDocument.getElementById("plugin");<br/>
+    let elt = gPluginHandler.getPluginUI.bind(gPluginHandler, plugin);<br/>
+    let style =<br/>
+      gBrowser.contentWindow.getComputedStyle(elt("pleaseSubmit"));<br/>
+    is(style.display,<br/>
+       currentRun.shouldSubmissionUIBeVisible ? "block" : "none",<br/>
+       "Submission UI visibility should be correct");<br/>
+    if (!currentRun.shouldSubmissionUIBeVisible) {<br/>
+      // Done with this run.<br/>
+      doNextRun();<br/>
+      return;<br/>
+    }<br/>
+    elt("submitComment").value = currentRun.comment;<br/>
+    elt("submitURLOptIn").checked = currentRun.urlOptIn;<br/>
+    elt("submitButton").click();<br/>
+    // And now wait for the submission status notification.<br/>
+  }<br/>
+  catch (err) {<br/>
+    failWithException(err);<br/>
+    doNextRun();<br/>
+  }<br/>
+}</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">function onCrash() {<br/>
+  try {<br/>
+    let plugin = gBrowser.contentDocument.getElementById("test");<br/>
+    let elt = gPluginHandler.getPluginUI.bind(gPluginHandler, plugin);<br/>
+    let style =<br/>
+      gBrowser.contentWindow.getComputedStyle(elt("pleaseSubmit"));<br/>
+    is(style.display, "block", "Submission UI visibility should be correct");<br/>
+<br/>
+    elt("submitComment").value = "a test comment";<br/>
+    is(elt("submitURLOptIn").checked, true, "URL opt-in should default to true");<br/>
+    EventUtils.synthesizeMouseAtCenter(elt("submitURLOptIn"), {}, gTestBrowser.contentWindow);<br/>
+    EventUtils.synthesizeMouseAtCenter(elt("submitButton"), {}, gTestBrowser.contentWindow);<br/>
+    // And now wait for the submission status notification.<br/>
+  }<br/>
+  catch (err) {<br/>
+    failWithException(err);<br/>
+  }<br/>
+}</span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">I think instead of this, the content should have a frame script injected that detects onCrash, and then messages these values to the parent. Instead of listening for onCrash in the parent, we listen for the message, and then perform the test with what gets passed up to us. Ok, so we have a plan there.</span></div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>browser_CTP_data_urls.js</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div>So it's test3a that's failing out, because apparently:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">  let condition = function() objLoadingContent.activated;<br/>
+  waitForCondition(condition, test3b, "Test 3a, Waited too long for plugin to activate");</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>This condition never gets to true… hrm. So what's happening is that the plugin is actually _not_ activating.</div>
+<div>Ah… I'm getting this in PluginContent.jsm in <span style="font-size: 13px;">updateNotificationUI:</span></div>
+<div><br/></div>
+<div><span style="font-size: 13px;">    let contentWindow = this.global.content;<br/>
+    let cwu = contentWindow.QueryInterface(Ci.nsIInterfaceRequestor)<br/>
+                           .getInterface(Ci.nsIDOMWindowUtils);</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">contentWindow is null. </span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Stack to call that function is:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">PluginContent.prototype.updateNotificationUI@resource:///modules/PluginContent.jsm:749:115<br/>
+PluginContent.prototype.receiveMessage/&lt;@resource:///modules/PluginContent.jsm:57:26</span><span style="font-size: 13px;"><br/></span></div>
+<div>setTimeout_timer@resource://gre/modules/Timer.jsm:30:5<span style="font-size: 13px;"><br/></span></div>
+<div><br/></div>
+<div>and that setTimeout timer is set in receiveMessage as:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">      case "BrowserPlugins:NotificationShown":<br/>
+        setTimeout(() => this.updateNotificationUI(), 0);<br/>
+        break;</span><br/></div>
+<div><br/></div>
+<div>So we've received a BrowserPlugins:NotificationShown, but content is null. How can that happen?</div>
+<div><br/></div>
+<div>Where are <span style="font-size: 13px;">PluginContent's constructed? How can it be constructed with a global that has no content?</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Created in </span>browser/base/content/content.js… </div>
+<div><br/></div>
+<div><span style="font-size: 13px;"> // TODO: Load this lazily so the JSM is run only if a relevant event/message fires.<br/>
+ let pluginContent = new PluginContent(global);</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Waaaaait - this contentWindow stuff might be a red herring.</span></div>
+<div><br/></div>
+<div>"Allow Now" and "Allow and Remember" are the panel buttons in test3a without my patch. But with my patch, it's "Block plugin" and "Continue Allowing".</div>
+<div><br/></div>
+<div>So we end up clicking "Block plugin", when we should be clicking "Allow now". Ah hah. So behaviour has changed - something is clearly busted.</div>
+<div><br/></div>
+<div>Where and when do we choose these two sets of options? urlbarBindings.xml seems to be where the panel is implemented. </div>
+<div><br/></div>
+<div>The translation keys we want are pluginActivateNow.label and pluginActivateAlways.label, but what we got were pluginBlockNow.label and pluginContinue.label.</div>
+<div><br/></div>
+<div>So my current patch makes us enter this block:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">if (action.fallbackType == Ci.nsIObjectLoadingContent.PLUGIN_ACTIVE) {</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">When we should be entering the else down below. Confirm? Yes, that's exactly what's happening. For some reason, my patch makes it so that the front-end thinks that the plugin instance in the content process is already active.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Stack for entering _setupSingleState in bad case:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">42 INFO _setupSingleState entered. _setupSingleState@chrome://browser/content/urlbarBindings.xml:1714:50<br/>
+43 INFO _setState@chrome://browser/content/urlbarBindings.xml:1671:13<br/>
+44 INFO click-to-play-plugins-notification_XBL_Constructor@chrome://browser/content/urlbarBindings.xml:1654:13<br/>
+45 INFO PopupNotifications_refreshPanel/&lt;@resource://gre/modules/PopupNotifications.jsm:597:7<br/>
+46 INFO PopupNotifications_refreshPanel@resource://gre/modules/PopupNotifications.jsm:535:1<br/>
+47 INFO PopupNotifications_showPanel@resource://gre/modules/PopupNotifications.jsm:617:5<br/>
+48 INFO PopupNotifications_update@resource://gre/modules/PopupNotifications.jsm:699:7<br/>
+49 INFO PopupNotifications_reshowNotifications@resource://gre/modules/PopupNotifications.jsm:812:5<br/>
+50 INFO Notification.prototype.reshow@resource://gre/modules/PopupNotifications.jsm:93:5<br/>
+51 INFO test3a@chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_data_urls.js:167:3<br/>
+52 INFO testScope/test_executeSoon/&lt;.run@chrome://mochikit/content/browser-test.js:805:9</span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Ok, </span>showClickToPlayNotification seems to get the same bogus value for the Test plugin…</div>
+<div><br/></div>
+<div>I think the content process is sending up the wrong data for the fallback type for the plugin. showClickToPlayNotification gets its information from the content process via the PluginContent:ShowClickToPlayNotification message.</div>
+<div><br/></div>
+<div>Ah, ok - so it looks like the instance of PluginContent for the window holds on to pluginData, and that information doesn't get cleared. The lifetime of that data needs to be thought through more. It looks like pre-e10s ties the lifetime of this information to the lifetime of a notification… and I think it dies once the notification closes. Let's check.</div>
+<div><br/></div>
+<div>Yep, that's the case. I've hooked up a listener for the notification removed event which sends a message to the child, which clears the cache. Test now passes.</div>
+<div><br/></div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>browser_CTP_drag_drop.js</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="">This is what we get when we run the test:</div>
+<div style=""><br/></div>
+<div style="">Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part1:32</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:handleEvent:27</div>
+<div>chrome://mozapps/content/plugins/pluginProblem.xml:pluginProblem_XBL_Constructor:83</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>60 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Waited too long for click-to-play notification -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:33</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>61 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Should have a click-to-play notification in the tab in the new window -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part3:46</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/moveOn:48</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:34</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>62 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Waited too long for click-to-play notification -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:33</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>63 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Should have a click-to-play notification in the initial tab again -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part4:56</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/moveOn:48</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:34</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>64 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Should have a click-to-play notification in the initial tab -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part5:65</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:handleEvent:27</div>
+<div>chrome://mozapps/content/plugins/pluginProblem.xml:pluginProblem_XBL_Constructor:83</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>65 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Waited too long for click-to-play notification -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:33</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>66 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | Should have a click-to-play notification in the tab in the new window -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part7:77</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/moveOn:48</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:34</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div>67 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js | plugin should be activated now -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_drag_drop.js:part8:95</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/moveOn:48</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/plugins/head.js:waitForCondition/interval&lt;:44</div>
+<div>null:null:0</div>
+<div>TEST-INFO | expected PASS</div>
+<div><br/></div>
+<div>What does this test even do?<br/></div>
+<div><br/></div>
+<div>Ok, so what we do is we create a tab with a plugin, and make sure we're showing a click-to-play notification. Then, we tear that tab out into a new window, and wait for a click-to-play notification. The notification is not showing up, so there's legit bustage here.</div>
+<div><br/></div>
+<div>Actually, we don't even get the click-to-play notification in the first tab… what's going on there? No, wait that's showing just fine. Nevermind.</div>
+<div><br/></div>
+<div>So, when working, the stack for re-showing the notification when dragging into a new window is:</div>
+<div><br/></div>
+<div>PH_showClickToPlayNotification@chrome://browser/content/browser.js:4611:40</div>
+<div>PH_reshowClickToPlayNotification@chrome://browser/content/browser.js:4467:5</div>
+<div>pageShowEventHandlers@chrome://browser/content/browser.js:10121:5</div>
+<div><br/></div>
+<div>Let's see which of those we hit with our patch…</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:19 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: ping</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:19 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255);">mconley: pong</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: I was wondering if you knew whether or not the pageshow event is supposed to be kind of flake-y in content scripts when moving a tab into its own window</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: because I don't appear to get that event fired when tabbrowser's replaceTabWithWindow is called...</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>in content scripts, anyways</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:21 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>even if it's all in the same process</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>if the above is possibly true, do you know what the best way for me to confirm it would be? Like... good places for breakpoints?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:22 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>hmm</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:22 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>I think no one has tested this stuff</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>heh, ok</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:23 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: am I correct in thinking that it's the pageshow stuff in nsFrameLoader.cpp that I want to look at?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:25 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>yes</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: hm... and if it looks like pageshow is only being dispatched to the chrome event handler...</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>would you know who I'd talk to about that?</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>:)</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">mconley </span><span style="color: rgb(0, 136, 0);">fires up blame</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255);">mconley: ourWindow->GetChromeEventHandler()</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>and that stuff</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>it takes effectively xul:browser</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>and the event is fired on that</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:28 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>does that somehow bypass my content script event handler then?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:28 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>it could use ourWindow->GetParentTarget()</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:28 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>like</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:28 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>tabchildglobal is an EventTarget between top level content window and that window's chrome event handler</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: ok, so my content script *should* be receiving this event?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>no</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ah, heh</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>because we use chrome event handler</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>but</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:29 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>we should change the code</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>so that content script would get the event</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ok</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: and we'd change that code by setting the dispatch target to ourWindow->GetParentTarget()?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>and some for the other window too</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>same</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: ok, gotcha. Thanks!</div>
+</div>
+<div><br/></div>
+<div>TL;DR: Gecko isn't sending pageshow / pagehide events to content scripts! Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1058164">bug 1058164</a> to get this fixed.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: hey - so, I've got a solution, but I'm not sure how happy I am with it. Basically, instead of passing a single EventTarget nsCOMPtr to FirePageHideEvent / FirePageShowEvent, I change it to an nsCOMArray of targets (one array for "ours" and one array for "other"), and call doc->OnPageFoo(true, item) for each item in the array. For non-e10s, that'll just be the window parent - one per array. For e10s, that'll be the chrome ev</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ent handlers and TabChildGlobals - so 2 items per array.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: that seems a bit hamfisted. Was wondering if you had advice on a better way of doing things.</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:26 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255);">mconley: I don't understand the e10s case</strong><br/></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:26 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>in e10s TabChildGlobal is in different process</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:29 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>smaug: ok, I'm clearly misunderstanding how this stuff is related. Lemme get my thoughts together, and then I'll probably have more questions tomorrow. Thanks. :)</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:35 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255);">mconley: in non-e10s event target chain is window->TabchildGlobal->xul:browser</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:35 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>in e10s, child process window->WindowRoot->TabChildGlobal   ...&lt;process boundary> ... xul:browser</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ah, so TabChildGlobal exists in both</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>I see</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>(both e10s and non-e10s case)</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>InProcessTabchildGlobal and TabChildGlobal</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>right</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:36 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>I think those are the class names</div>
+</div>
+<div><br/></div>
+<div>So I think pagehide / pageshow work fine when doing normal bfcache retrievals - it's just when swapping frameloaders where things go wrong. I've filed blocking <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1058164">bug 1058164</a> about that.</div>
+<div><br/></div>
+<div>So I need to figure out how nsFrameLoader works, once and for all. How does it fit in? Does it exist in chrome as well as content processes? I guess it might, since content can have arbitrary subtrees of frames…</div>
+<div><br/></div>
+<div style="font-size: 14px;"><b>nsFrameLoader</b></div>
+<div style="font-size: 14px;"><b><br/></b></div>
+<div style="font-size: 14px;"><a href="https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIFrameLoader" style="font-size: 13px;">https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIFrameLoader</a><b><br/></b></div>
+<div style="font-size: 14px;"><br/></div>
+<div style="">I think I'm going to put this exploration on hold until I've checked out the rest of the tests.</div>
+<div style=""><br/></div>
+<div style=""><br/></div>
+<div><span style="font-size: 15px;"><b>browser_CTP_notificationBar.js</b></span><br/></div>
+<div><span style="font-size: 15px;"><b><br/></b></span></div>
+<div>So what's this guy's problem? It's strange… I think the pageshow clearing of the pluginData cache is wrong. I don't see anything like that going on before this patch. I think I'm going to excise it and see what happens.</div>
+<div><br/></div>
+<div>Just need to async-ify some of these get notifications, and this one is fixed.</div>
+<div><span style="font-size: 14px;"><span style="font-size: 13px;"><br/></span></span></div>
+<div><span style="font-size: 15px;"><b>browser_bug743421.js</b></span><span style="font-size: 14px;"><span style="font-size: 13px;"><br/></span></span></div>
+<div><span style="font-size: 14px;"><span style="font-size: 13px;"><br/></span></span></div>
+<div>Looks like this one is attempting to reach into the document and read the state of the plugin. A content script should fix this.</div>
+<div><br/></div>
+<div><br/></div>
+<div>PHWOAR - I've decided to tackle browser_CTP_crashreporting, and I injected the framescript as planned, but now I'm dealing with a leak on that test…</div>
+<div><br/></div>
+<div>Ok, I've added an unload listener to PluginContent which destroys this.global and this.content, and that seems to have cleared up the leak. Phew.</div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>browser_plugins_added_dynamically.js</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="">WHAT IS YOUR MAJOR MALFUNCTION.</div>
+<div style=""><br/></div>
+<div style="">Oh, this is hilarious. It only fails if it runs with the entire folder - just like browser_bug820497.js. Lovely.</div>
+<div style=""><br/></div>
+<div style="">*sigh*, time to figure out where the interaction is. Innnnteresting - it looks like we're getting the same kind of issue as for browser_CTP_data_urls.js - the buttons that are coming up in the popup aren't the right ones for some reason.</div>
+<div style=""><br/></div>
+<div style="">I would wager that this is because we're not properly clearing out pluginData in PluginContent.jsm. Ah… so, clearing out pluginData on pageshow makes this work. But that breaks browser_CTP_notificationBar.js… </div>
+<div style=""><br/></div>
+<div style="">I really need to figure out this lifetime of pluginData inside PluginContent.jsm.</div>
+<div style=""><br/></div>
+<div style="font-size: 14px;"><b>PluginData</b></div>
+<div style="font-size: 14px;"><b><br/></b></div>
+<div style="">What is it, any why is it, how does it work, and how do we make it work that way in e10s?</div>
+<div style=""><br/></div>
+<div style="">So, it appears to be a cache that is tied to the lifetime of a popup notification. We open a popup notification for CTP, and we populate it - if we notice that there's no pluginData cache, we create a new one and populate it.</div>
+<div style=""><br/></div>
+<div style="">It looks like a notification is only ever removed if we travel through the bfcache to a page that has no plugins at all.</div>
+<div style=""><br/></div>
+<div style="">PopupNotifications get dropped (ie, the removed event is fired) when changing locations. That's good - we should be clearing the pluginData in that case.</div>
+<div style=""><br/></div>
+<div style="">Ah! PopupNotifications don't fire a removed event when the tab their browser belongs to is closed!! That's what's going on here. Wait… we should be getting a new PluginContent.jsm per tab, so if we close a tab, we should destroy that PluginContent.jsm, and the new one should get… well, a new pluginData. Is that not what's happening here?</div>
+<div style=""><br/></div>
+<div style="">AH HAH - the pluginData Map in PluginContent.jsm was set on the prototype of PluginContent, meaning that it was shared across every instance!! I've made it so that the constructor gives each instance its own cache, as expected. Whew!</div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>Back to nsFrameLoader</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="font-size: 14px;">
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:35 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255);">mconley: in non-e10s event target chain is window->TabchildGlobal->xul:browser</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">17:35 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>in e10s, child process window->WindowRoot->TabChildGlobal   ...&lt;process boundary> ... xul:browser </div>
+</div>
+<div><br/></div>
+<div>And then in his comment on the bug:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">"That all is for non-e10s of course.<br/>
+In case of e10s we should probably dispatch events to xul:browsers _and_ to TabChildGlobals"</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>So, we want to dispatch the pageshow / pagehide events to the window parents for non-e10s. For e10s, I have to wait until <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=918634">bug 918634</a> is fixed.</div>
+<div><br/></div>
+<div>I've got the pageshow event now dispatching properly to the content script, and we're triggering things properly, and that's great. What's not so great is that I'm seeing errors like this when we try to open the CTP notification:</div>
+<div><br/></div>
+<div>ERROR resource:///modules/PluginContent.jsm:742 - NS_ERROR_NOT_IMPLEMENTED: Component returned failure code: 0x80004001 (NS_ERROR_NOT_IMPLEMENTED) [nsIURI.userPass]</div>
+<div><br/></div>
+<div>and that line 742 maps to this piece of code:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">    this.global.sendAsyncMessage("PluginContent:ShowClickToPlayNotification", {<br/>
+      plugins: [... this.pluginData.values()],<br/>
+      showNow: showNow,<br/>
+      principal: this._remotePrincipal(principal),<br/>
+      host: principalHost,<br/>
+    });</span><br/></div>
+<div><br/></div>
+<div>Something isn't getting cloned properly. The Principal is my top guess.</div>
+<div><br/></div>
+<div>This bug, that bz fixed, introduced the frameloader swapping stuff: <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=113934">https://bugzilla.mozilla.org/show_bug.cgi?id=113934</a></div>
+<div><br/></div>
+<div>ourEventTarget: mRawPtr     nsInProcessTabChildGlobal *     0x12cda33a0     0x000000012cda33a0</div>
+<div>otherEventTarget: mRawPtr     nsInProcessTabChildGlobal *     0x11e1ed2c0     0x000000011e1ed2c0</div>
+<div><br/></div>
+<div>OK! Figured it out - <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1058164#c6">I explained in this comment and smaug confirmed.</a></div>
+<div><br/></div>
+<div>ALL TESTS ARE NOW PASSING! \o/</div>
+<div><br/></div>
+<div><input type="checkbox"/>Compare handleEvent in mbrubeck's PluginContent.jsm with the one in master<br/></div>
+<div><input checked="true" type="checkbox"/>Just pass raw principals over the message manager instead of reconstituting them <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=899347#c20">(see billm's comment)</a><br/></div>
+<div><input checked="true" type="checkbox"/>Fix browser_CTP_crashreporting.js and browser_pluginCrashCommentAndURL.js by using the plan I mentioned above.</div>
+<div><input checked="true" type="checkbox"/>Fix nested iframe click-to-play regression (iframe in an iframe with flash doesn't get blocked!)<br/></div>
+<div><input checked="true" type="checkbox"/>Remove any really gross dump statements / debugging crap so I can post a WIP.<br/></div>
+<div><input checked="true" type="checkbox"/>Make sure I've truly got the lifetime of pluginData down properly.<br/></div>
+<div><input checked="true" type="checkbox"/>Split up patch into smaller chunks<br/></div>
+<div><input type="checkbox"/>Evaluate the gross hacks I used to fix the tests and try to come up with a better plan.<br/></div>
+<div><br/></div>
+<div>What smaller chunks can I split the patch up into?</div>
+<div><br/></div>
+<div>
+<ol>
+<li>Changes to browser-plugins.js</li>
+<li>Copy of browser-plugins.js to PluginContent.jsm, and changes therein.</li>
+<li>Changes to tests.</li>
+<li>Misc changes to browser/ stuff that doesn't fall into the above.</li>
+</ol>
+</div>
+<div><span style="font-size: 13px;">Ok, I've posted my patches, and targeted jaws. Hopefully it's not too much!</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Hold up… I've been spending this whole time just making tests pass. Have I even ensured that CTP works for e10s, which is the whole point of this?</div>
+<div><br/></div>
+<div>Yeah, it seems to work. WHEW. Jesus.</div>
+<div><br/></div>
+<div><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Relevant tests:</span></div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js (fixed)</span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/browser_CTP_zoom.js (fixed)</span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/</span><span style="font-size: 13px;">browser_CTP_data_urls.js (fixed)</span><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/</span>browser_CTP_crashreporting.js (fixed)</div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/</span>browser_pluginCrashCommentAndURL.js ("fixed" - this test needs a big cleanup though.)</div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/browser_CTP_drag_drop.js (fixed)</span><br/></div>
+<div><span style="font-size: 13px;">browser/base/content/test/plugins/browser_CTP_notificationBar.js (fixed)</span><span style="font-size: 13px;"><br/></span></div>
+<div>browser/base/content/test/plugins/browser_bug743421.js (fixed)<span style="font-size: 13px;"><br/></span></div>
+<div>browser/base/content/test/plugins/browser_bug820497.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_pluginnotification.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_pluginplaypreview.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_pluginplaypreview2.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_plugins_added_dynamically.js (fixed)</div>
+<div>browser/base/content/test/plugins/browser_CTP_iframe.js (fixed - solution needs slight cleanup)</div>
+<div><br/></div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>Test cleanup - second pass</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="">Ok, now that I've got tests that pass, I more or less know that the CTP implementation is in pretty good shape.</div>
+<div style=""><br/></div>
+<div style="">Now what I need to do is clean-up these tests so that they're in better shape. I added some pretty hacky stuff to get them to pass. Let's see if we can make that better. I'll go from easiest to hardest.</div>
+<div style=""><br/></div>
+<div style="">browser_globalplugin_crashinfobar.js (easy - clean)</div>
+<div style="">browser_bug820497.js (easy - clean)</div>
+<div style="">browser_CTP_notificationBar.js (medium - clean)</div>
+<div style="">browser_CTP_iframe.js (medium - clean)</div>
+<div style="">browser_CTP_drag_drop.js (medium - clean)</div>
+<div style="">browser_pluginCrashCommentAndURL.js (hard)</div>
+<div style="">browser_CTP_crashreporting.js (hard)</div>
+<div style=""><br/></div>
+<div style="">So… pluginCrashCommentAndURL and crashreporting are two tests that follow a particular pattern - namely, they trigger crashes, then after the PluginCrash event fires, they manipulate the crashed plugin UI, and then listen for things in the crash submission notification and checks things in there.</div>
+<div style=""><br/></div>
+<div style="">I think we should probably redesign these tests a little bit.</div>
+<div style=""><br/></div>
+<div style="">Instead of having this external content script, maybe we just do the script-to-dataURI trick we used before, and forget about having some kind of specialized tool for testing content-y things. I think that's probably best.</div>
+<div style=""><br/></div>
+<div style="">Done my cleanup!</div>
+<div style=""><br/></div>
+<div style="">Here's a try push with everything:</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=7db87d3cf138">https://tbpl.mozilla.org/?tree=Try&amp;rev=7db87d3cf138</a><br/></div>
+<div style=""><br/></div>
+<div style="">BAH - some failures in plugin tests that I didn't know about under mozapps. And what appears like a leak. :/</div>
+<div style=""><br/></div>
+<div style="">Let's do mozapps failures first.</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">toolkit/mozapps/extensions/test/browser/browser_CTP_plugins.js</span><br/></div>
+<div style=""><span style="font-size: 13px;">toolkit/mozapps/extensions/test/browser/test-window/browser_CTP_plugins.js</span><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">Fixed! It was just a bunch of waiting for notifications again.</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">Now how about this leak</span>…</div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">Ooooh… and maybe an intermittent:</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, plugin should be activated -</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">Guh… so, this leak… </div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">WARNING -  TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug409481.js | leaked 1 window(s) until shutdown [url = chrome://browser/content/web-panels.xul]</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">I'm disabling this test to see if the leak goes away… but I have my doubts that it'll go away. If it does, that's super interesting. I seem to be able to reproduce this on my Ubuntu machine, but only when I run bc1. :/</div>
+<div style=""><br/></div>
+<div style="">Guh. So hard to tell. Gonna try with a try push.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=d6f7fe254ce3">https://tbpl.mozilla.org/?tree=Try&amp;rev=d6f7fe254ce3</a><br/></div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=58fc64c6c64d">https://tbpl.mozilla.org/?tree=Try&amp;rev=58fc64c6c64d</a><br/></div>
+<div style=""><br/></div>
+<div style="">Er… hrm, interesting. Passes for both. Accidentally disabled the test in the second as well. :/ But I didn't expect disabling the test to work. Strange.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=9155d605db85">https://tbpl.mozilla.org/?tree=Try&amp;rev=9155d605db85</a><br/></div>
+<div style=""><br/></div>
+<div style="">PluginContent removed. <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=e119b3817067">https://tbpl.mozilla.org/?tree=Try&amp;rev=e119b3817067</a> - wow - Still leaking!!</div>
+<div style=""><br/></div>
+<div style="">What if we remove all of the test fixups and browser misc?: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=159a2fd63243">https://tbpl.mozilla.org/?tree=Try&amp;rev=159a2fd63243</a>… LEAK</div>
+<div style=""><br/></div>
+<div style="">And what if we do _just_ test-fixups, but no CTP changes?: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=740201e35419">https://tbpl.mozilla.org/?tree=Try&amp;rev=740201e35419</a> - GREEN.</div>
+<div style=""><br/></div>
+<div style="">So, the problem seems to be not in PluginContent, but either in the browser-plugins.js changes, or the misc stuff…</div>
+<div style=""><br/></div>
+<div style="">So it's starting to look like something is up in browser-plugins.js.</div>
+<div style=""><br/></div>
+<div style="">Maybe we need to deinit gPluginHandler, and remove the message manager listeners. <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=6e28483c0614">https://tbpl.mozilla.org/?tree=Try&amp;rev=6e28483c0614</a></div>
+<div style=""><br/></div>
+<div style=""><b>YEAH, that fixed it. LEAK SOLVED, YO.</b></div>
+<div style=""><b><br/></b></div>
+<div style="">But now I see intermittent: browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, plugin should be activated -</div>
+<div style=""><br/></div>
+<div style="">Same as before. Let's look at that now. Might just be a matter of upping the timeout, or waiting for something.</div>
+<div style=""><br/></div>
+<div style="">Also, I need to respond to georg's feedback, and then convince him that he has review powers!</div>
+<div style=""><br/></div>
+<div style="">Ok, I think I have made browser_pluginnotification.js more robust. Let's see what this try push shows: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=9ba04fa90de9">https://tbpl.mozilla.org/?tree=Try&amp;rev=9ba04fa90de9</a></div>
+<div style=""><br/></div>
+<div style="">Bunch-o-logging: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=893047d17b34">https://tbpl.mozilla.org/?tree=Try&amp;rev=893047d17b34</a></div>
+<div style=""><br/></div>
+<div style="">Next time I need to just do bc1, just try mochitest-browser-chrome-1.</div>
+<div style=""><br/></div>
+<div style="">Ok, let's try bumping the timeouts a bit: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=c4e1db8b62aa">https://tbpl.mozilla.org/?tree=Try&amp;rev=c4e1db8b62aa</a></div>
+<div style=""><br/></div>
+<div style="">Hm, now the whole test is timing out. I think perhaps the plugin just isn't being activated. What the hell? Maybe I should dump the label of the button that we're clicking to make sure we're actually doing the activation. And maybe put some dumps around the critical part of the test.</div>
+<div style=""><br/></div>
+<div style="">Even mooooore logging: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=86035c69fc5c">https://tbpl.mozilla.org/?tree=Try&amp;rev=86035c69fc5c</a></div>
+<div style=""><br/></div>
+<div style="">Ah hah - according to the logging, we've got "Allow Now" instead of "Allow Always" in the button that 24a is clicking. Strangely, it's also "Allow Now" in the passing case. What's gone wrong here?</div>
+<div style=""><br/></div>
+<div style="">Let's see what happens if I make us push the secondary button ("Allow and remember") instead of the primary?</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=7c9c76bcccaf">https://tbpl.mozilla.org/?tree=Try&amp;rev=7c9c76bcccaf</a><br/></div>
+<div style=""><br/></div>
+<div style="">Grrr… still failing. What the hell?</div>
+<div style=""><br/></div>
+<div style="">What exactly is this test doing?</div>
+<div style=""><br/></div>
+<div style="">Hmm… nothing fishy there. Here's a screenshot of the test failure:</div>
+<div style=""><br/></div>
+<div style=""><img src="Bug%20899347%20-%20Make%20click-to-play%20work%20in%20e10s.resources/acd8d903cf3b5677bf8409839b6e1823.png" height="1200" width="1600"/><br/></div>
+<div style=""><br/></div>
+<div style="">Yep, that's definitely not activated. Maybe even though the child is receiving the activation message, we're not actually activating ever. I've put a bunch of logging in PluginContent::activatePlugins to see if it's bailing out anywhere.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=6975ab6313ed">https://tbpl.mozilla.org/?tree=Try&amp;rev=6975ab6313ed</a><br/></div>
+<div style=""><br/></div>
+<div style="">Ok, instrumented nsObjectLoadingContent a bit… but now I've got a new theory. In test24a, we click on the panel button to activate the plugin, and then we immediately browse away. Y'know, I'll bet that plugin activation used to be synchronous. With PluginContent.jsm though, it's not - and I'll bet that's what's going wrong! We send the message to activate, but it never makes it to the child before we browse away! So we just need to wait for the plugin to activate before we browse away and trigger test24b. I've added a wait and pushed to try. FINGERS CROSSED!</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=3dad8255682c">https://tbpl.mozilla.org/?tree=Try&amp;rev=3dad8255682c</a><br/></div>
+<div style=""><br/></div>
+<div style="">Woo! I think that did it! Pushing to try for all platforms now.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=f7d33907fdb4">https://tbpl.mozilla.org/?tree=Try&amp;rev=f7d33907fdb4</a><br/></div>
+<div style=""><br/></div>
+<div style="">Uh, whoops. Cruft in that patch.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=f8d6ea64d3de">https://tbpl.mozilla.org/?tree=Try&amp;rev=f8d6ea64d3de</a><br/></div>
+<div style=""><br/></div>
+<div style="">GRALKHAKSJHKJHASKRAJSLRASL it's still there. :(((</div>
+<div style=""><br/></div>
+<div style="">*sigh*. Back to the logging patch. This time, without the thing that caused all that orange.</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=2b4c99b8b5e9">https://tbpl.mozilla.org/?tree=Try&amp;rev=2b4c99b8b5e9</a><br/></div>
+<div style=""><br/></div>
+<div style="">Uh… now orange is gone. Wtf? Let's try removing all of my printf statements and some dump statements…</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=bca603395f47">https://tbpl.mozilla.org/?tree=Try&amp;rev=bca603395f47</a><br/></div>
+<div style=""><br/></div>
+<div style="">Okayyyyy…. now it's gone again… cautiously push with the dump statements removed… but keep SimpleTest.requestCompleteLog() (wtf)</div>
+<div style=""><br/></div>
+<div style=""><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=32fff51c2bf9">https://tbpl.mozilla.org/?tree=Try&amp;rev=32fff51c2bf9</a><br/></div>
+<div style=""><br/></div>
+<div style="">Oh great, now another intermittent orange: </div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;"><br/>
+509 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_data_urls.js | Test 3a, Waited too long for plugin to activate -<br/>
+511 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_data_urls.js | Test 3c, Plugin should be activated -<br/></span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">Ok… time for more instrumentation *sigh*</div>
+<div style=""><br/></div>
+<div style="">Ok, instrumented it like crazy. Here goes.</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;"><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=1565014ccce7">https://tbpl.mozilla.org/?tree=Try&amp;rev=1565014ccce7</a></span><br/></div>
+<div style=""><br/></div>
+<div style="">Oooh - and I've got some reviews from Georg. Great! Nothing too serious it seems - fantastic.</div>
+<div style=""><br/></div>
+<div style="">Ah, interesting data from those logs. It looks like in the failing case, which is rare, the button that we're pressing in the popup is "Ok" and not "Allow now". Under what circumstances is the popup saying "OK"? Er… interesting. None of those buttons should be "OK"… and the request is sends down is "Block". Wtf?</div>
+<div style=""><br/></div>
+<div style="">Ah… that's button-accept from dialog.properties. </div>
+<div style=""><br/></div>
+<div style="">Well… we'll see how bad that intermittent orange gets. I _think_ I know what's up with it, anyhow.</div>
+<div style=""><br/></div>
+<div style="">Landed! Let's see if it sticks on fx-team. Fingers crossed.</div>
+<div style=""><br/></div>
+<div style="">Things to do:</div>
+<div style=""><br/></div>
+<div style=""><input checked="true" type="checkbox"/>File a follow-up for handling content process crashes to clean up notification bars - <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1067495">bug 1067495</a><br/></div>
+<div style=""><input checked="true" type="checkbox"/>File a follow-up to load PluginContent lazily - <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1067497">bug 1067497</a></div>
+<div style=""><br/></div>
+<div style="">GRRRR - bounced.</div>
+<div style=""><br/></div>
+<div style="">browser_pluginnotification.js is failing again, at the same spot. The good news is that I seem to be able to reproduce this locally with --run-until-failure.</div>
+<div style=""><br/></div>
+<div style="">I've added code that waits for the notification to be removed before continuing. Testing…</div>
+<div style=""><br/></div>
+<div style="">Hm, seems to be better, but still room for improvement.</div>
+<div style=""><br/></div>
+<div style=""><br/></div>
+<div style="">Bad state:</div>
+<div style=""><br/></div>
+<div style="">Child is sending ShowClickToPlayNotification</div>
+<div>Telling content process to clear caches</div>
+<div>Parent process is showing click to play notification</div>
+<div>Clearing plugin data cache</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>Parent process is showing click to play notification</div>
+<div>3917 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Should have a click-to-play notification</div>
+<div>3918 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Found plugin in page</div>
+<div>3919 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin fallback type should be PLUGIN_CLICK_TO_PLAY</div>
+<div>3920 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should have started</div>
+<div>3921 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should be activated</div>
+<div>3922 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should be unloaded</div>
+<div>3923 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Plugin should not have activated</div>
+<div>3924 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Plugin should be click-to-play</div>
+<div>3925 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin node should not be activated</div>
+<div><b>Child is sending ShowClickToPlayNotification</b></div>
+<div><b>OHAI: removed</b></div>
+<div><b>Telling content process to clear caches</b></div>
+<div><b>Resolving</b></div>
+<div><b>Parent process is showing click to play notification</b></div>
+<div><b>Clearing plugin data cache</b></div>
+<div><b>Child is sending ShowClickToPlayNotification</b></div>
+<div><b>Parent process is showing click to play notification</b></div>
+<div><b>Ok, running after binding attached - test24a...</b></div>
+<div>3926 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Should have a click-to-play notification</div>
+<div>3927 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Found plugin in page</div>
+<div>3928 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Plugin should be click-to-play</div>
+<div>3929 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, plugin should not be activated</div>
+<div>Clicking on Allow now..., right?: Allow Now</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>Parent process is showing click to play notification</div>
+<div>Telling content process to clear caches</div>
+<div>Clearing plugin data cache</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>Parent process is showing click to play notification</div>
+<div>3930 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, Found plugin in page</div>
+<div>3931 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, plugin should be activated -</div>
+<div style=""><br/></div>
+<div style=""><br/></div>
+<div style=""><br/></div>
+<div style="">Good state:</div>
+<div style=""><br/></div>
+<div style="">Child is sending ShowClickToPlayNotification</div>
+<div>Telling content process to clear caches</div>
+<div>Parent process is showing click to play notification</div>
+<div>Clearing plugin data cache</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>Parent process is showing click to play notification</div>
+<div>152 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Should have a click-to-play notification</div>
+<div>153 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Found plugin in page</div>
+<div>154 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin fallback type should be PLUGIN_CLICK_TO_PLAY</div>
+<div>155 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should have started</div>
+<div>156 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should be activated</div>
+<div>157 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin should be unloaded</div>
+<div>158 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Plugin should not have activated</div>
+<div>159 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, Plugin should be click-to-play</div>
+<div>160 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 23, plugin node should not be activated</div>
+<div><b>Child is sending ShowClickToPlayNotification</b></div>
+<div><b>Parent process is showing click to play notification</b></div>
+<div><b>OHAI: removed</b></div>
+<div><b>Telling content process to clear caches</b></div>
+<div><b>Resolving</b></div>
+<div><b>Clearing plugin data cache</b></div>
+<div><b>Child is sending ShowClickToPlayNotification</b></div>
+<div><b>Parent process is showing click to play notification</b></div>
+<div><b>Ok, running after binding attached - test24a...</b></div>
+<div>161 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Should have a click-to-play notification</div>
+<div>162 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Found plugin in page</div>
+<div>163 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Plugin should be click-to-play</div>
+<div>164 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, plugin should not be activated</div>
+<div>Clicking on Allow now..., right?: Allow Now</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>Parent process is showing click to play notification</div>
+<div>Telling content process to clear caches</div>
+<div>Clearing plugin data cache</div>
+<div>Child is sending ShowClickToPlayNotification</div>
+<div>165 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, Found plugin in page</div>
+<div>Parent process is showing click to play notification</div>
+<div><br/></div>
+<div>So I have a patch that works, but _why_ does it rely on the notification being reshown?</div>
+<div><br/></div>
+<div>Bad state:</div>
+<div><br/></div>
+<div>Setting permission for plugin:libnptest : 1 for expireType 1 in 1410919002828 ms.</div>
+<div>Sending BrowserPlugins:ActivatePlugins</div>
+<div>Handling activate plugins in child.</div>
+<div>Playing plugin</div>
+<div>Setting mActivated to true at checkpoint 3</div>
+<div>Determining final type</div>
+<div>Plugin type with no URI - skipping channel load</div>
+<div>mActivated was not set to true because mActivated is true and mType is 2</div>
+<div>updating notification UI in the child</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Showing overlay</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Child telling parent to show click to play notification.</div>
+<div>Parent received message to show c2p notification.</div>
+<div>FIRING REMOVED FROM CHECKPOINT 1</div>
+<div>REMOVED</div>
+<div>Determining final type</div>
+<div>Plugin type with no URI - skipping channel load</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Nulling at checkpoint 3</div>
+<div>mActivated was not set to true because mActivated is false and mType is 4</div>
+<div>Nulling at checkpoint 11</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Child telling parent to show click to play notification.</div>
+<div>Parent received message to show c2p notification.</div>
+<div>updating notification UI in the child</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Testing permission for plugin:libnptest - got 0</div>
+<div>Shouldplay false - checkpoint 14</div>
+<div>Showing overlay</div>
+<div>1878 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, Found plugin in page</div>
+<div>1879 INFO TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, plugin should be activated -</div>
+<div><br/></div>
+<div><br/></div>
+<div>Good state:</div>
+<div><br/></div>
+<div>
+<div>161 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Should have a click-to-play notification</div>
+<div>162 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Found plugin in page</div>
+<div>163 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, Plugin should be click-to-play</div>
+<div>164 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24a, plugin should not be activated</div>
+<div>Setting permission for plugin:libnptest : 1</div>
+<div>Sending BrowserPlugins:ActivatePlugins</div>
+<div>Handling activate plugins in child.</div>
+<div>Playing plugin</div>
+<div>Setting mActivated to true at checkpoint 3</div>
+<div>Determining final type</div>
+<div>Plugin type with no URI - skipping channel load</div>
+<div>mActivated was not set to true because mActivated is true and mType is 2</div>
+<div>updating notification UI in the child</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay TRUE! Checkpoint 1!</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay TRUE! Checkpoint 1!</div>
+<div>Child telling parent to show click to play notification.</div>
+<div>Parent received message to show c2p notification.</div>
+<div>FIRING REMOVED FROM CHECKPOINT 1</div>
+<div>REMOVED</div>
+<div>Determining final type</div>
+<div>Plugin type with no URI - skipping channel load</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay TRUE! Checkpoint 1!</div>
+<div>mActivated is true at checkpoint 2</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay TRUE! Checkpoint 1!</div>
+<div>Child telling parent to show click to play notification.</div>
+<div>Parent received message to show c2p notification.</div>
+<div>165 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24b, Found plugin in page</div>
+<div>updating notification UI in the child</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay TRUE! Checkpoint 1!</div>
+<div>FIRING REMOVED FROM CHECKPOINT 1</div>
+<div>Determining final type</div>
+<div>Plugin type with no URI - skipping channel load</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay false - checkpoint 13</div>
+<div>Nulling at checkpoint 3</div>
+<div>mActivated was not set to true because mActivated is false and mType is 4</div>
+<div>Nulling at checkpoint 11</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay false - checkpoint 13</div>
+<div>Enabled state of plugin is: 1</div>
+<div>Shouldplay false - checkpoint 13</div>
+<div>Child telling parent to show click to play notification.</div>
+<div>Parent received message to show c2p notification.</div>
+<div>166 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_pluginnotification.js | Test 24c, Should have a click-to-play notification</div>
+<div><br/></div>
+<div>The Principal is wrong!</div>
+</div>
+<div><br/></div>
+<div>Theory - Test 23 appends a node which causes a click to play message to come up from the child, and then test 24 starts to run. Test 23's notification is mapped to the system principal, and suddenly shows up, which we click, which …. plays Test 24a's plugin? Confirm?</div>
+<div><br/></div>
+<div>And then when we reload, the system principal is not the one we want so 24b's plugin is not activated by default.</div>
+<div><br/></div>
+<div>Ok, put together fix, got it reviewed, and re-landed. Here's hoping it sticks THIS TIME.</div>
+<div><br/></div>
+<div>Ugh, slight problem.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">20:13 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: hey - so for bug 899347, I landed that on fx-team, but didn't realize that the code that I used to fix the frequent orange for non-e10s basically breaks the click-to-play doorhanger notification for e10s mode. :(</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:13 </span><span style="color: rgb(0, 136, 68);">(firebot) </span><a href="https://bugzil.la/899347" style="word-break: break-all;">https://bugzil.la/899347</a><strong style="color: rgb(255, 0, 255);"> — REOPENED, <a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a> — Make click-to-play work in e10s</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">20:13 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: and it breaks because I attempt to compare an nsIPrincipal passed through the message manager to an nsIPrincipal CPOW</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:14 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>apparently, nsIPrincipal.equals really doesn't expect to compare with a CPOW</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:14 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>so, suppose I have an nsIPrincipal on the parent side - what's the best way of comparing it to the principal that the content in the current selected browser is pointed at?</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">20:14 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: --^?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:16 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: we should probably send a new contentPrincipal every time the browser changes location</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:16 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: then remote-browser.xml could have its own contentPrincipal getter and we could get rid of the CPOW</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">20:17 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: That sounds like a fair plan. My current click-to-play patch doesn't break click-to-play for non-e10s, so I think what I'm going to do is mark to keep the bug open, and work on a follow-up patch to do what you just described to get it to actually work in e10s mode.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:18 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: ok, that sounds good. also, it looks like that will allow us to get rid of all the unremotePrincipal calls in </strong><a href="http://mxr.mozilla.org/mozilla-central/source/browser/base/content/nsContextMenu.js" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/browser/base/content/nsContextMenu.js</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:18 </span><span style="color: rgb(0, 136, 136);">(billm) </span>I forgot how gross that was</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:19 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: anyway, do you know where to put the pieces? I think we can send the principals here: </strong><a href="http://mxr.mozilla.org/mozilla-central/source/toolkit/content/browser-child.js" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/toolkit/content/browser-child.js</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:19 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: and then remote-browser.xml can just cache it in a field</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:20 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: and then we can drop the AsCPOW stuff from browser.xml</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: yeah, I saw we had a convenient way to send nsIPrincipals over the wire</div>
+<div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">20:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>so so long as we're sending a message when we change locations (which we do), I think this should be reasonably straight forward.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;"><span style="color: rgb(0, 68, 136);">20:20 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255);">mconley: cool, thanks. that'll be a nice cleanup.</strong></div>
+</div>
+<div><br/></div>
+<div>Ok, landed patch for <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1069567">bug <span style="font-size: 13px;">1069567</span></a> to make the nsIPrincipal comparison work properly.<span style="font-size: 13px;"> </span></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>
