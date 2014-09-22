@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 5.5.2 (402634)"/><meta name="keywords" content="M2, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-08-29 19:56:12 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1057966"/><meta name="updated" content="2014-08-30 00:06:22 +0000"/><title>Bug 1057966 - [e10s] The help menu is blank</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+When I open the help menu, this gets displayed in the Browser Console:
+<div><br/></div>
+<div>TypeError: content is null browser.js:5169</div>
+<div><br/></div>
+<div>Which refers to this line:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">var isPhishingPage = content.document.documentURI.startsWith("about:blocked?e=phishingBlocked");<br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">The stack to getting there:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;"><span><img src="Bug%201057966%20-%20%5Be10s%5D%20The%20help%20menu%20is%20blank.resources/Screenshot%202014-08-29%2019.04.08.png" height="262" width="1328"/></span><br/></span></div>
+<div><span style="font-size: 13px;"><span><br/></span></span></div>
+<div>content is null for e10s windows, so let's just use contentAsCPOW here and see what happens, for the short-term solution.</div>
+<div><br/></div>
+<div>Actually! Actually, I have a better idea. We can get the documentURI off of the browser (both remote and non-remote), spec it to a string, and do the comparison. Woo! This works.</div>
+<div><br/></div>
+<div>Posting a patch.</div>
+<div><br/></div>
+<div>Ok, got something posted that I like. Pushed.</div>
+</body></html>

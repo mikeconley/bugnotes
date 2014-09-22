@@ -1,0 +1,83 @@
+---
+layout: post
+title:  "Bug 1057966 - [e10s] The help menu is blank"
+date:   2014-09-09
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1057966">
+ Bug 1057966 - [e10s] The help menu is blank
+</a>
+When I open the help menu, this gets displayed in the Browser Console:
+<div>
+ <br/>
+</div>
+<div>
+ TypeError: content is null browser.js:5169
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Which refers to this line:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  var isPhishingPage = content.document.documentURI.startsWith("about:blocked?e=phishingBlocked");
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  The stack to getting there:
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <span>
+   <img height="262" src="assets/1057966-Screenshot 2014-08-29 19.04.08.png" width="1328"/>
+  </span>
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <span>
+   <br/>
+  </span>
+ </span>
+</div>
+<div>
+ content is null for e10s windows, so let's just use contentAsCPOW here and see what happens, for the short-term solution.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Actually! Actually, I have a better idea. We can get the documentURI off of the browser (both remote and non-remote), spec it to a string, and do the comparison. Woo! This works.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Posting a patch.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, got something posted that I like. Pushed.
+</div>

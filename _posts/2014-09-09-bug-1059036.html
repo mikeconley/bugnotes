@@ -1,0 +1,516 @@
+---
+layout: post
+title:  "Bug 1059036 - [e10s] Undo Close Tab would not load tab contents."
+date:   2014-09-09
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1059036">
+ Bug 1059036 - [e10s] Undo Close Tab would not load tab contents.
+</a>
+<div>
+ handyman is working on this one, and feedback?'d me on a patch… but his patch undoes the async stuff we did in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1009628">
+  bug 1009628.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ STR:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is a slightly more formal set of steps.  It is a 100% repro on my Macbook Pro:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ * Open an e10s window
+</div>
+<div>
+ * Browse to any site
+</div>
+<div>
+ * Open a new tab (Command-t)
+</div>
+<div>
+ * Close the old tab (press the X)
+</div>
+<div>
+ * In the History menu, select the tab you just closed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Expected result:
+</div>
+<div>
+ The new tab you opened is closed and the old tab is reopened to the correctly rendered page.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Actual result:
+</div>
+<div>
+ The new tab you opened is closed and the old tab is reopened to a white screen.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let me see if I can drill in and see what the problem is.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I suspect that there's tricky stuff going on in either browser.js or SessionStore that opens tabs and switches their order, and we're not handling these fast operations correctly with our async stuff.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let me see if I can get an exact read on what kind of selectedIndex sets get called, since that triggers the async stuff.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah hah, so we're just straight up setting the selectedIndex incorrectly…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1: set_selectedIndex@chrome://browser/content/tabbrowser.xml:5265:61
+</div>
+<div>
+ set_selectedPanel@chrome://global/content/bindings/tabbox.xml:671:13
+</div>
+<div>
+ set_selectedIndex@chrome://global/content/bindings/tabbox.xml:399:15
+</div>
+<div>
+ set_selectedItem@chrome://global/content/bindings/tabbox.xml:431:34
+</div>
+<div>
+ set_selectedTab@chrome://global/content/bindings/tabbox.xml:110:15
+</div>
+<div>
+ set_selectedTab@chrome://browser/content/tabbrowser.xml:2530:11
+</div>
+<div>
+ SessionStoreInternal.restoreTabs@resource:///modules/sessionstore/SessionStore.jsm:2421:7
+</div>
+<div>
+ ssi_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:1626:1
+</div>
+<div>
+ ss_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:198:12
+</div>
+<div>
+ undoCloseTab@chrome://browser/content/browser.js:15831:11
+</div>
+<div>
+ oncommand@chrome://browser/content/browser.xul:1:1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hunh… I wonder if this is related to the nsDeckFrame stuff I did. It looks like SessionStore is doing everything right - it's the stuff in browser.js - specifically this:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ function undoCloseTab(aIndex) {
+</div>
+<div>
+ // wallpaper patch to prevent an unnecessary blank tab (bug 343895)
+</div>
+<div>
+ var blankTabToRemove = null;
+</div>
+<div>
+ if (gBrowser.tabs.length == 1 &amp;&amp; isTabEmpty(gBrowser.selectedTab))
+</div>
+<div>
+ blankTabToRemove = gBrowser.selectedTab;
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ var tab = null;
+</div>
+<div>
+ if (SessionStore.getClosedTabCount(window) &gt; (aIndex || 0)) {
+</div>
+<div>
+ TabView.prepareUndoCloseTab(blankTabToRemove);
+</div>
+<div>
+ tab = SessionStore.undoCloseTab(window, aIndex || 0);
+</div>
+<div>
+ TabView.afterUndoCloseTab();
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ if (blankTabToRemove)
+</div>
+<div>
+ gBrowser.removeTab(blankTabToRemove);
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ return tab;
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ that's causing things to go wrong.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <strong>
+  Theory 1
+ </strong>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ blankTabToRemove is set to the newtab tab. We restore the old tab at index 1. Asyncification occurs - we have not yet finalized the tab switch to index 1.
+</div>
+<div>
+ Immediately, we remove the previous tab. The nsDeckFrame code fires a runnable that causes the index to decrement by 1 to 0.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Async event finishes up with MozAfterRemotePaint, and we finalize the tab switch at index 1, which is now pointing at blank stuff.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's see if I can prove this now. I'll do some dump-ing at the following points:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 1) Dump the selectedIndex that we want to set the tabpanels to
+</div>
+<div>
+ 2) Dump the runnable setting the index to 0 (can't actually printf in the runnable, but can printf in the index change listener)
+</div>
+<div>
+ 3) Dump the finalization of the tab switch
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here goes.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ No, this theory is bunk. The index is being set at 1 right from the start.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What's interesting is that this doesn't effect non-e10s windows, just e10s windows. In non-e10s windows, the nsDeckFrame just does its decrement thing.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Actually, what's
+ <em>
+  really
+ </em>
+ interesting is that it doesn't look like selectedIndex gets touched at all with non-e10s. What the hell?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <strong>
+  Question
+ </strong>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why is selectedIndex called from e10s windows, and not non-e10s windows?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh wait. This might be wrong. selectedIndex is probably being set, but it's using the non-remote one. Of course. I'd forgotten that non-remote browser windows don't have tabbrowser-tabpanels.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, in the non-e10s window, we get the selectedIndex being set to 1, and then the deck frame index changes to 0.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1: set_selectedIndex@chrome://browser/content/tabbrowser.xml:5265:61
+</div>
+<div>
+ set_selectedPanel@chrome://global/content/bindings/tabbox.xml:672:13
+</div>
+<div>
+ set_selectedIndex@chrome://global/content/bindings/tabbox.xml:399:15
+</div>
+<div>
+ set_selectedItem@chrome://global/content/bindings/tabbox.xml:431:34
+</div>
+<div>
+ set_selectedTab@chrome://global/content/bindings/tabbox.xml:110:15
+</div>
+<div>
+ set_selectedTab@chrome://browser/content/tabbrowser.xml:2530:11
+</div>
+<div>
+ SessionStoreInternal.restoreTabs@resource:///modules/sessionstore/SessionStore.jsm:2421:7
+</div>
+<div>
+ ssi_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:1626:1
+</div>
+<div>
+ ss_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:198:12
+</div>
+<div>
+ undoCloseTab@chrome://browser/content/browser.js:15831:11
+</div>
+<div>
+ oncommand@chrome://browser/content/browser.xul:1:1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Finally setting selectedIndex to 1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And the nsDeckFrame never does its thing…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1: set_selectedIndex@chrome://global/content/bindings/tabbox.xml:644:61
+</div>
+<div>
+ set_selectedPanel@chrome://global/content/bindings/tabbox.xml:672:13
+</div>
+<div>
+ set_selectedIndex@chrome://global/content/bindings/tabbox.xml:399:15
+</div>
+<div>
+ set_selectedItem@chrome://global/content/bindings/tabbox.xml:431:34
+</div>
+<div>
+ set_selectedTab@chrome://global/content/bindings/tabbox.xml:110:15
+</div>
+<div>
+ set_selectedTab@chrome://browser/content/tabbrowser.xml:2530:11
+</div>
+<div>
+ SessionStoreInternal.restoreTabs@resource:///modules/sessionstore/SessionStore.jsm:2421:7
+</div>
+<div>
+ ssi_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:1626:1
+</div>
+<div>
+ ss_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:198:12
+</div>
+<div>
+ undoCloseTab@chrome://browser/content/browser.js:15831:11
+</div>
+<div>
+ oncommand@chrome://browser/content/browser.xul:1:1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Removed index 0 and mIndex 1
+</div>
+<div>
+ Deck frame index changed to 0
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1: set_selectedIndex@chrome://browser/content/tabbrowser.xml:5265:61
+</div>
+<div>
+ set_selectedPanel@chrome://global/content/bindings/tabbox.xml:672:13
+</div>
+<div>
+ set_selectedIndex@chrome://global/content/bindings/tabbox.xml:399:15
+</div>
+<div>
+ set_selectedItem@chrome://global/content/bindings/tabbox.xml:431:34
+</div>
+<div>
+ set_selectedTab@chrome://global/content/bindings/tabbox.xml:110:15
+</div>
+<div>
+ set_selectedTab@chrome://browser/content/tabbrowser.xml:2530:11
+</div>
+<div>
+ SessionStoreInternal.restoreTabs@resource:///modules/sessionstore/SessionStore.jsm:2421:7
+</div>
+<div>
+ ssi_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:1626:1
+</div>
+<div>
+ ss_undoCloseTab@resource:///modules/sessionstore/SessionStore.jsm:198:12
+</div>
+<div>
+ undoCloseTab@chrome://browser/content/browser.js:15831:11
+</div>
+<div>
+ oncommand@chrome://browser/content/browser.xul:1:1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Setting selectedIndex to 1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Removed index 0 and mIndex 0
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Finally setting selectedIndex to 1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <strong>
+  Theory 2
+ </strong>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ (And this one has evidence!)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We have a newtab at index 0. We restore the dead tab at index 1, and ask our tabpanels implementation to select it. It starts the async business, so the deck's mIndex is still at 0.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ browser.js then removes the newtab, which is at index 0.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Then, the MozAfterRemotePaint stuff kicks in, and we complete the selection at index 1 - but by this time, the panel that we want is at index 0, and not 1.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This theory has meat. I think this is what exactly what's happening. I'll write it in the bug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, have an idea for a potential solution that I've
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1059036#c8">
+  posted in the bug
+ </a>
+ . Let's see if handyman wants it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ He does! He's got a patch up. Lemme give it some review…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Landed and merged.
+</div>

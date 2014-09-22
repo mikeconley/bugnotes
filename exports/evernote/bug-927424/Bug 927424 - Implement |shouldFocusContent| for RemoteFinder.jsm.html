@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 5.5.2 (402634)"/><meta name="keywords" content="M2.2, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-09-03 18:40:23 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=927424"/><meta name="updated" content="2014-09-09 01:54:13 +0000"/><title>Bug 927424 - Implement |shouldFocusContent| for RemoteFinder.jsm</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+From RemoteFinder.jsm:
+<div><br/></div>
+<div><span style="font-size: 13px;">  //XXXmikedeboer-20131016: implement |shouldFocusContent| here to mitigate<br/>
+  //                        issues like bug 921338 and bug 921308.<br/>
+  shouldFocusContent: function () {<br/>
+    return true;<br/>
+  },</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>mikedeboer is on PTO until next Monday (Sept 8)</div>
+<div><br/></div>
+<div>What is shouldFocusContent supposed to do?</div>
+<div><br/></div>
+<div>The Finder.jsm has an array of listeners, and each listener needs to implement shouldFocusContent. The findbar.xml binding is one of those listeners, and registers itself. Here's how it implements shouldFocusContent:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;"><br/>
+      &lt;!--<br/>
+        - This handler may cancel a request to focus content by returning |false|<br/>
+        - explicitly.<br/>
+        --><br/>
+      &lt;method name="shouldFocusContent"><br/>
+        &lt;body>&lt;![CDATA[<br/>
+          const fm = Components.classes["@mozilla.org/focus-manager;1"]<br/>
+                               .getService(Components.interfaces.nsIFocusManager);<br/>
+          if (fm.focusedWindow != window)<br/>
+            return false;<br/>
+<br/>
+          let focusedElement = fm.focusedElement;<br/>
+          if (!focusedElement)<br/>
+            return false;<br/>
+<br/>
+          let bindingParent = document.getBindingParent(focusedElement);<br/>
+          if (bindingParent != this &amp;&amp; bindingParent != this._findField)<br/>
+            return false;<br/>
+<br/>
+          return true;<br/>
+        ]]
+<![CDATA[>]]>
+&lt;/body><br/>
+      &lt;/method></span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">So this does a few things:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>
+<ol>
+<li>Ensures that the focused window is the current window</li>
+<li>Ensures that there is a focused element</li>
+<li>Makes sure that the binding parent of the focused element is either the findbar binding, or the findbar-textbox.</li>
+<li>If the above conditions are satisfied, return true - otherwise, return false.</li>
+</ol>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=927424#c1">From evilpie:</a><br/></div>
+</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">The straight forward way to implement this doesn't work, because "focusedElement" is null in "shouldFocusContent" in findbar.xml. This should however be the findbar in some cases, when we have focus on it. I am not really sure why this happens yet, because these live in chrome and the focus manager should be able to deal with them in that case.</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>And he's got a patch in there. Let me de-bitrot and apply.</div>
+<div><br/></div>
+<div>Interesting… this might make more sense if the focused element we expect was from content instead of chrome, but the focused element is supposed to by the findbar text input, which is definitely in the parent process…</div>
+<div><br/></div>
+<div>I think my best bet might be to do something like in bug 1050447 and attach my debugger onto a breakpoint on nsFocusManager::SetFocus. I'll need a separate computer for that.</div>
+<div><br/></div>
+<div>Interesting - in the e10s-case, the call to nsFocusManager::Blur clears our the selected element here:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">  // now adjust the actual focus, by clearing the fields in the focus manager<br/>
+  // and in the window.<br/>
+  mFocusedContent = nullptr;</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>And that happens before the shouldFocusContent method call in e10s, but after in non-e10s.</div>
+<div><br/></div>
+<div>Finder.jsm - has a class that looks at a docshell and returns find results on it. RemoteFinder wraps a Finder so that it can message results back up to the parent.</div>
+<div><br/></div>
+<div>So here's the pattern for non-remote:</div>
+<div><br/></div>
+<div>The findbar closes, and focusContent in the findbar's Finder gets called. Synchronously, Finder asks all of its listeners whether we should focus content, and then performs the actual focusing.</div>
+<div><br/></div>
+<div>For remote:</div>
+<div><br/></div>
+<div>The findbar closes, and focusContent in the RemoteFinder gets called. This sends an async message to the frame script, and then returns to the main event loop, which removes focus on the findbar's text input. The frame script gets the message, and asks the content-process Finder to focusContent, which then communicates with the listener to see if it should focus content.</div>
+<div><br/></div>
+<div>So… what are we going to do about this?</div>
+<div><br/></div>
+<div>Who else uses shouldFocusContent? shouldFocusContent was first introduced in bug 921308 by mikedeboer…</div>
+<div><br/></div>
+<div>So wait… the shouldFocusContent stuff… why does it need to be different for e10s? The findbar method just checks stuff in the chrome. Why does RemoteFinder need to do anything different? What are these Findbar listeners that might be registered in the content process?</div>
+<div><br/></div>
+<div>evilpie agrees - we probably don't need to go down into the content process for this stuff.</div>
+<div><br/></div>
+<div>So, how should I architect my solution, to use the findbar implementation of shouldFocusContent?</div>
+<div><br/></div>
+<div>The findbar binding gets the current browser, reaches into its Finder, and then tells it to focusContent. This function then calls into the Finder listeners (which is the findbar binding) asking for whether or not we shouldFocusContent, and then it does the job of focusing.</div>
+<div><br/></div>
+<div>In the RemoteFinder, calling focusContent… right now, it sends a message to FocusContent, which contacts the content processes Finder, asking it to focusContent.</div>
+<div><br/></div>
+<div>How should it work?</div>
+<div><br/></div>
+<div>findbar binding gets the remote browser, reaches into its RemoteFinder, and then should tell the child process to focus content only if none of the listeners think we shouldn't.</div>
+<div><br/></div>
+<div>Wait wait wait - it looks as if setFocus in content scripts just flatout doesn't work. Is that true? Let me try to prove it. Huh… I was wrong. My test case shows that setFocus does work.</div>
+<div><br/></div>
+<div>So what the hell? Well, I can re-attach my debugger and see what the difference is in this case… I'll need my other machine. *sigh*, f***in focus.</div>
+<div><br/></div>
+<div>Interesting - so in the test case, isElementInActiveWindow evaluates to true, due to:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">isElementInActiveWindow = (mActiveWindow &amp;&amp; newRootWindow == mActiveWindow);</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>How about in the bad case? Lemme test that. Bah. I think I'm going down a rabbit hole. This is focus manager stuff, and I really shouldn't be worrying about that right now.</div>
+<div><br/></div>
+<div>I've posted my patch and let's see where I get. If evilpie likes it, I'll file a bug for this focus stuff.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>File bug: In e10s, finding text within an editable and hitting escape does not focus the editable<br/></div>
+<div><input checked="true" type="checkbox"/>File bug: In e10s, finding text within a link and hitting escape does not focus the link<br/></div>
+<div><br/></div>
+<div>Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1064654">bug 1064654</a>.</div>
+</body></html>
