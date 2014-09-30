@@ -1,0 +1,183 @@
+---
+layout: post
+title:  "Bug 1070053 - Notification to allow plugins on the next page"
+date:   2014-09-30
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1070053">
+ Bug 1070053 - Notification to allow plugins on the next page
+</a>
+Why is "PluginRemoved" being fired in one profile and not the other?
+<div>
+ <br/>
+</div>
+<div>
+ What does Aurora do? Interesting… it throws an exception because apparently event.target is a dead object.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But with my patch… there's a race. At the time of PluginRemoved, the document isn't necessarily a dead object for some reason. I guess the PluginRemoved event is fired, and because it's handled in the content script, it delays destruction of the document right away.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Anyhow, the good news is that the docShell is aware that it's being destroyed, and I can use nsIDocShell::isBeingDestroyed to detect that. If so, don't update the notifications (since the click-to-play notifications are cleared automatically by TabsProgressListener via removeTransientNotifications in it's onLocationChange handler.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, I guard the call to updateNotificationUI behind a check for the docShell being destroyed and we're peachy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Patch posted! (and just in time - my row was just called to board an airplane.)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=8805e329a789">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=8805e329a789
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah - a better idea. The PluginRemoved event is targeted on the unloading document, so if I pass that to updateNotificationUI, we can send that document's principal up and do comparisons with it in the parent process. gfritzsche likes the idea - let's see if I can write a test.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Funny… I'm having trouble writing a test. It seems the PluginRemoved event isn't being fired in my test case… why not?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think just browsing to another page doesn't guarantee that PluginRemoved will be called. With lldb attached, it looks like it's often fired during a garbage / cycle collection. So my solution is to force a plugin remove event by actually removing the plugin element before browsing away. I can successfully reproduce the problem in this way, and I can confirm that my patch fixes it. Nice!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Test posted. gfritzsche has given me r+ on the fixing patch, now just waiting for review on the test.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote: You can view the progress of your build at the following URL:
+</div>
+<div>
+ remote:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=99847798761b">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=99847798761b
+ </a>
+</div>
+<div>
+ remote: Alternatively, view them on Treeherder (experimental):
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=99847798761b">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=99847798761b
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Guh, whoops - forget to fix a thing.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote: You can view the progress of your build at the following URL:
+</div>
+<div>
+ remote:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=c0fe509e59c4">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=c0fe509e59c4
+ </a>
+</div>
+<div>
+ remote: Alternatively, view them on Treeherder (experimental):
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c0fe509e59c4">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c0fe509e59c4
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, expanding on my tests a little bit as per gfritzsche's request. I'm adding a new test that is similar to the first one, but instead of moving to about:mozilla, it moves to a data URI that shows the Test 2 plugin at a very small size, trigger the hidden plugin notification. We want to test that the notification is displayed, and that it shows the right information for test plugin 2, and not the first one.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=c216dad781cb">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=c216dad781cb
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now what the hell is this?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah - that was from
+ <a href="https://hg.mozilla.org/integration/fx-team/rev/9debd2833863">
+  https://hg.mozilla.org/integration/fx-team/rev/9debd2833863
+ </a>
+ , which snuck in under my rebase.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, cleaned up the test again. Let's see what gfritzsche thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ He digs it! Just some clean-up, and I can land.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ CLOSED TREE. BRAWRARARARR - why you gotta rob me of my satisfaction??
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
