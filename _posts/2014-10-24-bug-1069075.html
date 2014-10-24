@@ -1,0 +1,682 @@
+---
+layout: post
+title:  "Bug 1069075 - Intermittent browser_CTP_data_urls.js | Test 3a, Waited too long for plugin to activate | Test 3c, Plugin should be activated"
+date:   2014-10-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1069075">
+ Bug 1069075 - Intermittent browser_CTP_data_urls.js | Test 3a, Waited too long for plugin to activate | Test 3c, Plugin should be activated
+</a>
+Ugh. Ok, what's going wrong here?
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I can reproduce this locally using a debug Ubuntu build and running with --run-until-failure. I love that feature.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The failure always seems to be at the same place: "Test 3a" says that it's waiting too long for a plugin to activate, and "Test 3c" checks for an activated plugin.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I suspect that 3a is really the root cause here, and 3c is noise as a result of 3a's failure. Let's see if we can figure out why 3a is going wrong.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What is "Test 3a" doing? It seems to be part of a multi-part test - Test 3a, 3b, and 3c.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What's important is knowing what this test does, and what occurs leading up to this test. The key to the failure will be in there somewhere.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Actually, if we can narrow that down immediately, that'd be good. Let's see if I can eliminate Test 1 and Test 2 and see if Test 3 still fails.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, yes, I am able to run just Test 3a, 3b and 3c. I was able to get the test harness to target 3a first, and I got 3c to shortcut to finishing. So it's just these three.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now, if I run with --run-until-failure, can I get it to fail? If so, then the orange is likely caused by something within Test 3a. If not, then something in the steps preceeding Test 3a is likely at fault, or at least contributing to the problem. Both pieces of information are useful.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AH HAH. I am
+ <b>
+  not
+ </b>
+ able to reproduce the problem with just Test 3a, 3b and 3c. So something in either Test 1 or Test 2 is contributing. Let's see if we can narrow that down. I will re-enable the Test 2 bits.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… no failures with both Test 2 and 3 running. I'll admit I'm surprised - I expected it to be 2, since I would have expected any flim-flammery from 1 to have affected 2 and not 3. Interesting.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So my current hypothesis is that Test 1, in conjunction with or in spite of Test 2, is causing Test 3 to fail intermittently.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I guess I'd better understand what the hell Test 1 and Test 2 are doing before I continue. *sigh*.
+</div>
+<div>
+ <br/>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  Test 1
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br/>
+ </b>
+</div>
+<div style="">
+ plugin_data_url.html is loaded. This document has two links, which lead to data URIs that show plugins (the first link shows just the test plugin, the second link shows both the test plugin and the second test plugin). The document also has a plugin (which I'll call X) displaying on the page with the links.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We first make sure there's a click-to-play notification (the doorhanger) being shown. We also test that plugin X is not activated.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We then click on data-link-1, which is the data URI showing just the single plug-in, which I'll call Y.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ That's the end of Test 1a.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Test 1b starts when the data URI finishes loading and the plugin binding has been attached. We make sure there's a click-to-play doorhanger. We make sure that Y is not activated. Then we  open the click-to-play doorhanger, and click the primary button which "allows" the plugin to play. We then wait for the plugin to activate.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Once the plugin is activated, we move on to Test 1c.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Test 1c clears all plugin permissions we've set up, and then re-loads plugin_data_url.html.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ And that's the end of Test 1.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  Test 2
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br/>
+ </b>
+</div>
+<div style="">
+ plugin_data_url.html is loaded. We make sure there is a click-to-play doorhanger being displayed.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We make sure that the plugin X is not yet activated. And then we click on data-link-2, which loads up the data URI with two plugins - which I'll call Y and Z.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ That's the end of Test 2a.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Test 2b starts with that data URI being loaded. We make sure that the click-to-play doorhanger is still there, and we also open it up. We make sure that both plugins are being listed in the doorhanger.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Then, we inspect those listings of plugins, and find the controls for Y. We tell it to allow Y for now, and click on the primary button of the doorhanger to make it so. We then wait for Y to be activated.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ That's the end of Test 2b.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Test 2c starts … by also making sure that the plugin Y is activated. Strange… and then it clears all plugin permissions, and reloads plugin_data_url.html.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ And that's it for Test 2.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  Test 3
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br/>
+ </b>
+</div>
+<div style="">
+ plugin_data_url.html is loaded. We make sure there's a click-to-play notification being shown.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We also make sure plugin X is not activated.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We then reshow the doorhanger, and click on the primary button ("allow") to make X active.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ We then wait for X to go active.
+ <b>
+  And this is where the test fails - X never goes active.
+ </b>
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Ok, now I understand what this test is doing. Now… now why is it failing?
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Oh, interesting - now it looks like I can reproduce this with just Test 2 running before Test 3. I was doing a build in the background on my host machine, so I'm guessing a heavily loaded CPU helped reveal that. That's good.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Let's add some logging to PluginContent.jsm to see if we're even calling playPlugin on the thing.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Ah hah - it looks like in Test 3a, the button we're clicking in the PopupNotification has label "OK", so we're sending the wrong message to the content process.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ Y'know, I think I actually investigated this briefly as part of bug 899347, but I think I dropped it. Let me read my notes there and extract the important bits.
+</div>
+<div style="">
+ <br/>
+</div>
+<div style="">
+ "Ah, interesting data from those logs. It looks like in the failing case, which is rare, the button that we're pressing in the popup is "Ok" and not "Allow now". Under what circumstances is the popup saying "OK"? Er… interesting. None of those buttons should be "OK"… and the request is sends down is "Block". Wtf?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah… that's button-accept from dialog.properties. "
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I suspect the panel is not fully initialized when we get it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Nope, I was wrong - but I think I've narrowed it down.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that the framescript has a cache of all plugins its seen for a page, and it only flushes it on signals from the parent when notifications are removed. That's too late, because a notification might be removed long after the next page has loaded, and so we'd be using the old cache. That's why in some cases, we're sending up information on multiple plugins when the page we're on has only ever seen one.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'm going to modify PluginContent to flush the cache on pageshow (pagehide is too late, since by that point, the page being loaded might have already sent plugin events).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This seems to fix it!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ HOWEVER. This seems to break browser_CTP_notificationBar, and I think I've basically just regressed hidden plugin support, because the code attempts to get the information out of pluginData… and it's been cleared.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ OK, I think I understand! Here's the story.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This all has to do with the lifetime of a cache inside a PluginContent instance. That cache is called pluginData, and we use this cache to remember what plugins are on a particular page, and map it to information we have about that plugin.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We want that cache to clear when we move from page to page, because one page might have completely different plugins from another.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We're currently clearing that cache when we see that the click-to-play PopupNotification is removed. We send a message asynchronously to the child, asking PluginContent to clear its cache.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But if we're fast enough, we have a pocket of time where we're viewing some page, and our pluginData is out of sync, because we haven't yet heard from the parent to clear our cache!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The natural inclination is to have the PluginContent object listen for pagehide or pageshow, and clear the cache at that point - but both of those points are too late. pageshow is fired _after_ the DOM is bound to the tree, and after plugins report that they instantiate, so we might send messages up to the parent about plugins with bad cache data just before we clear it out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Same goes for pagehide - it fires too late. We might have browsed to a new page that shows some plugins, and sent messages to the parent with bad cache data before we get cleared out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The solution, I think, is to listen for unload events for a page, and clear out the cache then. I also want to remove the stuff that clears the cache when the notification is removed - with this new code, that old stuff won't be necessary.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, coming up with a patch.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Patch posted!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=890374cea116">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=890374cea116
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 19 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_data_urls.js | Test 2c, Plugin should be activated
+ <div>
+  Loading page plugin_data_url.html for next test3a!
+ </div>
+ <div>
+  For application/x-test found plugin
+  <a href="http://libnptest.so">
+   libnptest.so
+  </a>
+ </div>
+ <div>
+  PluginContent saw event type: PluginInstantiated
+ </div>
+ <div>
+  _showClickToPlayNotification knows about 1 plugins.
+ </div>
+ <div>
+  Sending request to show CTP notification from child: 7 from stack: PluginContent.prototype._showClickToPlayNotification@resource:///modules/PluginContent.jsm:715:97
+ </div>
+ <div>
+  PluginContent.prototype.handleEvent@resource:///modules/PluginContent.jsm:424:7
+ </div>
+ <div>
+  Saw page hide!
+ </div>
+ <div>
+  Clearing plugin data cache! All is well!
+ </div>
+ <div>
+  ++DOMWINDOW == 30 (0xa4d04da0) [pid = 30381] [serial = 30] [outer = 0xa4d02ac0]
+ </div>
+ <div>
+  PopupNotifications saw a location change
+ </div>
+ <div>
+  There are 1 notifications for the changing browser
+ </div>
+ <div>
+  After filtering, there are 0 notifications for the changing browser
+ </div>
+ <div>
+  Received CTP notification request 7 in parent for
+  <a href="http://127.0.0.1:8888">
+   http://127.0.0.1:8888
+  </a>
+ </div>
+ <div>
+  Showing a ClickToPlay notification
+ </div>
+ <div>
+  Creating an empty map for pluginData
+ </div>
+ <div>
+  PluginData has 0 items, and we received information on 2 plugins.
+ </div>
+ <div>
+  PluginContent saw event type: PluginClickToPlay
+ </div>
+ <div>
+  _showClickToPlayNotification knows about 1 plugins.
+ </div>
+ <div>
+  Sending request to show CTP notification from child: 8 from stack: PluginContent.prototype._showClickToPlayNotification@resource:///modules/PluginContent.jsm:715:97
+ </div>
+ <div>
+  PluginContent.prototype.handleEvent@resource:///modules/PluginContent.jsm:424:7
+ </div>
+ <div>
+  pluginProblem_XBL_Constructor@chrome://mozapps/content/plugins/pluginProblem.xml:78:9
+ </div>
+ <div>
+  PluginContent.prototype.updateNotificationUI@resource:///modules/PluginContent.jsm:772:1
+ </div>
+ <div>
+  PluginContent.prototype.receiveMessage/&lt;@resource:///modules/PluginContent.jsm:60:26
+ </div>
+ <div>
+  setTimeout_timer@resource://gre/modules/Timer.jsm:30:5
+ </div>
+ <div>
+  20 INFO Console message: [JavaScript Error: "The character encoding of the HTML document was not declared. The document will render with garbled text in some browser configurations if the document
+ </div>
+ <div>
+  contains characters from outside the US-ASCII range. The character encoding of the page must be declared in the document or in the transfer protocol." {file: "
+  <a href="http://127.0.0.1:8888/browser/browse">
+   http://127.0.0.1:8888/browser/browse
+  </a>
+ </div>
+ <div>
+  r/base/content/test/plugins/plugin_data_url.html" line: 0}]
+ </div>
+ <div>
+  Received CTP notification request 8 in parent for
+  <a href="http://127.0.0.1:8888">
+   http://127.0.0.1:8888
+  </a>
+ </div>
+ <div>
+  Showing a ClickToPlay notification
+ </div>
+ <div>
+  Re-using pre-existing click-to-play notifications pluginData!!
+ </div>
+ <div>
+  PluginData has 2 items, and we received information on 1 plugins.
+ </div>
+ <div>
+  There should have been a single click-to-play notification above
+ </div>
+ <div>
+  Nabbing click-to-play notification
+ </div>
+ <div>
+  21 INFO TEST-PASS | chrome://mochitests/content/browser/browser/base/content/test/plugins/browser_CTP_data_urls.js | Test 3a, Should have a click-to-play noti
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ for (let plugin of cwu.plugins) {… is where we suddenly get to the pluginProblem.xml XBL constructor…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What happened was this:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Test 2c runs, or whatever, where we've got the two plugins on screen, and we click to activate the first one.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We activate it, and wait for the plugin to marked activated. Meanwhile, PluginContent.jsm sends a message back to browser-plugins.jsm updating it about the plugins on the screen, because instantiated plugins require that, I guess. But sometimes, we notice the activation, and move on straight away - we load the next page, and THEN we see the update about CTP and stuff and use stale plugin information.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So we wait for the CTP update after clicking on the first plugin, and all is well.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Q: Why does the principal check work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A: Uh… weirdly, it seems as if the principal that gets sent up from that data_uri matches the page that it came from.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Example:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ PluginContent is at data:text/html,&lt;embed%20id="test1"%20style="width:%20200px;%20height:%20200px"%20type="application/x-test"/&gt;&lt;embed%20id="test2"%20style="width:%20200px;%20height:%20200px"%20type="application/x-second-test"/&gt; and our principal is:
+ <a href="http://127.0.0.1:8888">
+  http://127.0.0.1:8888
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think that's OK -
+ <a href="http://hg.mozilla.org/mozilla-central/file/5e704397529b/caps/nsIPrincipal.idl">
+  according to nsIPrincipal.idl
+ </a>
+ : "...
+ <span style="font-size: 13px;">
+  which allows the load of a data: URI (which inherits the principal of
+ </span>
+ <span style="font-size: 13px;">
+  its loader)"
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  Ok, so this is working as suspected. Basically, the Principal is insufficient for things like blobs and data. What I need to do is send the actual location up along with the principal, and do a comparison against that as well. That should fix everything.
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  Try push with both patches:
+ </span>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=92c141444ab2">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=92c141444ab2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ gfritzsche wants to know:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   10:06
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (gfritzsche)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: ok, now i remember - we cover up a race there for navigation between different urls - but what if i just reload the same page?
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   10:08
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  gfritzsche: are you referring to the first patch or the second?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   10:08
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (gfritzsche)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: the one titled "Send location along with CTP messages."
+  </strong>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So georg is worried about the case where we start a reload while a message is still in transit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's a good point. How do we deal with that?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, this is a pre-existing thing that we're going to have to solve at some point, but for the sake of the treeherders, we're going to land these changes, and then I'll file a follow-up bug to try to find a solution for this entire class of problem.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1074983">
+  Filed bug 1074983
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And landed!
+</div>
