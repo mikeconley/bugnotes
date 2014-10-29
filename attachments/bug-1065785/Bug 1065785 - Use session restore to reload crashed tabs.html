@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1065785 - Use session restore to reload crashed tabs</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1065785.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201065785%20-%20Use%20session%20restore%20to%20reload%20crashed%20tabs_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1065785 - Use session restore to reload crashed tabs</h1>
+    <p class="meta">Oct 24, 2014</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1065785">
+ Bug 1065785 - Use session restore to reload crashed tabs
+</a>
+<div>
+ Ok, so now what have I gotten myself into?
+ <div>
+  <br>
+ </div>
+ So here's the story. Session Restore does this fun thing for when all 
+your tabs come back (either after a crash, or a restart, etc), where as 
+much of your previous state as possible is restored. That includes but 
+is not limited to:
+ <br>
+</div>
+<ul>
+ <li>
+  Back/forward history for each tab
+ </li>
+ <li>
+  Filled in form fields
+ </li>
+</ul>
+<div>
+ So maybe this ties into
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=913651">
+  bug&nbsp;913651
+ </a>
+ - which is the tab crashed UX bug. ttaubert asks about automatically 
+restoring closed tabs, and showing a notification bar instead. billm is 
+concerned that this might result in a drop in submitted crash reports, 
+since the tab crash page opts in to sending crash reports.
+ <div>
+  <br>
+ </div>
+ Let's assume for now, however, that the tab crashed page is going to stay the same.
+ <div>
+  <br>
+ </div>
+ How does Session Store / Session Restore even work?
+ <div>
+  <br>
+ </div>
+ <a href="https://developer.mozilla.org/en/docs/Session_store_API">
+  SessionStore API Docs
+ </a>
+ .. this is mostly for addons, but might help educate me.
+ <div>
+  <br>
+ </div>
+ <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsISessionStore">
+  nsISessionStore interface
+ </a>
+ <div>
+  <br>
+ </div>
+ So what's interesting is that in part, SessionStore is already being 
+used to restore tabs and stuff… it's just the history that isn't being 
+restored for some reason. Let me test.
+ <div>
+  <br>
+ </div>
+ OH! How convenient. I just had a tab crash. And INDEED, it seems as if my history in the tab was not restored. Excellent.
+ <div>
+  <br>
+ </div>
+ Right, so I'll bet the tab crash page is just flat-out just _not_ using SessionStore here, and that's what's up.
+ <div>
+  <br>
+ </div>
+ So, where is the tab crash page and how does it work?
+ <div>
+  <br>
+ </div>
+ browser/base/content/aboutTabCrashed.xhtml
+ <div>
+  <br>
+ </div>
+ The tab crash page was implemented in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=899348">
+  bug 899348
+ </a>
+ .
+ <div>
+  <br>
+ </div>
+ Otay, after some dxr-ing around, here's the code in question:
+ <a href="http://hg.mozilla.org/mozilla-central/file/6a8b7740dc53/browser/modules/TabCrashReporter.jsm#l66">
+  http://hg.mozilla.org/mozilla-central/file/6a8b7740dc53/browser/modules/TabCrashReporter.jsm#l66
+ </a>
+ <div>
+  <br>
+ </div>
+ Basically, we get the URL that the browser is supposed to be viewing, and do a loadURIWithFlags on it.
+ <div>
+  <br>
+ </div>
+ So like… a new browser is generated, and we just load the URL in it. So yeah, no bfcache restoration, no form fill out. Nada.
+ <div>
+  <br>
+ </div>
+ So that's interesting - when a tab closes, we must serialize that 
+information - the history, etc, - and then when we restore it, it comes 
+back. And that works for remote tabs, because I'm able to close and 
+restore a remote tab, and all is well.
+ <div>
+  <br>
+ </div>
+ So, let's look at Undo Close Tab as a model. How does that even work?
+ <div>
+  <br>
+ </div>
+ Didn't I work on something like this with Undo Close Tab? OH YEAH,
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1059036">
+  bug&nbsp;1059036
+ </a>
+ - I knew these notes would come in handy.
+ <div>
+  <br>
+ </div>
+ Hmmm… undoCloseTab seems to have a LIFO stack thing where it has 
+serialized tab info… so the last tab that was closed is on the top of 
+the stack. And you pop it off… and it gets restored.
+ <div>
+  <br>
+ </div>
+ Yeah, that's basically it. You create a brand new tab, and somehow 
+endow it with everything via restoreTabs in SessionStore.jsm. Ah…
+ <a href="http://hg.mozilla.org/mozilla-central/file/6a8b7740dc53/browser/components/sessionstore/SessionStore.jsm#l2535">
+  we send some message -&nbsp;SessionStore:restoreHistory
+ </a>
+ , to tell the DocShell, presumably, about the history being restored. I think form data is in there as well. Nice.
+ <div>
+  <br>
+ </div>
+ Let's see who handles that message…
+ <div>
+  <br>
+ </div>
+ <a href="http://hg.mozilla.org/mozilla-central/file/6a8b7740dc53/browser/components/sessionstore/content/content-sessionStore.js#l119">
+  Ah, a content script for SessionStore, of course.
+ </a>
+ And it's calling restoreHistory on
+ <a href="http://hg.mozilla.org/mozilla-central/file/6a8b7740dc53/browser/components/sessionstore/ContentRestore.jsm">
+  a ContentRestore thing
+ </a>
+ … ah, and this thing will restore tab history, session cookies, form and scroll data. Excellent.
+ <div>
+  <br>
+ </div>
+ So it really does look like a ton of the infrastructure is in place 
+here. I just somehow need to call restoreTabs with the right tabData and
+ arguments. Piece…of… cake?
+ <div>
+  <br>
+ </div>
+ So where can we get this tabData from?
+ <div>
+  <br>
+ </div>
+ I think that will be a big challenge…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Or will it?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:43
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: ping
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:43
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: heya
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:44
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  so, I've started looking at bug 1065785
+  <br>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:44
+  </span>
+  <span style="color: rgb(0, 136, 68);">
+   (firebot)
+  </span>
+  <a href="https://bugzil.la/1065785" style="word-break: break-all;">
+   https://bugzil.la/1065785
+  </a>
+  <strong style="color: rgb(255, 0, 255);">
+   — ASSIGNED, mconley — Use session restore to reload crashed tabs
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:45
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: cool
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:45
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: and I was wondering if:
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:45
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: a) my assessment in comment 8 is accurate, and b) where and how I can get the latest saved tabData for a crashed tab
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:47
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  so without reading comment 8 and just point (b) it sounds like we might want some sessionstore support for crashed tabs
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:48
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  basically sessionstore listening for the crash notification
+  <br>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:48
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  freezing tabstate
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:48
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  and preparing the tab for restoration automatically
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:48
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  somehow
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:52
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  great, attaching a patch crashes the content process
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:56
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  <span style="background-color: rgb(231, 231, 231);">
+   ttaubert: ok, that sounds right. At the time of a tab crash though, 
+isn't it too late to freeze tab state? Isn't all of that stuff gone?
+  </span>
+  <br>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:58
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: some stuff. we'll lose 1s of data at most
+  </strong>
+  <br>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  shouldn't be too serious
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: so every second or so, the content process updates the 
+parent process with its current form / scroll / content state?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  yup
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  I see
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ok, excellent
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:59
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  we have a 1s buffer
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:00
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  very handy
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   16:00
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  if SS freezes tab state, ss.getTabState() should return what was there before
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:00
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: where the key is the tab DOM node.
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   16:00
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: that's the actual &lt;xul:tab&gt;?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:01
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  <strong style="color: rgb(255, 0, 255);">
+   mconley: indeed
+  </strong>
+  <br>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   16:01
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  wow
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:01
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ok, this is great
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px;">
+  <span style="color: rgb(0, 68, 136);">
+   16:01
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ttaubert: I'm very pleased - all of the pieces seem to be here. :)
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:02
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (ttaubert)
+  </span>
+  we could split the freezing off into a separate bug I think
+ </div>
+ <div>
+  <br>
+ </div>
+</div>
+<div>
+ So suppose my tab crashes. What happens? Well, we have this buffer that has been updated with the tab state…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ MessageQueue seems to be the mechanism in content-sessionStore.jsm that sends updates every 1s or so.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So for some tab, if we crash, we have one of two states:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <ol>
+  <li>
+   Common-case - we're crashing, and we've sent updates to the parent in the past.
+  </li>
+  <li>
+   Rare-case - we're crashing, and we've not yet sent any updates to the parent.
+  </li>
+ </ol>
+ <div>
+  Let's see if we can take care of #1, and worry about #2 later.
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, we detect a crash in the parent process - what do we do? Well, need
+ to immediately prevent any updates from the tab crashed page from 
+reaching the parent - I think this is what ttaubert meant by "freezing".
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How will freezing work? We need to stop listening to
+ <span style="font-size: 13px;">
+  SessionStore:update messages. I wonder if the Telemetry is still useful - like, we still listen to
+ </span>
+ <span style="font-size: 13px;">
+  SessionStore:update messages, but we don't update our notion of what the tabs data is.
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-size: 13px;">
+  The notion of what the tab data is is stored in a "TabState" -
+ </span>
+ <a href="http://hg.mozilla.org/mozilla-central/file/f27ff178807d/browser/components/sessionstore/TabState.jsm">
+  see here.
+ </a>
+ So maybe TabState needs a frozen attribute. Let's start there.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we freeze TabState for all crashed tabs when we crash. Then we show 
+the tab crashed page. When we say "try again", the tab that is selected 
+should be restored immediately, and depending 
+on&nbsp;browser.sessionstore.restore_on_demand, either restore the tab 
+state for all of those crashed tabs immediately, OR, prep all of them to
+ be restored when they are selected. So I think I need to figure out 
+how&nbsp;browser.sessionstore.restore_on_demand works, because I'm going
+ to be prepping for that stuff.
+</div>
+<div>
+ <br>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  How does&nbsp;browser.sessionstore.restore_on_demand work?
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br>
+ </b>
+</div>
+<div style="">
+ Basically, here:
+ <a href="http://hg.mozilla.org/mozilla-central/file/f27ff178807d/browser/components/sessionstore/SessionStore.jsm#l1358">
+  http://hg.mozilla.org/mozilla-central/file/f27ff178807d/browser/components/sessionstore/SessionStore.jsm#l1358
+ </a>
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ If the browser.sessionstore.restore_on_demand pref is true, we need to 
+set each browser to be in the&nbsp;TAB_STATE_NEEDS_RESTORE 
+state…&nbsp;and then unfreeze the data… and then put the unfrozen data 
+into the new browser.__SS_data… I think?
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ Ugh, wait - I've misunderstood. TabState is not a class where there's a
+ single instance per browser or something. It's a global tab state 
+manager. So putting a "frozen" attribute on that doesn't work.
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ Ok… so maybe we're talking about adding new freeze and thaw methods to TabStateCache.
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ Wait - this could be even simpler. Adding freeze and thaw methods might
+ be overkill - what I'm trying to prevent is messages from an 
+about:tabcrashed page from being sent up to the parent… why not just 
+prevent that single case from the about:tabparent page? Like… just don't
+ send messages up. That way, no need to manage freeze / thaw state. If 
+we're an about:tabcrashed page, we don't send history. If we aren't, we 
+do. Simple!
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ ttaubert seems to like that idea. Excellent!
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ Hm… so, I filed bug&nbsp;1070096 to not collect information from 
+about:tabcrashed, but… it looks like when I kill the plugin-container 
+process, I get this gasp of life at the end:
+</div>
+<div style="">
+ <br>
+</div>
+<div style="">
+ Updating parent at about:blank with session information: formdata: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at http://www.reddit.com/ with session information: pageStyle: null content-sessionStore.js:613
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I think that's actually the new browser to contain about:tabcrashed 
+starting up. That'd explain the about:blank stuff. The reddit.com URI… 
+that's suspicious. Do we attempt to load that URL, and then stop it, and
+ then show about:tabcrashed? How does tab crashing work?
+</div>
+<div>
+ <br>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  When a tab crashes...
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ When a tab crashes, TabParent hears about it, and does 2 things:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <ol>
+  <li>
+   It sends a global observer notification saying that a browser crashed
+  </li>
+  <li>
+   It fires an event from the &lt;xul:browser&gt; saying that it crashed.
+  </li>
+ </ol>
+ <div>
+  tabbrowser.xml hears about the tab crashing, and does the following:
+ </div>
+</div>
+<div>
+ <ol>
+  <li>
+   Grabs the title, uri and icon of the crashed browser
+  </li>
+  <li>
+   Updates the "browser remoteness" to false, and loads the about:tabcrashed page
+  </li>
+  <li>
+   Has the docshell display a load error for the uri
+  </li>
+ </ol>
+ <div>
+  Meanwhile, TabCrashReporter.jsm heard the notification that TabParent 
+sent out, and maps the browser that crashed to a crash report.
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ about:tabcrashed finishes loading fires a custom event 
+("AboutTabCrashedLoad"), which gBrowser picks up, which calls 
+TabCrashReporter.onAboutTabCrashedLoad.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ TabCrashReporter.onAboutTabCrashedLoad then checks its internal 
+mapping, looking for the crash report that the notification from 
+TabParent sent up mapped to the crashing browser. If it finds one, it 
+exposes the checkbox for submitting a crash report.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ BrowserOnClick hears click events in … well, everything… which calls 
+BrowserOnClick.onAboutTabCrashed… and that determines that we clicked on
+ the Try Again button, and that sends off the crash report if the 
+checkbox was checked, and then 
+calls&nbsp;TabCrashReporter.reloadCrashedTab.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And TabCrashReporter.reloadCrashedTab, as I said earlier in this 
+document, just reloads the document using the URI for the browser.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So I understand where that about:blank is coming from. What I don't 
+understand is where the reddit.com came from. Let me see if I can narrow
+ that down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok… so getting rid of the load of about:tabcrashed, the update 
+remoteness, and the displayLoadError, gets rid of the messages getting 
+sent…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Now let's put some back.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: formdata: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": [
+</div>
+<div>
+ {
+</div>
+<div>
+ "url": "about:blank",
+</div>
+<div>
+ "ID": 3,
+</div>
+<div>
+ "docshellID": 9,
+</div>
+<div>
+ "docIdentifier": 3
+</div>
+<div>
+ }
+</div>
+<div>
+ ],
+</div>
+<div>
+ "index": 1
+</div>
+<div>
+ } content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:613
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null
+</div>
+<div>
+ <br>
+</div>
+<div>
+ No reddit.com! So updating the remoteness of the browser is what leaks 
+the about:blank stuff… and I guess&nbsp;displayLoadError is what's 
+causing the other "pageStyle" message to display.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So…. plan time. What the hell do we do?…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Well, the about:blank stuff… that shouldn't probably be sent up anyhow.
+ That's really uninteresting stuff if the browser is just starting up.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Can I somehow special-case the very first about:blank? Thinking…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What's happening when we create this browser? It's in a funny state - 
+it's a brand new, empty browser. It's in a gMultiProcessBrowser true 
+window, but the browser itself is not remote. It's pointed at 
+about:blank. It has no history whatsoever. Is that enough to distinguish
+ it?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionHistoryListener seems to be the thing responsible for sending 
+the empty history up -&nbsp;SessionHistory.isEmpty(docShell) must 
+evaluate to false… somehow.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How is it failing that? Hrm. It's not. It's showing up later.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, formData shows up once… pageStyle shows up twice, history shows up 3
+ times… scroll shows up twice, storage shows up twice… that's everybody.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How do these show up? Time to dump some stacks.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  FRAME TREE RESET PHASE
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FormDataListener hit onFrameTreeReset: 
+FormDataListener.onFrameTreeReset@chrome://browser/content/content-sessionStore.js:377:64
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:227:7
+</div>
+<div>
+ updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1455:13
+</div>
+<div>
+ updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1480:20
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3397:11
+</div>
+<div>
+ content-sessionStore.js:377
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: formdata: null content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ PageStyleListener hit onFrameTreeReset: 
+PageStyleListener.onFrameTreeReset@chrome://browser/content/content-sessionStore.js:426:65
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:227:7
+</div>
+<div>
+ updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1455:13
+</div>
+<div>
+ updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1480:20
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3397:11
+</div>
+<div>
+ content-sessionStore.js:426
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionHistoryListener hit collect: SessionHistoryListener.collect@chrome://browser/content/content-sessionStore.js:245:61
+</div>
+<div>
+ SessionHistoryListener.onFrameTreeReset@chrome://browser/content/content-sessionStore.js:256:5
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:227:7
+</div>
+<div>
+ updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1455:13
+</div>
+<div>
+ updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1480:20
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3397:11
+</div>
+<div>
+ content-sessionStore.js:245
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionStorageListener hit collect: SessionStorageListener.collect@chrome://browser/content/content-sessionStore.js:501:70
+</div>
+<div>
+ SessionStorageListener.onFrameTreeReset@chrome://browser/content/content-sessionStore.js:512:5
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:227:7
+</div>
+<div>
+ updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1455:13
+</div>
+<div>
+ updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1480:20
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3397:11
+</div>
+<div>
+ content-sessionStore.js:501
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ ScrollPositionListener hit onFrameTreeReset: 
+ScrollPositionListener.onFrameTreeReset@chrome://browser/content/content-sessionStore.js:331:70
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:227:7
+</div>
+<div>
+ updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1455:13
+</div>
+<div>
+ updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1480:20
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3397:11
+</div>
+<div>
+ content-sessionStore.js:331
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: pageStyle: null content-sessionStore.js:618 ???
+ <b>
+  (Where did this come from?)
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  FRAME TREE COLLECTED PHASE
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionHistoryListener hit collect: SessionHistoryListener.collect@chrome://browser/content/content-sessionStore.js:245:61
+</div>
+<div>
+ SessionHistoryListener.onFrameTreeCollected@chrome://browser/content/content-sessionStore.js:252:5
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:233:7
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3400:11
+</div>
+<div>
+ content-sessionStore.js:245
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionStorageListener hit collect: SessionStorageListener.collect@chrome://browser/content/content-sessionStore.js:501:70
+</div>
+<div>
+ SessionStorageListener.onFrameTreeCollected@chrome://browser/content/content-sessionStore.js:508:5
+</div>
+<div>
+ FrameTreeInternal.prototype.notifyObservers@resource:///modules/sessionstore/FrameTree.jsm:95:9
+</div>
+<div>
+ FrameTreeInternal.prototype.onStateChange@resource:///modules/sessionstore/FrameTree.jsm:233:7
+</div>
+<div>
+ onxbloop-browser-crashed@chrome://browser/content/tabbrowser.xml:3400:11
+</div>
+<div>
+ content-sessionStore.js:501
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: storage: null content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: scroll: null content-sessionStore.js:618
+ <b>
+  (Where did this come from?)
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SessionHistoryListener hit collect: SessionHistoryListener.collect@chrome://browser/content/content-sessionStore.js:245:61
+</div>
+<div>
+ SessionHistoryListener.OnHistoryNewEntry@chrome://browser/content/content-sessionStore.js:260:5
+</div>
+<div>
+ content-sessionStore.js:245
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at about:blank with session information: history: {
+</div>
+<div>
+ "entries": []
+</div>
+<div>
+ } content-sessionStore.js:618
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Updating parent at http://www.reddit.com/ with session information: pageStyle: null
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So what did that gain me? Well… Great question. Do we need a FrameTree loaded on the initial about:blank?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Right now we create a FrameTree when content-sessionStore.js is loaded,
+ and that hooks up listeners to nsIWebProgress on initialization.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let's blue sky this thing… what'd be the ideal scenario? My "desired outcome"…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Tab crashes… notification gets sent, and TabCrashReporter.jsm hears about it if we're doing crash reporting…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Up in the parent process, we see that the tab has crashed. We convert 
+the browser to a non-remote one… and while that browser loads up, it 
+realizes that it's in a crashed state… and doesn't send information to 
+the parent process…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How can a newly created non-remote &lt;xul:browser&gt; know that it's about to go to about:tabcrashed?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There doesn't seem to be a great way… options:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <ol>
+  <li>
+   Strap a special attribute to the &lt;xul:browser&gt; in the event 
+that we're going to tabcrashed, which the content-sessionStore.js can 
+find out about, and know not to send any communications…
+  </li>
+  <li>
+   Do the thawing and freezing on the parent side, though this adds a bunch of state that SessionStore now has to manage
+  </li>
+  <li>
+   Somehow, without an attribute, communicate to content-sessionStore.js
+ that the about:blank tab we're loading is not to have any history… 
+maybe through some XPCOM interface thing. Again, more state.
+  </li>
+ </ol>
+ <div>
+  Well, we've really created a sort of a temporary browser thing that 
+we're hoping to destroy as soon as we can - like, what's eventually 
+going to happen if we restore, is we're going to be destroying this 
+one-off non-remote browser and replacing it entirely with a remote 
+browser, and pouring all of our old cached state into it.
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So… somehow mark this one-off browser as special. And have SessionStore ignore it right away.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I think… I think that might work. Ok, let me think… mark browser, with 
+like an attribute on the xul:browser, as a browser that will not have 
+its session information recorded when received… to get the timing right,
+ that'll probably involve setting that attribute on the 
+&lt;xul:browser&gt; before it is re-appended to the document in 
+updateBrowserRemoteness.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, I've written a patch that kinda does that, and stuck it in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1070096">
+  bug&nbsp;1070096
+ </a>
+ . Let's see what ttaubert thinks.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here's what he responded with:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "
+ <span style="font-size: 13px;">
+  I like the overall approach. Wouldn't it be better if we listened for
+ </span>
+</div>
+<span style="font-size: 13px;">
+ "oop-browser-crashed" in onTabAdd()? SessionStore could then maintain its own
+ <br>
+ WeakSet of crashed browsers. We would then remove the browser from the set when
+ <br>
+ the tab is revived or overriden. Navigating away manually should also do that."
+</span>
+<div>
+ <br>
+</div>
+<div>
+ Hm…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What does that look like? What is onTabAdd? It's a "TabOpen" event 
+listener, and, as expected, is for setting up things on new tabs.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ One of the things it already does is adds event listeners for 
+SwapDocShells, so I suppose I can add one for oop-browser-crashed too.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So that's easy - we can start ignoring the crashed tabs by adding them to a WeakSet or something. But what about reviving them?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There are two cases to handle:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <ol>
+  <li>
+   The tab is revived by the user clicking on "Try again" to reload the tab, causing it to go remote and start browsing.
+  </li>
+  <li>
+   The user types into the URL bar causing it to go remote again and start browsing
+  </li>
+ </ol>
+</div>
+<div>
+ <div>
+  I need a choke point where those two things intersect in a sensical way.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  My first instinct is the updateRemotenessByURL stuff - but there are 
+other cases that use that method. For example, browsing to or from our 
+about: blacklisted pages.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  The other thing that comes to mind is the actual about:tabcrashed page
+ itself. That, I think, might be the more correct route. Suppose we 
+detect when the browser that it belongs to is being unloaded… and when 
+that happens, we send a message to the parent saying, "Yo, I'm 
+unloaded", which then communicates with SessionStore.jsm saying that the
+ tab has been revived.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Let me give that a shot.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ok, that seems to work. I've posted the patch to bug 1070096 to see 
+what ttaubert thinks. In the meantime… how am I going to test that 
+patch?
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Suppose… suppose I open a new e10s window, and in the selected tab, 
+send a framescript that causes a crash. Maybe use jsctypes, and cause a 
+segfault. The Nightly Tester Tools do something that I can probably 
+copy. Ok, so the content process crashes, and what do I want to do? I 
+want to revive the tab and then make sure that SessionStore never got 
+any update traffic while the browser was crashed.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So SessionStore allows me to retrieve state for a browser. That's what
+ I'll do - I'll browse to a page A, crash the tab, revive the tab to 
+page B, and then retrieve the browser state, and make sure 
+about:tabcrashed is never in there.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  From ttaubert in bug 1070096:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   (In reply to Tim Taubert [:ttaubert] from comment #10)
+   <br>
+   &gt; Comment on attachment 8493352
+   <br>
+   &gt; Collect no SessionStore information for about:tabcrashed pages. r=?
+   <br>
+   &gt;
+   <br>
+   &gt; Review of attachment 8493352:
+   <br>
+   &gt; -----------------------------------------------------------------
+   <br>
+   &gt;
+   <br>
+   &gt; ::: browser/base/content/aboutTabCrashed.js
+   <br>
+   &gt; @@ +14,5 @@
+   <br>
+   &gt; &gt;
+   <br>
+   &gt; &gt; +addEventListener("unload", () =&gt; {
+   <br>
+   &gt; &gt; +&nbsp; let event = new CustomEvent("AboutTabCrashedUnload", {bubbles: true});
+   <br>
+   &gt; &gt; +&nbsp; document.dispatchEvent(event);
+   <br>
+   &gt; &gt; +});
+   <br>
+   &gt;
+   <br>
+   &gt; It seems rather weird that about:tabcrashed has to help sessionstore here.
+   <br>
+   &gt; How about adding a pagehide listener to content-sessionStore.js that if (url
+   <br>
+   &gt; == about:tabcrashed) sends a message to the parent saying it should
+   <br>
+   &gt; revive/unignore the crashed browser? Would that work?
+   <br>
+   &gt;
+   <br>
+   &gt; ::: browser/components/sessionstore/SessionStore.jsm
+   <br>
+   &gt; @@ +1421,5 @@
+   <br>
+   &gt; &gt;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // events due to changing groups in Panorama.
+   <br>
+   &gt; &gt;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; this.saveStateDelayed(aWindow);
+   <br>
+   &gt; &gt;&nbsp;&nbsp;&nbsp; },
+   <br>
+   &gt; &gt;
+   <br>
+   &gt; &gt; +&nbsp; onRemoteTabCrashed: function ssi_onRemoteTabCrashed(aBrowser) {
+   <br>
+   &gt;
+   <br>
+   &gt; Nit:
+   <br>
+   &gt;
+   <br>
+   &gt; onRemoteTabCrashed: function (aBrowser) {
+   <br>
+   &gt;
+   <br>
+   &gt; or fancier:
+   <br>
+   &gt;
+   <br>
+   &gt; onRemoteTabCrashed(aBrowser) {
+   <br>
+   &gt;
+   <br>
+   &gt; :)
+   <br>
+   <br>
+  </span>
+ </div>
+ <div>
+  ttaubert's suggestion about moving the logic into 
+content-sessionStore.js sounds like a fine one, and that keeps things 
+nice and encapsulated within the scope of /sessionstore/.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  And then I get to use fancy new JS ES6 function syntax sugar. :D
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Sounds like we're really close to resolving bug 1070096 - I'll work on
+ those corrections, and then I also want to get that test written.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Garrrr - so, one fly in the ointment (there's always at least one): I 
+can't just compare the document URI against about:tabcrashed, because 
+the content still thinks it is pointed at the original crashed page! I 
+need to understand how
+  <span style="font-size: 13px;">
+   displayLoadError works.
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   <br>
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   Hrm. So now I've just put the pagehide event listener in 
+SessionStore.jsm when a tab crashes, and then check the URL there. That 
+seems to work. Let's see if ttaubert is cool with the handling being in 
+SessionStore.jsm over content-sessionStore.js.
+  </span>
+ </div>
+ <div>
+  <span style="font-size: 13px;">
+   <br>
+  </span>
+ </div>
+ <div>
+  Ok, ttaubert has some more feedback…&nbsp;hm, he's found multiple issues. I'm going to try to boil them down:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Yes, let's use a message from content-sessionStore.js. He has an idea that should work properly.
+  <br>
+ </div>
+ <div>
+  <input type="checkbox">
+  Add a test for navigating away from about:tabcrashed to a blacklisted and non-blacklisted URL
+  <br>
+ </div>
+ <div>
+  <input type="checkbox">
+  <strike>
+   Add a clear method to MessageQueue, and call it before reviving.
+  </strike>
+  (Don't need to do that since my solution sends a sync message now)
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Move the guard against listening to crashed browsers so that we just ignore updates from crashed browsers.
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Store browser permanentKey's in the WeakSet instead, as this allows us
+ to do crazy things like swap docshells and keep the right notion of who
+ is who.
+  <br>
+ </div>
+ <div>
+  <input type="checkbox">
+  File a follow-up for ttaubert's comment 16 in bug 1070096.
+  <br>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Let's get started. I'd like to confirm that first bit about getting a message sent form content-sessionStore.js.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Hm, still no dice. I'm getting about:blank as the location of these pages.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Mossop has an idea - I can't use frame message manager from "unload" 
+handlers, but I can use the child process message manager.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ok, this is kinda crazy, but here's my solution - I use the 
+child-process message manager (even though we're in the parent process, 
+thanks to
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=680413">
+   bug 680413
+  </a>
+  ), and send a message up to the "parent" saying that we're unloading 
+about:tabcrashed, so revive us. But because the receiver of the message 
+doesn't have the browser set as the message target, I'll pass the 
+docShell's chromeEventHandler along in the message "objects" argument. 
+This maps directly to the &lt;xul:browser&gt; in the same-process case. 
+I'll want to put some sanity checks in here to make sure we're actually 
+in the parent process, and we didn't do something nuts like load 
+about:tabcrashed in a subframe of a remote browser.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  This seems to work. Amazingly. Let's see how ttaubert feels about it, once I get all of these other things addressed.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  While I'm waiting for a review, let's write a test for this thing.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Let's look at some prior art and head.js to see what tools I have to 
+test SessionStore… looking in browser/components/sessionstore/test..
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Good - lots of modern, "add_task" style tests in here. That's a good sign.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  UGH - I just lost an hour because of this:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <div>
+   mm.loadFrameScript("data,(" + frame_script.toString() + ")();", false);
+  </div>
+  <div>
+   <br>
+  </div>
+ </div>
+ <div>
+  That's supposed to load a framescript, but won't, because I forgot the
+ colon after data. loadFrameScript was failing silently after I passed 
+it that invalid URI. GARRLRKJRLKJDS:LKRJDLS:KRJ. I filed
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1074453">
+   this bug
+  </a>
+  about throwing an error if we pass an invalid URI.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Yay! I can crash a tab. I can't use CrashTestUtils.jsm because that seems to just be for xpcshell tests - but I was able to
+  <a href="http://hg.mozilla.org/mozilla-central/file/5e704397529b/browser/base/content/test/social/social_crash_content_helper.js">
+   adapt some code from here.
+  </a>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ok, tests posted.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  ALRIGHT, once and for all, _how_ come these tests don't pass unless I 
+run with --e10s? What in sessionstore is paying attention to 
+browser.tabs.remote.*? Hm… no direct reads of the browser.tabs.remote 
+prefs, nor of the gMultiProcessBrowser stuff… Nor the LoadContext's 
+UseRemoteTabs.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Interesting.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Let's pretend that I get bug 1070096 landed. What's next? Based on the direction of
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=913651">
+   bug 913651
+  </a>
+  , we want SessionStore to be able to revive an individual tab, or all crashed tabs.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So how about this - user clicks on "Revive this tab" or whatever. 
+Click event bubbles up…SessionStore either hears about it, or gets told 
+about that event, and then…well, reacts accordingly. Add a 
+SessionStore.reviveTabs that can take an array of one or more tabs, and 
+just frickin' do it.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  And by "frickin' do it", I mean:
+ </div>
+ <div>
+  <ol>
+   <li>
+    Blast the history and state down to the tab.
+   </li>
+   <li>
+    If selected tab, kick off restoring the state from cache / network (thus reviving tab)
+   </li>
+   <li>
+    If not selected tab and we're set to load content on selection, just prep each revived tab to restore on selection
+   </li>
+   <li>
+    If not selected tab and we're set to load content on restoration, just do the full restoration.
+   </li>
+  </ol>
+  <div>
+   And that's it, really.
+  </div>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Remove sleep
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Add crash handler setup and cleanup stuff to account for these being expected crashes
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Change the skip-if stuff
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Remove the pagehide event handler if handleRevivedTab
+  <br>
+ </div>
+ <div>
+  <input type="checkbox">
+  <strike>
+   Rename handleRevivedTab to handleRevivedBrowser
+  </strike>
+  <br>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So with bug 1070096 almost out the door, and the plan above, what are my next concrete steps?
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Let's start by just reviving a single tab for now, with an eye on 
+allowing the revival of all tabs. That means we don't have to change the
+ UI for about:tabcrashed, which is good because it sounds like bug 
+913651 isn't solid just yet.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So let's refresh my memory - some things have changed. What exactly does TabCrashReporter currently do?
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ah, so it mostly does just crash report things - the only thing I 
+probably want to move out and into SessionStore is the 
+"reloadCrashedTab" business. I think what we should do is add:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  SessionStore.reviveTabs(aBrowsers)
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  (Yeah, I know - maybe that should be reviveBrowsers or aTabs… dunno just yet. Will bikeshed on names and parameters later)
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Hey! That was pretty easy! I added a reviveCrashedBrowsers method to 
+SessionStore, and we just get the state from TabState for the tab, and 
+call restoreTab on the associated tab with the state! Wow!!
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So, if bug 913651 has its way, how are we going to reload all crashed 
+tabs? The WeakSet we added in bug 1070096 is non-iterable… maybe we 
+should just make that an iterable Set?
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  While I'm waiting for feedback, what are some good tests for this?
+ </div>
+ <div>
+  <ol>
+   <li>
+    Crash a tab, use SessionStore to revive it, browse it to a new page, ensure that the new page is added to history.
+   </li>
+   <li>
+    Crash multiple tabs, use SessionStore to revive all. Browse all to 
+new pages, ensure that new pages are added to their history.
+   </li>
+   <li>
+    Crash multiple tabs, use SessionStore to revive just one, browse to a
+ new page, ensure that new pages are added to its history.
+   </li>
+  </ol>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Make content-sessionStore.jsm not send up updates if we're at about:tabcrashed
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  See what felipe did with the "Try again" button, because I think that behaves all differently now
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Make SessionStore.jsm care about tabs crashing
+  <br>
+ </div>
+ <div>
+  <input checked="checked" type="checkbox">
+  Talk with mmaslaney about tab crashed UX - specifically, what happens 
+if we crash right after restoration? When single-process Fx crashes 
+multiple times, we show the "Well this is embarassing" page and allow 
+the user to select which items they restore.
+  <br>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  OH FFS another memory leak. :(((
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ First, confirming that it's the not-remembering-tab-crashed bit:
+ <strike>
+  <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=becef983acb8">
+   https://tbpl.mozilla.org/?tree=Try&amp;rev=becef983acb8
+  </a>
+ </strike>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=6382a8700189">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=6382a8700189
+ </a>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Nice that I can use&nbsp;-u mochitest-e10s-browser-chrome-1 and not build bc2 or bc3. Nice to save some machine time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, while that's building… hypotheses…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis 1: We're not removing the PPMM message listener at the right time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hm… no, I don't think so. We're removing it on uninit. Still, I could test it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis 2: We're not removing the FMM message listeners at the right time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Also doubtful - we remove them the way we always used to. This seems highly unlikely.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis 3: We're not removing the oop-browser-crashed event handler at the right time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Doubtful… we remove it at the same time we remove the SwapDocShells event listener. This seems highly unlikely as well.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis 4: We need to remove the pagehide event handler in content-sessionStore.js after handleRevivedTab fires.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ …maybe? This is probably my best lead. Here goes:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=cad4b86f268c">
+  <strike>
+   https://tbpl.mozilla.org/?tree=Try&amp;rev=cad4b86f268c
+  </strike>
+ </a>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=653a3443d6c2">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=653a3443d6c2
+ </a>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GARRRRRRRR - mochitest-e10s-browser-chrome-1 doesn't work. :(((
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis 4 seems to have been correct! Re-landed.
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
