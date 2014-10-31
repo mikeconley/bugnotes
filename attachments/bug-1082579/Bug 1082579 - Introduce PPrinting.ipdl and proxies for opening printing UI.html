@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1082579 - Introduce PPrinting.ipdl and proxies for opening printing UI</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1082579.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201082579%20-%20Introduce%20PPrinting.ipdl%20and%20proxies%20for%20opening%20printing%20UI_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1082579 - Introduce PPrinting.ipdl and proxies for opening printing UI</h1>
+    <p class="meta">Oct 31, 2014</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1082579">
+ Bug 1082579 - Introduce PPrinting.ipdl and proxies for opening printing UI
+</a>
+<div>
+ The hard part is not opening up the dialogs. The hard part is sending back useful information to the content.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ roc says:
+ <div>
+  <br clear="none">
+ </div>
+ <div>
+  "I think you probably need PuppetWidget implementations of 
+nsIPrintSettings and nsIDeviceContextSpec. Your nsIPrintSettings would 
+basically be a content-side proxy for the nsIPrintSettings constructed 
+by the chrome process, and you'll pass this from chrome to content when 
+printing is initiated.
+ </div>
+ <div>
+  <br clear="none">
+ </div>
+ <div>
+  Your nsIDeviceContextSpec implementation would likewise proxy for a 
+chrome-process nsIDeviceContextSpec. Its GetSurfaceForPrinter 
+implementation will probably need to return a Moz2D recording target 
+(CreateRecordingDrawTarget) with some way to capture the 
+DrawEventRecorder output and spool it to the chrome process where it can
+ be replayed to the real drawing target (at every 
+nsIDeviceContextSpec::EndPage I guess). I don't know any of the details 
+of how the Moz2D recorder works."
+ </div>
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Let's experiment with an idea:
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Suppose I don't kick off printing from the child process. Suppose I go with roc's idea here. How would that work?
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So… we tell the child, "start to print"… and perhaps we send down 
+minimal serialized, non-platform-specific print settings which it uses 
+to lay things out.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Then the child gets everything prepared, and then to print, it creates an instance of nsIDeviceContextSpec…
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So according to an archive of
+ <a href="http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/" shape="rect" target="_blank">
+  http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/
+ </a>
+ at
+ <a href="https://web.archive.org/web/20080712065153/http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/" shape="rect" target="_blank">
+  https://web.archive.org/web/20080712065153/http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/
+ </a>
+ :
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ nsIDeviceContext and nsIRenderingContext are old (old at 2007!) 
+interfaces for providing a set of basic rendering capabilities for every
+ platform.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ gfx* stuff is Thebes.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So it looks like, according to
+ <a href="https://wiki.mozilla.org/Platform/GFX/Moz2D#Making_a_recording" shape="rect" target="_blank">
+  https://wiki.mozilla.org/Platform/GFX/Moz2D#Making_a_recording
+ </a>
+ , it might be possible to record the instructions being sent to a 
+surface… serialize those, send those over to the parent, and then replay
+ them onto a "real" surface for printing.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So, I talked to blassey and jimm, and here's what we're going to try.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ We're not going to go with Moz2D for now unless there's really no other option.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So let's talk Windows, and how it opens dialogs. I need to find out how it opens dialogs, and then what it does with them.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ The two prefs that allow us to print on windows are:
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ print.always_print_silent -&gt; true
+</div>
+<div>
+ print.show_print_progress -&gt; false
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ With my current patches, where do we stand? Hrm…
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ <span style="text-decoration: line-through;">
+  Well, while it's building, let's assume that
+ </span>
+ we currently work with print.always_print_silent to true and print.show_print_progress also true.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ If print.always_print_silent is set to false, what happens?
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ We get the printing prompt service… calls ShowPrintDialog, passing the 
+domWin for the document being printed, nsIWebBrowserPrint for the doc 
+viewer, and some nsIPrintSettings.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ I assume ShowPrintDialog is expected to update nsIPrintSettings.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ When then init the nsDeviceContextSpec with the print settings.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So I think I just have to make sure my proxy returns a nsIPrintSettings
+ that makes sense for whichever platform we're on. We'll start with 
+Windows.
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Ok, let's investigate ways of serializing nsIPrintSettings. It's 
+already saved sometimes in prefs, so there must be some internal support
+ for this. Let's check it out.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Unfortunately, they're not serialized into a string / single pref. A
+ <strong>
+  bunch
+ </strong>
+ of prefs get stored.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Here they are:
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ attribute long&nbsp;&nbsp;&nbsp; startPageRange;
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; endPageRange;
+ <br clear="none">
+ attribute double&nbsp; edgeTop;&nbsp;&nbsp;&nbsp;&nbsp; /*&nbsp; these are in inches */
+ <br clear="none">
+ attribute double&nbsp; edgeLeft;
+ <br clear="none">
+ attribute double&nbsp; edgeBottom;
+ <br clear="none">
+ attribute double&nbsp; edgeRight;
+ <br clear="none">
+ attribute double&nbsp; marginTop;&nbsp;&nbsp;&nbsp;&nbsp; /*&nbsp; these are in inches */
+ <br clear="none">
+ attribute double&nbsp; marginLeft;
+ <br clear="none">
+ attribute double&nbsp; marginBottom;
+ <br clear="none">
+ attribute double&nbsp; marginRight;
+ <br clear="none">
+ attribute double&nbsp; unwriteableMarginTop;&nbsp;&nbsp;&nbsp;&nbsp; /*&nbsp; these are in inches */
+ <br clear="none">
+ attribute double&nbsp; unwriteableMarginLeft;
+ <br clear="none">
+ attribute double&nbsp; unwriteableMarginBottom;
+ <br clear="none">
+ attribute double&nbsp; unwriteableMarginRight;
+ <br clear="none">
+ attribute double&nbsp; scaling;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* values 0.0 - 1.0 */
+ <br clear="none">
+ attribute boolean printBGColors; /* Print Background Colors */
+ <br clear="none">
+ attribute boolean printBGImages; /* Print Background Images */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; printRange;
+ <br clear="none">
+ attribute wstring title;
+ <br clear="none">
+ attribute wstring docURL;
+ <br clear="none">
+ attribute wstring headerStrLeft;
+ <br clear="none">
+ attribute wstring headerStrCenter;
+ <br clear="none">
+ attribute wstring headerStrRight;
+ <br clear="none">
+ attribute wstring footerStrLeft;
+ <br clear="none">
+ attribute wstring footerStrCenter;
+ <br clear="none">
+ attribute wstring footerStrRight;
+ <br clear="none">
+ attribute short&nbsp;&nbsp; howToEnableFrameUI;&nbsp; /* indicates how 
+to enable the frameset 
+UI&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; */
+ <br clear="none">
+ attribute boolean 
+isCancelled;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* 
+indicates whether the print job has been cancelled */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; printFrameTypeUsage; /* indicates whether to use the interal value or not&nbsp; */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; printFrameType;
+ <br clear="none">
+ attribute boolean printSilent;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* print without putting up the dialog */
+ <br clear="none">
+ attribute boolean shrinkToFit;&nbsp;&nbsp; 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* shrinks content to fit on 
+page&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; */
+ <br clear="none">
+ attribute boolean showPrintProgress;&nbsp;&nbsp; /* indicates whether the progress dialog should be shown */
+ <br clear="none">
+ attribute wstring paperName;&nbsp;&nbsp;&nbsp;&nbsp; /* name of paper */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; paperSizeType; /* use native data or is defined here */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; paperData;&nbsp;&nbsp;&nbsp;&nbsp; /* native data value */
+ <br clear="none">
+ attribute double&nbsp; paperWidth;&nbsp;&nbsp;&nbsp; /* width of the paper in inches or mm */
+ <br clear="none">
+ attribute double&nbsp; paperHeight;&nbsp;&nbsp; /* height of the paper in inches or mm */
+ <br clear="none">
+ attribute short&nbsp;&nbsp; paperSizeUnit; /* paper is in inches or mm */
+ <br clear="none">
+ attribute wstring plexName;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* name of plex mode (like "simplex", "duplex",
+ <br clear="none">
+ * "tumble" and various custom values) */
+ <br clear="none">
+ attribute wstring colorspace;&nbsp;&nbsp;&nbsp; /* device-specific name of colorspace, overrides |printInColor| */
+ <br clear="none">
+ attribute wstring resolutionName;/* device-specific identifer of resolution or quality
+ <br clear="none">
+ * (like "600", "600x300", "600x300x12", "high-res",
+ <br clear="none">
+ * "med-res". "low-res", etc.) */
+ <br clear="none">
+ attribute boolean downloadFonts; /* enable font download to printer? */
+ <br clear="none">
+ attribute boolean printReversed;
+ <br clear="none">
+ attribute boolean printInColor;&nbsp; /* a false means grayscale */
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; orientation;&nbsp;&nbsp; /*&nbsp; see orientation consts */
+ <br clear="none">
+ attribute wstring printCommand;
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; numCopies;
+ <br clear="none">
+ attribute wstring printerName;&nbsp;&nbsp; /* name of destination printer */
+ <br clear="none">
+ attribute boolean printToFile;
+ <br clear="none">
+ attribute wstring toFileName;
+ <br clear="none">
+ attribute short&nbsp;&nbsp; outputFormat;
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; printPageDelay; /* in milliseconds */
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; resolution;&nbsp;&nbsp;&nbsp;&nbsp; /* print resolution (dpi) */
+ <br clear="none">
+ attribute long&nbsp;&nbsp;&nbsp; duplex;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* duplex mode */
+ <br clear="none">
+ attribute boolean isInitializedFromPrinter;
+ <br clear="none">
+ attribute boolean isInitializedFromPrefs;
+ <br clear="none">
+ attribute boolean persistMarginBoxSettings;
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Note that we're not creating and returning a new nsIPrintSettings - we're getting passed one, and we're modifying it.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ So, let's think it through again. Proxy is passed an nsIPrintSettings. 
+We serialize that, and hand it off to the parent. Parent creates an 
+nsIPrintSettings from what it gets handed, maybe spoofs a bunch of 
+things (that might be tricky) that the child has taken care of (like 
+print session), and hands it to the nsIPrintingPromptService to show the
+ dialog. Dialog gets shown.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Dialog fills nsIPrintSettings with maybe some platform specific stuff that our serialization needs to know about.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ nsIPrintSettings comes back to parent, which serializes and sends to 
+child. Child interprets serialization and uses operator= to update the 
+child copy. This will wipe out the original DevMode…
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Child then also has to read the platform specific stuff. For Windows, 
+this means a DevMode... I'll need to create a new one, and init it with 
+the nsIPrintSettings I get back, actually. That works out... I think. 
+"CreateGlobalDevModeAndInit"...also some stuff for nsIPrintSettingsWin. 
+That's DeviceName, DriverName, DevMode.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Ok, to, to sum - for Windows, serialize all the attributes I've listed above, plus DeviceName and DriverName.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ On the parent side, the nsIWebBrowserPrint passed to the printing 
+prompt services are going to be bogus, but they need to be able to do 
+certain things.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ For example, on Windows, it's important that we be able to do:
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ aWebBrowserPrint-&gt;GetIsFramesetDocument(&amp;isFramesetDocument);
+ <br clear="none">
+ aWebBrowserPrint-&gt;GetIsFramesetFrameSelected(&amp;isFramesetFrameSelected);
+ <br clear="none">
+ aWebBrowserPrint-&gt;GetIsIFrameSelected(&amp;isIFrameSelected);
+ <br clear="none">
+ aWebBrowserPrint-&gt;GetIsRangeSelection(&amp;isRangeSelection);
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ On OS X, we do:
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ nsresult rv = aWebBrowserPrint-&gt;EnumerateDocumentNames(&amp;titleCount, &amp;docTitles);
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Linux... nothing special it seems. So we have to create some kind of mock nsIWebBrowserPrint that satisfies the above.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Ok, I have the communications for opening the dialog set up. Now I need:
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<ul>
+ <li>
+  Ability to convert nsIPrintSettings and an nsIWebBrowserPrint to a 
+PrintData, including the platform-specific stuff I listed above
+  <br clear="none">
+ </li>
+ <li>
+  A fake nsIWebBrowserPrint that can take an PrintData and parrot back 
+results for GetIsFramesetDocument. This is what we end up passing to the
+ real nsIPrintingPromptService.
+  <br clear="none">
+ </li>
+ <li>
+  Ability to convert PrintData back to an nsIPrintSettings.
+  <br clear="none">
+ </li>
+ <li>
+  Ability to create native-y things on the child side - like the DevMode on Windows.
+  <br clear="none">
+ </li>
+</ul>
+<div>
+ <input checked="checked" type="checkbox">
+ Create a utility function for nsPrintingPromptServiceProxy that takes 
+nsIPrintSettings and nsIWebBrowserPrint, and packs a PrintData with the 
+right info (including platform-specific stuff)
+ <br clear="none">
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Create a utility function accessible both for 
+nsPrintingPromptServiceProxy and PrintingParent that takes an 
+PrintDataand returns an nsIPrintSettings.
+ <br clear="none">
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Create a utility function accessible for PrintingParent that takes a 
+PrintData, wraps it, and becomes an nsIWebBrowserPrint that parrots out 
+the information that Windows and OS X need.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ I think I can start on the above tonight, even away from my Windows machine.
+ <br clear="none">
+</div>
+<div>
+ <br clear="none">
+</div>
+<div>
+ Before I proceed - I want to make sure: nsIPrintSettings doesn't get 
+packed with native stuff _before_ it goes off to the print settings 
+dialog, right? Right… that seems to be true.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OK! I have a dialog showing up on Windows! This is good good good. 
+Funny how we don't have the end number of pages available in the print 
+dialog… that's weird. But that also seems to be the behaviour without 
+e10s.¯\_(ツ)_/¯
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So now that I've got this dialog… I need to get the information from 
+the dialog back to the child, and then the circuit will be complete.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here's how things work for Windows:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We pass in the nsIPrintSettings to show the dialog, and the actual 
+showing happens in nsPrintDialogUtil.cpp in a function called 
+ShowNativePrintDialog. We construct a devmode… we also create a 
+temporary nsIPrintSettingsWin, and use it to set the device name and 
+driver name, and then …
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wait. Wait, this is wrong. We're actually passing an nsPrintSettingsWin
+ to ShowNativePrintDialog as an nsIPrintSettings, and then QI'ing it 
+within that function to an nsIPrintSettingsWin. Shoot.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, ok, how about this:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We have the nsIPrintOptions service that can return the right nsIPrintSettings implementation. How about I:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Add SerializeToPrintData to nsPrintOptionsImpl.cpp to do common field 
+copying from a PrintData (take nsIPrintSettings and nsIWebBrowserPrint)
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Add DeserializeFromPrintData to nsPrintOptionsImpl.cpp to do common field copying to a PrintData
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Add implementations of that function to nsPrintOptionsWin.cpp that 
+calls the parent implementation, and then reads/writes the native 
+information to/from that PrintData.
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That way, PrintingParent.cpp can stay relatively platform agnostic, and
+ we offload the platform specific stuff to stuff that's…well, already 
+platform specific.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I… I think I like that idea. Let's do it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It… works? If this lands, I'll need to file some follow-ups:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ <s>
+  Enable e10s printing on Windows and OS X
+ </s>
+ (can probably tag this on the end of bug 1082579)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ ShowPrintDialog should probably not be a sync call. smaug says: "
+ <strong style="color: rgb(255, 0, 255); font-weight: bold; font-family: Monaco; font-size: 12px; orphans: 2; text-align: -webkit-auto; widows: 2; -webkit-text-size-adjust: auto; background-color: rgb(238, 238, 238);">
+  Couldn't you create a PrintDialog protocol, and then in __delete__ 
+continue. While you're waiting __delete__ you'd call 
+NS_ProcessNextEvent"
+ </strong>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Progress dialog does not show progress or close the dialog - need to proxy that information
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Support printing in e10s on Linux
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Cancelling from the print settings dialog shows an alert "An error occurred while printing"
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File bug for long-term plan
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=f1aa062a86f9">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=f1aa062a86f9
+ </a>
+ <br>
+</div>
+<div>
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=2413f6719d70">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=2413f6719d70
+ </a>
+</div>
+<div>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

@@ -1,0 +1,139 @@
+---
+layout: post
+title:  "Bug 1067721 - [e10s] \"Save Snapshot As\" dialog box doesn't open"
+date:   2014-10-31
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1067721">
+ Bug 1067721 - [e10s] "Save Snapshot As" dialog box doesn't open
+</a>
+<div>
+ Here's the code in question:
+ <a href="http://hg.mozilla.org/mozilla-central/file/366d06412304/browser/base/content/nsContextMenu.js#l1039">
+  http://hg.mozilla.org/mozilla-central/file/366d06412304/browser/base/content/nsContextMenu.js#l1039
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So this doesn't work because "this.target", in this function, is a CPOW, and we can't seem to call ctxDraw.drawImage with a CPOW.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The simplest solution, I think, to send a message down to the content process, and have it send back the data URI to be saved - thereby making this a bit more asynchronous.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think that should be straight-forward. Let me give that a shot.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yeah! It works. Ok, so how about a test?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I can stash saveImageURL, overwrite it, and return it on test shutdown, which would allow me to capture the DataURI.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, the test should: Play a &lt;video&gt; video, call saveVideoFrameAsImage, and then we should make sure that our saveImageURL is eventually called with a dataURL as the first argument. Worth it?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Totally worth it. And I don't even need to overwrite saveImageURL - there's this MockTransfer thing that browser_save_video.js uses that I can re-use.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yikes! In browser/base/content/test/general/head.js, promisePopupEvent had this:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ if (popup.state = endState)
+</div>
+<div>
+ return Promise.resolve();
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's bad bad bad! That'll always evaluate to true. Luckily, it looks like nobody was using this function (until me, that is).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Tests done - try-push:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=a52dd541eea5">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=a52dd541eea5
+ </a>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=35d5835eda5d">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=35d5835eda5d
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… failing bc1 test. My test. It's failing out there. Grrrr...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I've found a way to simulate right click with a frame script that seems to work. Re-pushing:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=8be0315c4d19">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=8be0315c4d19
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Seems… to … be OK?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Tried felipe's document.popupNode idea, but it looks like it's not defined. My regression test fails in the e10s case. Didn't try in the non-e10s case. Not too surprising though - looks like popupNode is on the outs:
+ <a href="https://developer.mozilla.org/en-US/docs/Web/API/document.popupNode">
+  https://developer.mozilla.org/en-US/docs/Web/API/document.popupNode
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo, landed!
+</div>

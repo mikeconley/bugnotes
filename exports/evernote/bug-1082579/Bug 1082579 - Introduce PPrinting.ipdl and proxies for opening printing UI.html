@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 5.6.2 (450946)"/><meta name="keywords" content="M3, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-10-22 01:57:50 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1082579"/><meta name="updated" content="2014-10-28 19:26:20 +0000"/><title>Bug 1082579 - Introduce PPrinting.ipdl and proxies for opening printing UI</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+<div>The hard part is not opening up the dialogs. The hard part is sending back useful information to the content.</div>
+<div><br clear="none"/></div>
+<div>roc says:
+<div><br clear="none"/></div>
+<div>"I think you probably need PuppetWidget implementations of nsIPrintSettings and nsIDeviceContextSpec. Your nsIPrintSettings would basically be a content-side proxy for the nsIPrintSettings constructed by the chrome process, and you'll pass this from chrome to content when printing is initiated.</div>
+<div><br clear="none"/></div>
+<div>Your nsIDeviceContextSpec implementation would likewise proxy for a chrome-process nsIDeviceContextSpec. Its GetSurfaceForPrinter implementation will probably need to return a Moz2D recording target (CreateRecordingDrawTarget) with some way to capture the DrawEventRecorder output and spool it to the chrome process where it can be replayed to the real drawing target (at every nsIDeviceContextSpec::EndPage I guess). I don't know any of the details of how the Moz2D recorder works."</div>
+</div>
+<div><br clear="none"/></div>
+<div>Let's experiment with an idea:</div>
+<div><br clear="none"/></div>
+<div>Suppose I don't kick off printing from the child process. Suppose I go with roc's idea here. How would that work?</div>
+<div><br clear="none"/></div>
+<div>So… we tell the child, "start to print"… and perhaps we send down minimal serialized, non-platform-specific print settings which it uses to lay things out.</div>
+<div><br clear="none"/></div>
+<div>Then the child gets everything prepared, and then to print, it creates an instance of nsIDeviceContextSpec…</div>
+<div><br clear="none"/></div>
+<div>So according to an archive of <a shape="rect" href="http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/" target="_blank">http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/</a> at <a shape="rect" href="https://web.archive.org/web/20080712065153/http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/" target="_blank">https://web.archive.org/web/20080712065153/http://blog.vlad1.com/2007/12/11/graphics-in-mozilla/</a>:</div>
+<div><br clear="none"/></div>
+<div>nsIDeviceContext and nsIRenderingContext are old (old at 2007!) interfaces for providing a set of basic rendering capabilities for every platform.</div>
+<div><br clear="none"/></div>
+<div>gfx* stuff is Thebes.</div>
+<div><br clear="none"/></div>
+<div>So it looks like, according to <a shape="rect" href="https://wiki.mozilla.org/Platform/GFX/Moz2D#Making_a_recording" target="_blank">https://wiki.mozilla.org/Platform/GFX/Moz2D#Making_a_recording</a>, it might be possible to record the instructions being sent to a surface… serialize those, send those over to the parent, and then replay them onto a "real" surface for printing.</div>
+<div><br clear="none"/></div>
+<div>So, I talked to blassey and jimm, and here's what we're going to try.</div>
+<div><br clear="none"/></div>
+<div>We're not going to go with Moz2D for now unless there's really no other option.</div>
+<div><br clear="none"/></div>
+<div>So let's talk Windows, and how it opens dialogs. I need to find out how it opens dialogs, and then what it does with them.</div>
+<div><br clear="none"/></div>
+<div>The two prefs that allow us to print on windows are:</div>
+<div><br clear="none"/></div>
+<div>print.always_print_silent -> true</div>
+<div>print.show_print_progress -> false</div>
+<div><br clear="none"/></div>
+<div>With my current patches, where do we stand? Hrm…</div>
+<div><br clear="none"/></div>
+<div><span style="text-decoration: line-through;">Well, while it's building, let's assume that</span> we currently work with print.always_print_silent to true and print.show_print_progress also true.</div>
+<div><br clear="none"/></div>
+<div>If print.always_print_silent is set to false, what happens?</div>
+<div><br clear="none"/></div>
+<div>We get the printing prompt service… calls ShowPrintDialog, passing the domWin for the document being printed, nsIWebBrowserPrint for the doc viewer, and some nsIPrintSettings.</div>
+<div><br clear="none"/></div>
+<div>I assume ShowPrintDialog is expected to update nsIPrintSettings.</div>
+<div><br clear="none"/></div>
+<div>When then init the nsDeviceContextSpec with the print settings.</div>
+<div><br clear="none"/></div>
+<div>So I think I just have to make sure my proxy returns a nsIPrintSettings that makes sense for whichever platform we're on. We'll start with Windows.</div>
+<div><br clear="none"/></div>
+<div>Ok, let's investigate ways of serializing nsIPrintSettings. It's already saved sometimes in prefs, so there must be some internal support for this. Let's check it out.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Unfortunately, they're not serialized into a string / single pref. A <strong>bunch</strong> of prefs get stored.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Here they are:<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>  attribute long    startPageRange;    <br clear="none"/>
+  attribute long    endPageRange;    <br clear="none"/>
+  attribute double  edgeTop;     /*  these are in inches */<br clear="none"/>
+  attribute double  edgeLeft;<br clear="none"/>
+  attribute double  edgeBottom;<br clear="none"/>
+  attribute double  edgeRight;<br clear="none"/>
+  attribute double  marginTop;     /*  these are in inches */<br clear="none"/>
+  attribute double  marginLeft;<br clear="none"/>
+  attribute double  marginBottom;<br clear="none"/>
+  attribute double  marginRight;<br clear="none"/>
+  attribute double  unwriteableMarginTop;     /*  these are in inches */<br clear="none"/>
+  attribute double  unwriteableMarginLeft;<br clear="none"/>
+  attribute double  unwriteableMarginBottom;<br clear="none"/>
+  attribute double  unwriteableMarginRight;<br clear="none"/>
+  attribute double  scaling;      /* values 0.0 - 1.0 */<br clear="none"/>
+  attribute boolean printBGColors; /* Print Background Colors */<br clear="none"/>
+  attribute boolean printBGImages; /* Print Background Images */<br clear="none"/>
+  attribute short   printRange;<br clear="none"/>
+  attribute wstring title;<br clear="none"/>
+  attribute wstring docURL;<br clear="none"/>
+  attribute wstring headerStrLeft;<br clear="none"/>
+  attribute wstring headerStrCenter;<br clear="none"/>
+  attribute wstring headerStrRight;<br clear="none"/>
+  attribute wstring footerStrLeft;<br clear="none"/>
+  attribute wstring footerStrCenter;<br clear="none"/>
+  attribute wstring footerStrRight;<br clear="none"/>
+  attribute short   howToEnableFrameUI;  /* indicates how to enable the frameset UI            */<br clear="none"/>
+  attribute boolean isCancelled;         /* indicates whether the print job has been cancelled */<br clear="none"/>
+  attribute short   printFrameTypeUsage; /* indicates whether to use the interal value or not  */<br clear="none"/>
+  attribute short   printFrameType;<br clear="none"/>
+  attribute boolean printSilent;         /* print without putting up the dialog */<br clear="none"/>
+  attribute boolean shrinkToFit;         /* shrinks content to fit on page      */<br clear="none"/>
+  attribute boolean showPrintProgress;   /* indicates whether the progress dialog should be shown */<br clear="none"/>
+  attribute wstring paperName;     /* name of paper */<br clear="none"/>
+  attribute short   paperSizeType; /* use native data or is defined here */<br clear="none"/>
+  attribute short   paperData;     /* native data value */<br clear="none"/>
+  attribute double  paperWidth;    /* width of the paper in inches or mm */<br clear="none"/>
+  attribute double  paperHeight;   /* height of the paper in inches or mm */<br clear="none"/>
+  attribute short   paperSizeUnit; /* paper is in inches or mm */<br clear="none"/>
+  attribute wstring plexName;      /* name of plex mode (like "simplex", "duplex",<br clear="none"/>
+                                    * "tumble" and various custom values) */<br clear="none"/>
+  attribute wstring colorspace;    /* device-specific name of colorspace, overrides |printInColor| */<br clear="none"/>
+  attribute wstring resolutionName;/* device-specific identifer of resolution or quality<br clear="none"/>
+                                    * (like "600", "600x300", "600x300x12", "high-res",<br clear="none"/>
+                                    * "med-res". "low-res", etc.) */<br clear="none"/>
+  attribute boolean downloadFonts; /* enable font download to printer? */<br clear="none"/>
+  attribute boolean printReversed;<br clear="none"/>
+  attribute boolean printInColor;  /* a false means grayscale */<br clear="none"/>
+  attribute long    orientation;   /*  see orientation consts */<br clear="none"/>
+  attribute wstring printCommand;<br clear="none"/>
+  attribute long    numCopies;<br clear="none"/>
+  attribute wstring printerName;   /* name of destination printer */<br clear="none"/>
+  attribute boolean printToFile;<br clear="none"/>
+  attribute wstring toFileName;<br clear="none"/>
+  attribute short   outputFormat;<br clear="none"/>
+  attribute long    printPageDelay; /* in milliseconds */<br clear="none"/>
+  attribute long    resolution;     /* print resolution (dpi) */<br clear="none"/>
+  attribute long    duplex;         /* duplex mode */<br clear="none"/>
+  attribute boolean isInitializedFromPrinter;<br clear="none"/>
+  attribute boolean isInitializedFromPrefs;<br clear="none"/>
+  attribute boolean persistMarginBoxSettings;</div>
+<div><br clear="none"/></div>
+<div>Note that we're not creating and returning a new nsIPrintSettings - we're getting passed one, and we're modifying it.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>So, let's think it through again. Proxy is passed an nsIPrintSettings. We serialize that, and hand it off to the parent. Parent creates an nsIPrintSettings from what it gets handed, maybe spoofs a bunch of things (that might be tricky) that the child has taken care of (like print session), and hands it to the nsIPrintingPromptService to show the dialog. Dialog gets shown.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Dialog fills nsIPrintSettings with maybe some platform specific stuff that our serialization needs to know about.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>nsIPrintSettings comes back to parent, which serializes and sends to child. Child interprets serialization and uses operator= to update the child copy. This will wipe out the original DevMode…</div>
+<div><br/></div>
+<div>Child then also has to read the platform specific stuff. For Windows, this means a DevMode... I'll need to create a new one, and init it with the nsIPrintSettings I get back, actually. That works out... I think. "CreateGlobalDevModeAndInit"...also some stuff for nsIPrintSettingsWin. That's DeviceName, DriverName, DevMode.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Ok, to, to sum - for Windows, serialize all the attributes I've listed above, plus DeviceName and DriverName.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>On the parent side, the nsIWebBrowserPrint passed to the printing prompt services are going to be bogus, but they need to be able to do certain things.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>For example, on Windows, it's important that we be able to do:<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>  aWebBrowserPrint->GetIsFramesetDocument(&amp;isFramesetDocument);<br clear="none"/>
+  aWebBrowserPrint->GetIsFramesetFrameSelected(&amp;isFramesetFrameSelected);<br clear="none"/>
+  aWebBrowserPrint->GetIsIFrameSelected(&amp;isIFrameSelected);<br clear="none"/>
+  aWebBrowserPrint->GetIsRangeSelection(&amp;isRangeSelection);</div>
+<div><br clear="none"/></div>
+<div>On OS X, we do:<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>nsresult rv = aWebBrowserPrint->EnumerateDocumentNames(&amp;titleCount, &amp;docTitles);</div>
+<div><br clear="none"/></div>
+<div>Linux... nothing special it seems. So we have to create some kind of mock nsIWebBrowserPrint that satisfies the above.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Ok, I have the communications for opening the dialog set up. Now I need:<br clear="none"/></div>
+<div><br clear="none"/></div>
+<ul>
+<li>Ability to convert nsIPrintSettings and an nsIWebBrowserPrint to a PrintData, including the platform-specific stuff I listed above<br clear="none"/></li>
+<li>A fake nsIWebBrowserPrint that can take an PrintData and parrot back results for GetIsFramesetDocument. This is what we end up passing to the real nsIPrintingPromptService.<br clear="none"/></li>
+<li>Ability to convert PrintData back to an nsIPrintSettings.<br clear="none"/></li>
+<li>Ability to create native-y things on the child side - like the DevMode on Windows.<br clear="none"/></li>
+</ul>
+<div><input checked="true" type="checkbox"/>Create a utility function for nsPrintingPromptServiceProxy that takes nsIPrintSettings and nsIWebBrowserPrint, and packs a PrintData with the right info (including platform-specific stuff)<br clear="none"/></div>
+<div><input checked="true" type="checkbox"/>Create a utility function accessible both for nsPrintingPromptServiceProxy and PrintingParent that takes an PrintDataand returns an nsIPrintSettings.<br clear="none"/></div>
+<div><input checked="true" type="checkbox"/>Create a utility function accessible for PrintingParent that takes a PrintData, wraps it, and becomes an nsIWebBrowserPrint that parrots out the information that Windows and OS X need.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>I think I can start on the above tonight, even away from my Windows machine.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Before I proceed - I want to make sure: nsIPrintSettings doesn't get packed with native stuff _before_ it goes off to the print settings dialog, right? Right… that seems to be true.</div>
+<div><br/></div>
+<div>OK! I have a dialog showing up on Windows! This is good good good. Funny how we don't have the end number of pages available in the print dialog… that's weird. But that also seems to be the behaviour without e10s.¯\_(ツ)_/¯</div>
+<div><br/></div>
+<div>So now that I've got this dialog… I need to get the information from the dialog back to the child, and then the circuit will be complete.</div>
+<div><br/></div>
+<div>Here's how things work for Windows:</div>
+<div><br/></div>
+<div>We pass in the nsIPrintSettings to show the dialog, and the actual showing happens in nsPrintDialogUtil.cpp in a function called ShowNativePrintDialog. We construct a devmode… we also create a temporary nsIPrintSettingsWin, and use it to set the device name and driver name, and then …</div>
+<div><br/></div>
+<div>Wait. Wait, this is wrong. We're actually passing an nsPrintSettingsWin to ShowNativePrintDialog as an nsIPrintSettings, and then QI'ing it within that function to an nsIPrintSettingsWin. Shoot.</div>
+<div><br/></div>
+<div>Ah, ok, how about this:</div>
+<div><br/></div>
+<div>We have the nsIPrintOptions service that can return the right nsIPrintSettings implementation. How about I:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Add SerializeToPrintData to nsPrintOptionsImpl.cpp to do common field copying from a PrintData (take nsIPrintSettings and nsIWebBrowserPrint)<br/></div>
+<div><input checked="true" type="checkbox"/>Add DeserializeFromPrintData to nsPrintOptionsImpl.cpp to do common field copying to a PrintData<br/></div>
+<div><input checked="true" type="checkbox"/>Add implementations of that function to nsPrintOptionsWin.cpp that calls the parent implementation, and then reads/writes the native information to/from that PrintData.<br/></div>
+<div><br/></div>
+<div>That way, PrintingParent.cpp can stay relatively platform agnostic, and we offload the platform specific stuff to stuff that's…well, already platform specific.</div>
+<div><br/></div>
+<div>I… I think I like that idea. Let's do it.</div>
+<div><br/></div>
+<div>It… works? If this lands, I'll need to file some follow-ups:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/><s>Enable e10s printing on Windows and OS X</s> (can probably tag this on the end of bug 1082579)</div>
+<div><input checked="true" type="checkbox"/>ShowPrintDialog should probably not be a sync call. smaug says: "<strong style="color: rgb(255, 0, 255); font-weight: bold; font-family: Monaco; font-size: 12px; orphans: 2; text-align: -webkit-auto; widows: 2; -webkit-text-size-adjust: auto; background-color: rgb(238, 238, 238);">Couldn't you create a PrintDialog protocol, and then in __delete__ continue. While you're waiting __delete__ you'd call NS_ProcessNextEvent"</strong></div>
+<div><input checked="true" type="checkbox"/>Progress dialog does not show progress or close the dialog - need to proxy that information</div>
+<div><input checked="true" type="checkbox"/>Support printing in e10s on Linux</div>
+<div><input checked="true" type="checkbox"/>Cancelling from the print settings dialog shows an alert "An error occurred while printing"</div>
+<div><input checked="true" type="checkbox"/>File bug for long-term plan</div>
+<div><br/></div>
+<div><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=f1aa062a86f9">https://tbpl.mozilla.org/?tree=Try&amp;rev=f1aa062a86f9</a><br/></div>
+<div><a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=2413f6719d70">https://tbpl.mozilla.org/?tree=Try&amp;rev=2413f6719d70</a></div>
+<div><br/></div>
+</body></html>

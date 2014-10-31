@@ -1,0 +1,772 @@
+---
+layout: post
+title:  "Bug 1082575 - Make PrintUtils and printPreviewBindings.xml e10s friendly"
+date:   2014-10-31
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1082575">
+ Bug 1082575 - Make PrintUtils and printPreviewBindings.xml e10s friendly
+</a>
+<div>
+ (Copying a lot of this over from my notes for bug 927188)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So refactoring - let's take a look at the current interface to PrintUtils, what their arguments are, and what they're expected to do.
+ <div>
+  <br/>
+ </div>
+ showPageSetup
+</div>
+<ul>
+ <li>
+  Opens the page setup page for setting up what the page will look like when printed.
+ </li>
+ <li>
+  Gets print settings, passes them to the dialog for population, then this dialog blocks JS
+ </li>
+ <li>
+  When we return, the printSettings that we passed might have changed, and we can save them (if print.save_print_settings is true)
+ </li>
+ <li>
+  We return true on success, false on failure (which we detect by wrapping the whole thing in a try-catch. Guh)
+ </li>
+ <li>
+  <b>
+   Ultimate goal:
+  </b>
+  Open the Print Settings dialog for the system, and block until settings have been returned, after which we try to stash them.
+ </li>
+</ul>
+<div>
+ print
+</div>
+<ul>
+ <li>
+  Takes some nsIDOMWindow as an optional argument
+ </li>
+ <li>
+  Gets the nsIWebBrowserPrint associated with that nsIDOMWindow (or with the current window.content if no nsIDOMWindow was passed)
+ </li>
+ <li>
+  Gets printSettings
+ </li>
+ <li>
+  Calls the print function of nsIWebBrowserPrint, passing print settings and blocks
+ </li>
+ <li>
+  When the function returns, if we're supposed to save print settings and print settings are global, we save the print settings to prefs.
+ </li>
+ <li>
+  <b>
+   Ultimate goal
+  </b>
+  : Kick off printing of some nsIDOMWindow, and potentially saves any print settings we might have changed.
+ </li>
+</ul>
+<div>
+ printPreview
+</div>
+<ul>
+ <li>
+  Check for the existence of print-preview-toolbar in the DOM
+  <ul>
+   <li>
+    If it's not there, stash a bunch of variables in PrintUtils, including the "callback", the source browser, the title of the source browser document, and the URL of the source browser document
+   </li>
+   <li>
+    Else, collapses the source browser, since we're going to show the new browser with print preview soon.
+   </li>
+  </ul>
+ </li>
+ <li>
+  We get the nsIWebBrowserPrint for the current window.content
+ </li>
+ <li>
+  We get the print settings
+ </li>
+ <li>
+  We show a progress dialog, hooked up with a listener that displays… well, progress. Something.
+ </li>
+ <li>
+  Once the progress dialog has either reached its completion or errors out, we then attempt to enter print preview…
+  <b>
+   there's some hackery about waiting for print dialogs that needs closer inspection.
+  </b>
+ </li>
+ <li>
+  <b>
+   Ultimate goal:
+  </b>
+  Switch the UI over to print-preview mode.
+ </li>
+</ul>
+<div>
+ getWebBrowserPrint
+</div>
+<ul>
+ <li>
+  Given an nsIDOMWindow, QI's it to an nsIInterfaceRequestor, and gets the nsIWebBrowserPrint associated with the nsIDOMWindow.
+ </li>
+ <li>
+  If no nsIDOMWindow is passed to the function, uses window.content
+ </li>
+</ul>
+<div>
+ getPrintPreview
+</div>
+<ul>
+ <li>
+  Returns the nsIWebBrowserPrint for the print preview browser docshell
+ </li>
+</ul>
+<div>
+ setPrinterDefaultsForSelectedPrinter (private)
+</div>
+<ul>
+ <li>
+  Takes the nsIPrintSettingsService and some nsIPrintSettings
+ </li>
+ <li>
+  If there's no printer name for the nsIPrintSettings, assigns the default printer
+ </li>
+ <li>
+  Initializes the passed in nsIPrintSettings from the name of the printer put in nsIPrintSettings
+ </li>
+ <li>
+  Then "augments" them with values from the last time we used the printer
+ </li>
+</ul>
+<div>
+ getPrintSettings (private)
+</div>
+<ul>
+ <li>
+  Gets the pref service, and populates gPrintSettingsAreGlobal / gSavePrintSettings
+ </li>
+ <li>
+  If print settings are global, takes the global print settings and inits them with the settings for the selected printer
+ </li>
+ <li>
+  If print settings are not global, just returns a new empty set of print settings.
+ </li>
+</ul>
+<div>
+ enterPrintPreview (private)
+</div>
+<ul>
+ <li>
+  Gets the currently focused element and stores it in gFocusedElement
+ </li>
+ <li>
+  Gets print settings with getPrintSettings
+ </li>
+ <li>
+  Gets the content window from the source browser
+ </li>
+ <li>
+  Gets nsIWebBrowserPrint for the print preview browser docshell via getPrintPreview
+ </li>
+ <li>
+  Calls printPreview on the nsIWebBrowserPrint, passing it the print settings and the content window of the source browser, along with the "webProgressPP", which seems to be related to the hackery that happened in printPreview at the end there.
+ </li>
+ <li>
+  In the event that the user hits "cancel" on the print preview process dialog, we bail out.
+ </li>
+ <li>
+  Otherwise, we get the print-preview-toolbar
+  <ul>
+   <li>
+    If it exists, then we're already in print preview. we call "updateToolbar" on it (which does some bindings stuff)
+   </li>
+   <li>
+    We get the print preview browser, and un-collapse it, and then focus the contentWindow, and then bail.
+   </li>
+  </ul>
+ </li>
+ <li>
+  There's no print-preview-toolbar, so we're not already in print preview. We set the docShellActive on the source browser
+ </li>
+ <li>
+  We create the print-preview-toolbar, and inject it into the nav toolbox
+ </li>
+ <li>
+  We then uncollapse the print preview browser and focus the print-preview browser content window
+ </li>
+ <li>
+  We call this._callback.onEnter().
+ </li>
+</ul>
+<div>
+ exitPrintPreview (private)
+</div>
+<br/>
+onKeyDownPP (private)
+<div>
+ <br/>
+ onKeyPressPP (private)
+ <br/>
+ <br/>
+ Ideas:
+ <br/>
+ <ul>
+  <li>
+   Maybe create an nsIWebBrowserPrint for remote browsers, and have getWebBrowserPrint return that? Unfortunately, there's some sync stuff on that interface.
+   <br/>
+  </li>
+  <li>
+   Completely alter PrintUtils to use messages
+   <br/>
+  </li>
+  <li>
+   Make accessor's for things like nsIWebBrowserPrint return null or throw if CPOW or gMultiProcessBrowser. Alter methods to not use those accessor's anymore.
+   <br/>
+  </li>
+ </ul>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ There's some really hairy stuff going on with the print preview progress dialog. Feels kinda rube-goldbergy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's the docstring for nsIPrintingPromptService's showProgress.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ /**
+ <br/>
+ *  Shows the print progress dialog
+ <br/>
+ *
+ <br/>
+ *  @param parent - a DOM windows the dialog will be parented to
+ <br/>
+ *  @param webBrowserPrint - represents the document to be printed
+ <br/>
+ *  @param printSettings - PrintSettings for print "job"
+ <br/>
+ *  @param openDialogObserver - an observer that will be notifed when the dialog is opened
+ <br/>
+ *  @param isForPrinting - true - for printing, false for print preview
+ <br/>
+ *  @param webProgressListener - additional listener can be registered for progress notifications
+ <b>
+  (OUTPARAM)
+ </b>
+ <br/>
+ *  @param printProgressParams - parameter object for passing progress state
+ <b>
+  (OUTPARAM)
+ </b>
+ <br/>
+ *  @param notifyOnOpen - this indicates that the observer will be notified when the progress
+ <b>
+  (OUTPARAM)
+ </b>
+ <br/>
+ *                        dialog has been opened. If false is returned it means the observer
+ <br/>
+ *                        (usually the caller) shouldn't wait
+ <br/>
+ *                        For Print Preview Progress there is intermediate progress
+ <br/>
+ */
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We open print preview progress dialog… we get back a progress listener, some params, and a bool.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ CRASH with my cleanups and changes. I hit this when entering print preview.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ #0  0xb7359c6b in mozalloc_abort (msg=0xbfe5d7e0 "[Parent 23900] ###!!! ABORT: You can't dereference a NULL nsCOMPtr with operator-&gt;().: 'mRawPtr != 0', file ../dist/include/nsCOMPtr.h, line 829")
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/memory/mozalloc/mozalloc_abort.cpp:37
+</div>
+<div>
+ #1  0xaf1aa21a in Abort (aMsg=0xbfe5d7e0 "[Parent 23900] ###!!! ABORT: You can't dereference a NULL nsCOMPtr with operator-&gt;().: 'mRawPtr != 0', file ../dist/include/nsCOMPtr.h, line 829")
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/xpcom/base/nsDebugImpl.cpp:469
+</div>
+<div>
+ #2  0xaf1aa126 in NS_DebugBreak (aSeverity=3, aStr=0xb3cda210 "You can't dereference a NULL nsCOMPtr with operator-&gt;().", aExpr=0xb3cda201 "mRawPtr != 0",
+</div>
+<div>
+ aFile=0xb3cda1dd "../dist/include/nsCOMPtr.h", aLine=829) at /media/Projects/mozilla/mozilla-central/xpcom/base/nsDebugImpl.cpp:426
+</div>
+<div>
+ #3  0xaf2754f5 in nsCOMPtr&lt;nsIPresShell&gt;::operator-&gt; (this=0x89aa3050) at ../dist/include/nsCOMPtr.h:828
+</div>
+<div>
+ #4  0xb1fa7f1e in nsPrintEngine::GetSeqFrameAndCountPagesInternal (aPO=0x89aa3040, aSeqFrame=@0xbfe5dc78: 0x0, aCount=@0xbfe5dd88: 0)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/layout/printing/nsPrintEngine.cpp:363
+</div>
+<div>
+ #5  0xb1fa9f1b in nsPrintEngine::GetPrintPreviewNumPages (this=0x93feb5b0, aPrintPreviewNumPages=0xbfe5dd88) at /media/Projects/mozilla/mozilla-central/layout/printing/nsPrintEngine.cpp:883
+</div>
+<div>
+ #6  0xb1cea834 in nsDocumentViewer::GetPrintPreviewNumPages (this=0x93086180, aPrintPreviewNumPages=0xbfe5dd88) at /media/Projects/mozilla/mozilla-central/layout/base/nsDocumentViewer.cpp:4018
+</div>
+<div>
+ #7  0xaf26e7fe in NS_InvokeByIndex () at /media/Projects/mozilla/mozilla-central/xpcom/reflect/xptcall/md/unix/xptcinvoke_gcc_x86_unix.cpp:31
+</div>
+<div>
+ #8  0xafc94658 in CallMethodHelper::Invoke (this=0xbfe5dd58) at /media/Projects/mozilla/mozilla-central/js/xpconnect/src/XPCWrappedNative.cpp:2395
+</div>
+<div>
+ #9  0xafc924ff in CallMethodHelper::Call (this=0xbfe5dd58) at /media/Projects/mozilla/mozilla-central/js/xpconnect/src/XPCWrappedNative.cpp:1747
+</div>
+<div>
+ #10 0xafc8fa14 in XPCWrappedNative::CallMethod (ccx=..., mode=XPCWrappedNative::CALL_GETTER) at /media/Projects/mozilla/mozilla-central/js/xpconnect/src/XPCWrappedNative.cpp:1714
+</div>
+<div>
+ #11 0xafca0885 in XPCWrappedNative::GetAttribute (ccx=...) at /media/Projects/mozilla/mozilla-central/js/xpconnect/src/xpcprivate.h:2157
+</div>
+<div>
+ #12 0xafc9f757 in XPC_WN_GetterSetter (cx=0x9312ade0, argc=0, vp=0xbfe5e264) at /media/Projects/mozilla/mozilla-central/js/xpconnect/src/XPCWrappedNativeJSOps.cpp:1283
+</div>
+<div>
+ #13 0xb382a0c7 in js::CallJSNative (cx=0x9312ade0, native=0xafc9f32e &lt;XPC_WN_GetterSetter(JSContext*, unsigned int, JS::Value*)&gt;, args=...)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/js/src/jscntxtinlines.h:231
+</div>
+<div>
+ #14 0xb38101af in js::Invoke (cx=0x9312ade0, args=..., construct=js::NO_CONSTRUCT) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:482
+</div>
+<div>
+ #15 0xb3810698 in js::Invoke (cx=0x9312ade0, thisv=..., fval=..., argc=0, argv=0x0, rval=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:538
+</div>
+<div>
+ #16 0xb3810cbe in js::InvokeGetterOrSetter (cx=0x9312ade0, obj=0x8902cda0, fval=..., argc=0, argv=0x0, rval=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:611
+</div>
+<div>
+ #17 0xb3856f4b in js::Shape::get (this=0x8f5857a8, cx=0x9312ade0, receiver=..., obj=0x8902cda0, pobj=0x8902cda0, vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Shape-inl.h:46
+</div>
+<div>
+ #18 0xb3854499 in NativeGetInline&lt;(js::AllowGC)1&gt; (cx=0x9312ade0, obj=..., receiver=..., pobj=..., shape=..., vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/NativeObject.cpp:1626
+</div>
+<div>
+ #19 0xb3854ccf in GetPropertyHelperInline&lt;(js::AllowGC)1&gt; (cx=0x9312ade0, obj=..., receiver=..., id=..., vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/NativeObject.cpp:1874
+</div>
+<div>
+ #20 0xb3851fa1 in js::baseops::GetProperty (cx=0x9312ade0, obj=..., receiver=..., id=..., vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/NativeObject.cpp:1884
+</div>
+<div>
+ #21 0xb329c1bb in JSObject::getGeneric (cx=0x9312ade0, obj=..., receiver=..., id=..., vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/NativeObject.h:1582
+</div>
+<div>
+ #22 0xb380f02e in GetPropertyOperation (cx=0x9312ade0, fp=0xa8e880a0, script=..., pc=0xa517ffd7 "5", lval=..., vp=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:253
+</div>
+<div>
+ #23 0xb381b8d3 in Interpret (cx=0x9312ade0, state=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:2383
+</div>
+<div>
+ #24 0xb380fe21 in js::RunScript (cx=0x9312ade0, state=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:432
+</div>
+<div>
+ #25 0xb38102ed in js::Invoke (cx=0x9312ade0, args=..., construct=js::NO_CONSTRUCT) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:501
+</div>
+<div>
+ #26 0xb3810698 in js::Invoke (cx=0x9312ade0, thisv=..., fval=..., argc=0, argv=0x0, rval=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:538
+</div>
+<div>
+ #27 0xb3609499 in JS_CallFunctionValue (cx=0x9312ade0, obj=..., fval=..., args=..., rval=...) at /media/Projects/mozilla/mozilla-central/js/src/jsapi.cpp:4996
+</div>
+<div>
+ #28 0xb12e82fc in JS::Call (cx=0x9312ade0, thisObj=..., fun=..., args=..., rval=...) at ../../dist/include/jsapi.h:4042
+</div>
+<div>
+ #29 0xb12e9b6b in nsXBLProtoImplAnonymousMethod::Execute (this=0x94e9dea0, aBoundElement=0x92f9a380, aAddonId=0x0) at /media/Projects/mozilla/mozilla-central/dom/xbl/nsXBLProtoImplMethod.cpp:326
+</div>
+<div>
+ #30 0xb12edfa4 in nsXBLPrototypeBinding::BindingAttached (this=0x94f81d60, aBoundElement=0x92f9a380) at /media/Projects/mozilla/mozilla-central/dom/xbl/nsXBLPrototypeBinding.cpp:263
+</div>
+<div>
+ #31 0xb12d5316 in nsXBLBinding::ExecuteAttachedHandler (this=0x94ea22e0) at /media/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:612
+</div>
+<div>
+ #32 0xb12cd868 in nsBindingManager::ProcessAttachedQueue (this=0x953ea160, aSkipSize=0) at /media/Projects/mozilla/mozilla-central/dom/xbl/nsBindingManager.cpp:436
+</div>
+<div>
+ #33 0xb12cef2b in nsBindingManager::EndOutermostUpdate (this=0x953ea160) at /media/Projects/mozilla/mozilla-central/dom/xbl/nsBindingManager.cpp:1060
+</div>
+<div>
+ #34 0xb1520f30 in nsDocument::MaybeEndOutermostXBLUpdate (this=0x94e09000) at /media/Projects/mozilla/mozilla-central/content/base/src/nsDocument.cpp:4768
+</div>
+<div>
+ #35 0xb1521128 in nsDocument::EndUpdate (this=0x94e09000, aUpdateType=1) at /media/Projects/mozilla/mozilla-central/content/base/src/nsDocument.cpp:4800
+</div>
+<div>
+ #36 0xb193a790 in mozilla::dom::XULDocument::EndUpdate (this=0x94e09000, aUpdateType=1) at /media/Projects/mozilla/mozilla-central/content/xul/document/src/XULDocument.cpp:3243
+</div>
+<div>
+ #37 0xb1317cf0 in mozAutoDocUpdate::~mozAutoDocUpdate (this=0xbfe5f2a4, __in_chrg=&lt;optimized out&gt;) at /media/Projects/mozilla/mozilla-central/content/base/src/mozAutoDocUpdate.h:38
+</div>
+<div>
+ #38 0xb1588888 in nsINode::ReplaceOrInsertBefore (this=0x94ecfbf0, aReplace=false, aNewChild=0x92f9a380, aRefChild=0x94ecfc90, aError=...)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/content/base/src/nsINode.cpp:2080
+</div>
+<div>
+ #39 0xb0863662 in nsINode::InsertBefore (this=0x94ecfbf0, aNode=..., aChild=0x94ecfc90, aError=...) at ../../dist/include/nsINode.h:1604
+</div>
+<div>
+ #40 0xb09f4970 in mozilla::dom::NodeBinding::insertBefore (cx=0x9312ade0, obj=..., self=0x94ecfbf0, args=...) at /media/Projects/mozilla/mozilla-central/obj-debug/dom/bindings/NodeBinding.cpp:549
+</div>
+<div>
+ #41 0xb0dd4b14 in mozilla::dom::GenericBindingMethod (cx=0x9312ade0, argc=2, vp=0xa8e88068) at /media/Projects/mozilla/mozilla-central/dom/bindings/BindingUtils.cpp:2407
+</div>
+<div>
+ #42 0xb382a0c7 in js::CallJSNative (cx=0x9312ade0, native=0xb0dd48e1 &lt;mozilla::dom::GenericBindingMethod(JSContext*, unsigned int, JS::Value*)&gt;, args=...)
+</div>
+<div>
+ at /media/Projects/mozilla/mozilla-central/js/src/jscntxtinlines.h:231
+</div>
+<div>
+ #43 0xb38101af in js::Invoke (cx=0x9312ade0, args=..., construct=js::NO_CONSTRUCT) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:482
+</div>
+<div>
+ #44 0xb381cee0 in Interpret (cx=0x9312ade0, state=...) at /media/Projects/mozilla/mozilla-central/js/src/vm/Interpreter.cpp:2547
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ JS Stack:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 0 printpreviewtoolbar_XBL_Constructor() ["chrome://global/content/printPreviewBindings.xml":132]
+</div>
+<div>
+ this = [object XULElement]
+</div>
+<div>
+ 1 anonymous(message = [object Object]) ["chrome://global/content/printUtils.js":346]
+</div>
+<div>
+ this = [object Object]
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So when constructing the printpreviewtoolbar, we get the nsIWebBrowserPrint from PrintUtils via getPrintPreview, and then access nsIWebBrowserPrint.printPreviewNumPages. That is, apparently, causing us to crash with this stack.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Looks like we eventually call into nsPrintEngine::GetSeqFrameAndCountPagesInternal, and then…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah…. at the time GetSeqFrameAndCountPagesInternal is called, mPresShell is null. So of course, aPO-&gt;mPresShell-&gt;GetPageSequenceFrame(); is going to explode.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So we must have hit GetSeqFrameAndCountPagesInternal before nsPrintEngine::ReflowPrintObject is called.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yep, that's what's happening. We're not hitting our Observe early enough it seems. Probably having to do with the progress dialog?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, heh, so here's the order of events:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <ol>
+  <li>
+   We show the progress dialog, which loads printPreviewProgress.xul and printPreviewProgress.js
+  </li>
+  <li>
+   We send a signal to the child process to start entering print preview
+  </li>
+  <li>
+   Once the child says it has called print preview, we send a message to the parent
+  </li>
+  <li>
+   Parent begins transition to print preview UI
+  </li>
+ </ol>
+ <div>
+  The problem is that printPreviewProgress.js waits 100ms after loading the dialog to call printProgress.doneIniting, which is supposed to do the job of reflowing the documents in the child process to be print-previewy. This must not be reaching the child somehow in time.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Or is it? Let me add some logging to see the order of events here…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting - without my patch, nsPrintEngine::Observe never needs to be called… why is that?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah… because mProgressDialogIsShown is true… so that causes us to skip the whole showPrintProgress thing, and so aDoNotify gets false, and so we immediately InitPrintDocConstruction. That must be where we're failing with my script somehow.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's test that hypothesis.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TOTALLY. For some reason, mProgressDialogIsShown is false.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It seems to be because We can't QI the aWebProgressListener passed to DoCommonPrint into the nsIPrintingPromptService… what? Why do we even do that??!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Guh. Ok, I've made my nsIWebProgressListener implement that interface. So weird.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, now we're not crashing. Yay!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So… why isn't print preview stuff showing up?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GUH. WHY NOT. WHERE ARE YOU.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Be…because we're printing about:blank? It seems? This is exactly what bjacob hit, and we never solved it. GARRR….
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yep, we're trying to print about:blank. Why? WHY?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Does this have something to do with PrintSettings, because that seems to be where the title and URL displayed at the top of the print preview seem to come from…hm… perhaps there's some state there that I'm not preserving or replicating correctly.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, what I'll do is set a breakpoint in nsPrintSettingsImpl::SetTitle to see who sets the title. That'll give me clues. (Oh, also nsPrintSettings::operator=, since that also writes to mTitle).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh FFS, I was passing the wrong document to the nsIWebBrowserPrint.printPreview. :( Fixed now, and print preview works. Yay!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, now how about printPreviewBindings.xml? There are references to PrintUtils.getPrintPreview, which attempt to synchronously retrieve page counts and stuff…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Examples:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ updateToolbar, uses getPrintPreview to get the number of pages available in the print preview.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ navigate, uses getPrintPreview to navigate where in the document we are - this can probably use messages pretty easily.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ updateToolbar seems to be the tricky thing.
+</div>
+<div>
+ <br/>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  updateToolbar
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ This function is called both on initialize, and anytime the toolbar counts might need to be updated (for example, if we open page settings, change some settings, which causes us to recalculate the number of pages there are in the document).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How are print settings going to work? I think… I think I'm OK passing those through CPOWs for now, as they're not much more than a struct. Should probably file a bug to serialize and deserialize.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NO. That's not true. :( nsIPrintSettings CPOWs are definitely passed into native code on the child side, and all sortsa shit goes wrong. This is bad bad bad. Don't do that. We have to somehow serialize and deserialize these settings.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Mossop feedback TODOs:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Put documentation at the top of PrintUtils detailing how the messaging goes back and forth
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Figure out how to go from aWindow content window to a browser in a toolkit-y way
+ <br/>
+</div>
+<div>
+ <input type="checkbox"/>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo! I've got print preview working for e10s! \o/ Even in Windows!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ PrintUtils.print can take no parameters, and it'll default to printing. That's no good for e10s, because window.content doesn't exist in e10s land. I've updated PrintUtils usage in browser to always pass a contentWindow parameter, and made PrintUtils.print throw if the caller doesn't provide a contentWindow, but has gMultiProcessBrowser set to true.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So Mossop wants me to consider maybe having the caller of PrintUtils pass in the remote browser, instead of exposing that hook for XUL apps to provide browserForContentWindow functionality… thinking...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I don't see much drawback except that it puts more onus on the caller to support remote browsers, but we were already doing that with the getBrowserForContentWindow hook thing.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's go for the path of least resistance here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Up for review, and here's a try push:
+ <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=b0e5b1de40d2">
+  https://tbpl.mozilla.org/?tree=Try&amp;rev=b0e5b1de40d2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo! All green! Let's land this puppy!
+</div>
+<div>
+ <br/>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  TODO
+ </b>
+</div>
+<div style="font-size: 15px;">
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to get rid of that godawful nsIPrintingPromptService QI hack in DoCommonPrint. BARF.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to serialize nsIPrintSettings instead of passing them through a CPOW
+</div>
