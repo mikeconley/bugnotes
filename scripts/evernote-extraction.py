@@ -105,6 +105,9 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
     logging.info("Generating front matter...")
 
     fm_template = Template(DEFAULT_FRONT_MATTER)
+    # The bug_title might have some quotes in it, which Jekyll will not like
+    # unless we escape them.
+    bug_title = bug_title.replace('"', '\\"')
     front_matter = fm_template.render(post_title=bug_title, post_date=date)
 
     logging.info("Extracting document body and inserting into post")
