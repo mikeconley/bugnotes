@@ -1,0 +1,169 @@
+---
+layout: post
+title:  "Bug 1085622 - \"Enable E10S (multi-process)\" preference checkbox should not be displayed in Aurora's about:preferences"
+date:   2014-11-10
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1085622">
+ Bug 1085622 - "Enable E10S (multi-process)" preference checkbox should not be displayed in Aurora's about:preferences
+</a>
+<div>
+ E10S_TESTING_ONLY is dependant on NIGHTLY_BUILD. So is this a bug in NIGHTLY_BUILD as well?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ -z string     True if the length of string is zero.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ dnl ========================================================
+ <div>
+  dnl Multiprocess Firefox Nightly Testing UI
+ </div>
+ <div>
+  dnl To be removed in Bug 1003313
+ </div>
+ <div>
+  dnl ========================================================
+ </div>
+ <div>
+  if test -z "$NIGHTLY_BUILD"; then
+ </div>
+ <div>
+  E10S_TESTING_ONLY=1
+ </div>
+</div>
+<div>
+ fi
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That roughly translates to:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ If NIGHTLY_BUILD is not set, then set E10S_TESTING_ONLY=1.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's wrong. That's the opposite of what we want. That should probably be:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ if test -n "$NIGHTLY_BUILD"; then
+</div>
+<div>
+ E10S_TESTING_ONLY=1
+</div>
+<div>
+ fi
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ -n string     True if the length of string is nonzero.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ If this solves it…then the real mystery is: how come this hasn't been a problem on Beta or Release?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Dunno, but it looks like this is all a ham-show. It looks like regardless of what value E10S_TESTING_ONLY had, we were always defining it. In our moz.build files, we had code like this:
+ <div>
+  <br/>
+ </div>
+ <div>
+  DEFINES['E10S_TESTING_ONLY'] = CONFIG['E10S_TESTING_ONLY']
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Even if E10S_TESTING_ONLY was set to ' ', which seems to be the case if NIGHTLY_BUILD is not set, then we'd still define E10S_TESTING_ONLY.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Meaning that E10S_TESTING_ONLY was
+ <b>
+  always
+ </b>
+ defined.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  I've switched it so that the E10S_TESTING_ONLY define is only ever set in a moz.build if CONFIG['E10S_TESTING_ONLY'] is truthy - otherwise, it remains undefined.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  I also fixed a case in tabbrowser.xml where we had no #endif for an #ifdef E10S_TESTING_ONLY, which resulted in a busted browser when I first fixed this.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Kinda bad news all around. Luckily, the tabbrowser.xml stuff hasn't reached beta yet - it's only on Aurora and Central.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  It's pretty mysterious why the e10s stuff isn't visible in beta or release. I honestly have no idea. Perhaps the build rules are drastically different - I'm really not sure.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ Anyhow, my patch applied on central still shows the e10s testing UI. Applied to Aurora (after manually applying) gets rid of the e10s testing UI.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Attaching - let's see what people think.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah - gavin's got a good idea. Instead of defining E10S_TESTING_ONLY everywhere in every moz.build, let's just globally define it. It's temporary anyway.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, got a patch and a review, and it landed on fx-team, but I forgot to ifdef a gRemoteTabsUI.init() call - strange that there are two of those. Going to land a follow-up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And landed on mozilla-aurora. That's good - that thing in tabbrowser.xml was a ticking timebomb.
+</div>

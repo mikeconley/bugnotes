@@ -1,0 +1,107 @@
+---
+layout: post
+title:  "Bug 1089815 - Printing and print preview from view source will be broken when bug 1082575 lands"
+date:   2014-11-10
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1089815">
+ Bug 1089815 - Printing and print preview from view source will be broken when bug 1082575 lands
+</a>
+<div>
+ This is a regression that I caused with my PrintUtils work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Uplift happens on November 24th.
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ The problem seems to be that, for some reason, that browser that is created for print previewing in the view source window does not have a message manager.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's pretty interesting. Why is that? Does the main browser in the view source window have a message manager?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes it does. It just looks like programmatically generated browsers in the view source window don't get a message manager. I wonder if that's true in general as well.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes… it does. Programmatically created browsers don't seem to get message managers.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And yet, that's preposterous. tabbrowser creates browser elements programmatically all the time. What are we doing differently?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting… in nsFrameLoader::EnsureMessageManager, we seem to bail out in the view source case because mIsTopLevelContent is false. In the tabbrowser case, mIsTopLevelContent is true.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I wonder where that distinction is made...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah - looks like mIsTopLevelContent is set to the return value of nsFrameLoader::AddTreeItemToTreeOwner, which only returns true if the browser element has type="content", "content-targetable" or "content-primary".
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, I guess that's what we'll do then - I'll set "content" on it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll also update the PrintUtils documentation while I'm at it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Mossop (and I!) are curious about why that type attribute is needed here. I'm needinfo'd smaug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From smaug:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "We certainly don't want message manager for all the &lt;browser&gt;s. IIRC that would break sidebar for example. You'd get the frame scripts loaded which are meant for content tabs (assuming window level mm was used for loading the scripts). That was at least the original issue, years ago, IIRC."
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This might no longer be true with the messagemanagergroup stuff that was added. But meh. Now I know.
+</div>
