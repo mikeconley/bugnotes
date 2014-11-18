@@ -1,0 +1,1327 @@
+---
+layout: post
+title:  "Bug 1090444 - The Printing Progress dialog does not show progress or close when opened from the child process"
+date:   2014-11-18
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1090444">
+ Bug 1090444 - The Printing Progress dialog does not show progress or close when opened from the child process
+</a>
+<div>
+ Leftovahs!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So here's the scoop - I've got this Printing Progress dialog opened via the ShowProgress IPC call over PPrinting.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A few things here:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  ShowProgress is a sync call returning nothing. We probably need to return something like an nsIWebProgressListener so we can update state to the parent from the child.
+ </li>
+ <li>
+  This might tie in with
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1090439">
+   bug 1090439
+  </a>
+  , because if I introduce some sort of interface to talk directly with dialogs, that means I can also maybe tie running a nested event loop with the lifetime of that protocol actor. That way, when a protocol goes down (because the dialog closed), we maybe stop blocking.
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ Suppose I have PPrintingDialog…. what would that look like?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Obviously:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ StateChange
+</div>
+<div>
+ ProgressChange
+</div>
+<div>
+ DocTitleChange
+</div>
+<div>
+ DocURLChange
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ child:
+</div>
+<div>
+ __delete__
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So let's think this through a scenario. Child calls nsPrintingPromptServiceProxy's ShowProgress method… we call the ShowProgress IPC method, and this returns immediately with something that implements PPrintingDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Whatever that thing is, it also needs to implement nsIWebProgressListener on the child side. On the parent side, we _get back_ a nsIWebProgressListener from the dialog, and that's what we have to connect our stuff to. So the parent implementation of this protocol needs to know how to wrap a returned nsIWebProgressListener from the parent, and send it the data that the child sends.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ At the same time, I want this thing to not just be for progress dialogs, if possible. Like, I want it to be usable for non-sync-ifying those IPC calls to the parent in PPrinting.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I have this light, generic implementation on the child and parent side. It just knows how to communicate "I've been closed", with maybe a reason for closing (cancel vs window close?).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How does that work? Ah… looks like nsPrintEngine::ShowPrintErrorDialog is called if the rv from ShowPrintDialog is not NS_OK, and can handle:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ #define ENTITY_FOR_ERROR(label) \
+</div>
+<div>
+ case NS_ERROR_##label: stringName.AssignLiteral("PERR_" #label); break
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_NO_PRINTER_AVAILABLE);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_NAME_NOT_FOUND);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_COULD_NOT_OPEN_FILE);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_STARTDOC);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_ENDDOC);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_STARTPAGE);
+</div>
+<div>
+ ENTITY_FOR_ERROR(GFX_PRINTER_DOC_IS_BUSY);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ENTITY_FOR_ERROR(ABORT);
+</div>
+<div>
+ ENTITY_FOR_ERROR(NOT_AVAILABLE);
+</div>
+<div>
+ ENTITY_FOR_ERROR(NOT_IMPLEMENTED);
+</div>
+<div>
+ ENTITY_FOR_ERROR(OUT_OF_MEMORY);
+</div>
+<div>
+ ENTITY_FOR_ERROR(UNEXPECTED);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ default:
+</div>
+<div>
+ ENTITY_FOR_ERROR(FAILURE);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ #undef ENTITY_FOR_ERROR
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I need to communicate that sort of thing back.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks as if NS_ERROR_ABORT is used to communicate that the window was closed by something other than pressing OK - like hitting the X on the window, or hitting cancel. Ok, that's useful information.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So that __delete__ should take some kind of status.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ /**
+</div>
+<div>
+ <div>
+  *  Shows the print progress dialog
+ </div>
+ <div>
+  *
+ </div>
+ <div>
+  *  @param parent - a DOM windows the dialog will be parented to
+ </div>
+ <div>
+  *  @param webBrowserPrint - represents the document to be printed
+ </div>
+ <div>
+  *  @param printSettings - PrintSettings for print "job"
+ </div>
+ <div>
+  *  @param openDialogObserver - an observer that will be notifed when the dialog is opened
+ </div>
+ <div>
+  *  @param isForPrinting - true - for printing, false for print preview
+ </div>
+ <div>
+  *  @param webProgressListener - additional listener can be registered for progress notifications
+ </div>
+ <div>
+  *  @param printProgressParams - parameter object for passing progress state
+ </div>
+ <div>
+  *  @param notifyOnOpen - this indicates that the observer will be notified when the progress
+ </div>
+ <div>
+  *                        dialog has been opened. If false is returned it means the observer
+ </div>
+ <div>
+  *                        (usually the caller) shouldn't wait
+ </div>
+ <div>
+  *                        For Print Preview Progress there is intermediate progress
+ </div>
+</div>
+<div>
+ */
+</div>
+<div>
+ void showProgress(in nsIDOMWindow parent,
+ <div>
+  in nsIWebBrowserPrint webBrowserPrint,
+ </div>
+ <div>
+  in nsIPrintSettings printSettings,
+ </div>
+ <div>
+  in nsIObserver openDialogObserver,
+ </div>
+ <div>
+  in boolean isForPrinting,
+ </div>
+ <div>
+  out nsIWebProgressListener webProgressListener,
+ </div>
+ <div>
+  out nsIPrintProgressParams printProgressParams,
+ </div>
+</div>
+<div>
+ out boolean notifyOnOpen);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  This progress dialog is NOT MODAL - and does not spin its own event loop.
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ At least for the XUL progress dialog (which is really the one I care about), it's opened with openDialog, without the modal option. So it returns immediately. Great!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  So, let's review:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  For the progress window:
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ nsPrintingPromptServiceProxy showProgress is called.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We resolve the nsIDOMWindow to a PBrowser, and then call PPrinting's showProgress method, passing isForPrinting and the PBrowser.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On the parent side… open the progress dialog, getting back webProgressListener and a printProgressParams pointers and a notifyOnOpen boolean. Also create and pass an observer. Construct a PPrintingDialog with the webProgressListener and printProgressParams, and pass the PPrintingDialog, and notifyOnOpen to the child. Also passes nsresult.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Child gets nsresult status. Assuming NS_SUCCEEDED, also gets PPrintingDialog, and wraps it to be a nsIWebProgressListener and nsIPrintProgressParams, and passes it nsIObserver. Returns it and notifyOnOpen to the caller. The observer might fire when dialog is open.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Parent opens the dialog on the next tick, or at least tries to. If it fails out, tells PPrintingDialog about it, and the child hears about it, stops spinning event loop, and returns result.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the dialog is open, and the child has handed back the caller of ShowProgress an nsIWebProgressListener and an nsIPrintProgressParams. Those things receive information, which gets forwarded through PPrintingDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When the dialog closes, __delete__ the PPrintingDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, I think that's how the progress dialog will work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What about the other dialogs?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  ShowPrintDialog and ShowPageSetup are both modal.
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ async PPrintingDialog {
+</div>
+<div>
+ parent:
+</div>
+<div>
+ async StateChange
+</div>
+<div>
+ <div>
+  async ProgressChange
+ </div>
+ <div>
+  async DocTitleChange
+ </div>
+</div>
+<div>
+ async DocURLChange
+</div>
+<div>
+ child:
+</div>
+<div>
+ __delete__(status, PrintData (optional))
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ nsPrintingPromptServiceProxy showPrintDialog is called.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We resolve the nsIDOMWindow to a PBrowser, then call PPrinting's showPrintDialog, passing PBrowser and the current nsIPrintSettings as PrintData.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On the parent side, instantiate a PPrintingDialog, queue opening the showPrintDialog dialog on next tick, return it to the child. On the child side, take that PPrintingDialog it gets passed, and spin event loop until __delete__ gets called.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In parent, once dialog function returns, if success, construct a PrintData to return, return nsresult and PrintData to child in __delete__ call.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ __delete__ in child is received. Stop blocking. Looks at nsresult, and potentially PrintData and returns to caller.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think I need to think through the wrapping that showProgress does, and the blocking on __delete__. Once I've got that figured out, I think I can say whether or not this is going to work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Y'know, I think I'm making things too complicated by having a single protocol. I was originally trying to avoid a separate protocol for the modal print settings dialog, but it really doesn't have a whole lot in common with the print progress dialog. I think I'm getting myself set up for troubles by trying to mix them.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  So let's assume two different protocols instead
+ </b>
+ :
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ async PPrintProgressDialog {
+</div>
+<div>
+ <div>
+  parent:
+ </div>
+ <div>
+  async StateChange
+ </div>
+ <div>
+  <div>
+   async ProgressChange
+  </div>
+  <div>
+   async DocTitleChange
+  </div>
+ </div>
+</div>
+<div>
+ async DocURLChange
+</div>
+<div>
+ __delete__()
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ child:
+</div>
+<div>
+ async DialogOpened
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ async PPrintSettingsModalDialog {
+</div>
+<div>
+ child:
+</div>
+<div>
+ __delete__(nsresult status, PrintData)
+ <br/>
+</div>
+<div>
+ <div>
+  }
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We might be able to re-use this second protocol for ShowPageSetup, by the by.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So let's think through PPrintProgressDialog now in terms of the wrapping of things and the proxying of nsIWebProgressListener and nsIPrintProgressParams stuff.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ONCE MORE FROM THE TOP.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  nsPrintingPromptServiceProxy showProgress is called.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  We resolve the nsIDOMWindow to a PBrowser, and then call PPrinting's showProgress method, passing isForPrinting and the PBrowser.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On the parent side… create an observer to pass, then open the progress dialog, getting back webProgressListener and a printProgressParams pointers and a notifyOnOpen boolean. Construct a PPrintProgressDialog with the webProgressListener and printProgressParams, and pass the PPrintingDialog, and notifyOnOpen to the child. Also passes nsresult.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Pseudo-ish code follows
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ class PrintProgressDialogParent MOZ_FINAL: public PPrintProgressDialogParent,
+</div>
+<div>
+ public nsIObserver {
+</div>
+<div>
+ public:
+</div>
+<div>
+ virtual PrintProgressDialogParent(nsIWebProgressListener* aWPL,
+</div>
+<div>
+ nsIPrintProgressParams* aPPP);
+</div>
+<div>
+ virtual bool
+</div>
+<div>
+ RecvStateChange(long flags, nsresult status);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ virtual bool
+</div>
+<div>
+ RecvProgressChange(long curSelfProgress,
+</div>
+<div>
+ long maxSelfProgress,
+</div>
+<div>
+ long curTotalProgress,
+</div>
+<div>
+ long maxTotalProgress);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ virtual bool
+</div>
+<div>
+ RecvDocTitleChange(nsAString title);
+</div>
+<div>
+ virtual bool
+</div>
+<div>
+ RecvDocURLChange(nsAString url);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NS_DECL_ISUPPORTS
+</div>
+<div>
+ NS_DECL_NSIOBSERVER
+</div>
+<div>
+ private:
+</div>
+<div>
+ nsCOMPtr&lt;nsIWebProgressListener&gt; mWPL;
+</div>
+<div>
+ nsCOMPtr&lt;nsIPrintProgressParams&gt; mPPP;
+</div>
+<div>
+ };
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ class PrintProgressDialogChild MOZ_FINAL: public PPrintProgressDialogChild,
+</div>
+<div>
+ public nsIWebProgressListener,
+</div>
+<div>
+ public nsIPrintProgressParams
+</div>
+<div>
+ {
+</div>
+<div>
+ public:
+</div>
+<div>
+ PrintProgressDialogChild(nsIObserver* aOpenObserver);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ virtual bool
+</div>
+<div>
+ RecvDialogOpened(); // Calls mObs-&gt;Observe
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NS_DECL_ISUPPORTS
+</div>
+<div>
+ NS_DECL_NSIWEBPROGRESSLISTENER
+</div>
+<div>
+ NS_DECL_NSIPRINTPROGRESSPARAMS
+</div>
+<div>
+</div>
+<div>
+ private:
+</div>
+<div>
+ nsCOMPtr&lt;nsIObserver&gt; mObs;
+</div>
+<div>
+ };
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is what gets passed back to the caller of showProgress. The implementation methods for nsIWebProgressListener and nsIPrintProgressParams will call the methods to communicate with the parent, naturally.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now let's think about the lifetime of the PrintProgressDialogParent/Child implementations now. Who controls how long this thing lives?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ My first instinct is to tie the lifetime of the channel to the open-ness of the dialog - to shut down the protocol channel once the dialog closes. But I don't think there's a super-easy way of doing that. Perhaps the better approach would be to tie the lifetime to the lifetime of nsIWebProgressListener and nsIPrintProgressParams in the child.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Like, the child implementation of PrintProgressDialogChild _is_ the nsIWebProgressListener and nsIPrintProgressParams. When the caller drops the nsCOMPtrs to us, we'll decrement the refcount, and eventually we'll destruct - at which point we should tell the parent that we destructed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, let's suppose that the child drops the references, and we destruct. On the parent-side, what do we do? We'll drop the references to mWPL and mPPP… if anything is still depending on them, they'll stay alive, but they just won't receive any updates. Ok, I think that works.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A problem might arise if we destruct somehow before we're received the nsIObserver notification… so I think what should probably happen is that the manager of PPrintProgressDialog, when deleting, doesn't actually do any deleting, but decrements the refcount. That way, the nsIObserver will stay alive as long as anybody cares about it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But what if the channel is down and somehow we get the nsIObserver notification? I guess on __delete__, we should also set a flag internally for PrintProgressDialogParent that tells it that it's without a child, and then if an observer notification comes in, just warn and return.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I think that'll work. I think I can implement this now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now let's think through PPrintSettingsModalDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ showPrintSettings is called.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  async PPrintSettingsModalDialog {
+ </div>
+ <div>
+  child:
+ </div>
+ <div>
+  __delete__(nsresult status, PrintData)
+  <br/>
+ </div>
+ <div>
+  <div>
+   }
+  </div>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  We resolve the nsIDOMWindow to a PBrowser, then call PPrinting's showPrintDialog, passing PBrowser and the current nsIPrintSettings as PrintData.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On the parent side, instantiate a PPrintSettingsModalDialog, store it in the PrintingParent somewhere (I think?)… because opening multiple print settings dialogs is probably not going to be supported. Why would we even support that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Queue opening the showPrintDialog dialog on next tick, return the showPrintDialog to the child. On the child side, take that PPrintingDialog it gets passed, and spin event loop until __delete__ gets called.
+ <b>
+  HOW DOES THIS WORK
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ On the parent side, once we hit next tick, open the print settings dialog. Whatever happens, after that function exits, ensure that the stashed PPrintSettingsModalDialog member exists for PrintingParent, and then call __delete__ on it, passing the status and PrintData).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So that's all dandy. I just have to figure out this event loop thingy. Are there examples of us spinning the event loop waiting for a __delete__?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From smaug:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "Couldn't you create a PrintDialog protocol, and then in __delete__ continue. While you're waiting __delete__ you'd call NS_ProcessNextEvent"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So in the child, we get that __delete__ call on our implementation of PPrintSettingsModalDialogChild, and maybe that PPrintSettingsModalDialogChild...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait. Wait, do I even need a protocol here? This is really just a message that sends a status and PrintData. Why do I need a new protocol? Can't I just re-use PPrinting?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Just hear me out here, self.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's make it so that the child can receive a PrintDialogResult message, that takes an nsresult and a PrintData.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Then, let's make it so that we async call the parent with ShowPrintDialog, and then nsPrintingPromptServiceProxy spins the event loop while we wait for nsresult to be set on a member of nsPrintingPromptServiceProxy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Parent receives the message, and opens the dialog, and messages down the result once the function returns, passing back both the nsresult and the serialized nsIPrintSettings as PrintData.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ nsPrintingPromptServiceProxy spins and spins, and when it receives the PrintDialogResult message, it sets nsresult and PrintData on member variables and exits. The nested event loop exits as soon as that happens.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On exit of the loop, we clear our the PrintData and result, deserialize to an nsIPrintSettings, and return the result and nsIPrintSettings. Boom, done.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What about showPageSetup? How does that work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The mechanism is the same, actually. It's the exact same thing. I think that'll work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I think this is ready to try. I think this will work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I can probably do the progress bar patch in this bug, and do the showPrintDialog thing in the bug having to do with the sync IPC call.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Steps:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Define a new protocol PPrintProgressDialog, managed by PPrinting, with stubs so that we compile
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… build failure:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 6:51.20 In file included from /Users/mikeconley/Projects/mozilla-central/embedding/components/printingui/ipc/PrintingParent.cpp:7:
+ <div>
+  6:51.20 In file included from ../../../../dist/include/mozilla/dom/Element.h:16:
+ </div>
+ <div>
+  6:51.20 In file included from ../../../../dist/include/mozilla/dom/FragmentOrElement.h:17:
+ </div>
+ <div>
+  6:51.20 In file included from ../../../../dist/include/nsAttrAndChildArray.h:18:
+ </div>
+ <div>
+  6:51.20 In file included from ../../../../dist/include/nsAttrName.h:15:
+ </div>
+ <div>
+  6:51.21 In file included from ../../../../dist/include/mozilla/dom/NodeInfo.h:25:
+ </div>
+ <div>
+  6:51.21 ../../../../dist/include/nsCycleCollectionParticipant.h:61:35: error: no member named 'Value' in namespace 'mozilla::embedding::JS'; did you mean '::JS::Value'?
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What the hell is this? I didn't change PrintingParent.cpp too much - just added the PPrintProgressDialogParent construction stuff because of IPDL management.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Welp… let's see what happens when I start removing the things I added?...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh - notice that it's attempting to use the mozilla::embedding namespace. That looks just flat out wrong - mozilla::embedding::JS, unsurprisingly, is not a thing that exists.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So somehow, I've changed things so that something we've included is using the mozilla::embedding namespace.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so I just commented out the introduction of my new protocol, and my stubs, and of course things compile properly now. It's unfortunate that it's kind of "all or nothing" - it's hard for me to introduce or remove just part of this stuff, since it all kinda relies on its other bits.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AHGAGAGG - I forgot to close my namespaces inside PrintProgressDialogParent.cpp. I found this by splitting out the PrintProgressDialog stuff into SOURCES instead of UNIFIED_SOURCES.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, back on track now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ YEAH - I can build it. We're in good shape here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Define PrintProgressDialogParent, using something like the header I laid out above. Stub out the implementation.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Define PrintProgressDialogChild, using something like the header I laid out above. Stub out the implementation.
+</div>
+<div>
+ <input type="checkbox"/>
+ Do the observer work on the parent side - calling into the actual nsPrintingPromptService::ShowProgress.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I've got a flaw in my design. PrintProgressDialogParent takes the nsIWebProgressListener and nsIPrintProgressParams as constructor arguments, but we need the PrintProgressDialogParent (which implements nsIObserver) to pass to nsIPrintingPromptService::ShowProgress (which is what hands us the nsIWebProgressListener and nsIPrintProgressParams!).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Chicken and egg problem. I think I'm going to have to alter the constructor to not take the nsIWebProgressListener and nsIPrintProgressParams, and instead, after we call ShowProgress, we should take the returned nsIWebProgressListener and nsIPrintProgressParams and pass them to the PrintProgressDialogParent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's think about the lifetime of this thing again… and how does it tie in with the AllocPPrintProgressDialogParent defined on PrintingParent?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So jimm and smaug had an interesting idea that make things a little less complicated - how about instead of instantiating the PPrintProgressDialog in the parent, I instantiate it in the child, and pass it to the parent?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How would that work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  nsPrintingPromptServiceProxy showProgress is called.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We resolve the nsIDOMWindow to a PBrowser, instantiate a PPrintProgressDialog child, and then call PPrinting's showProgress method, passing isForPrinting, the PBrowser, and the PPrintProgressDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ On the parent side… open the progress dialog by passing it the PPrintProgressDialog as the observer, and get back webProgressListener and a printProgressParams pointers and a notifyOnOpen boolean.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Set the nsIWebProgressListener and nsIPrintProgressParams on the PPrintProgressDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Pass notifyOnOpen to the child. Also passes success.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Child gets success status. Assuming true, returns the PPrintProgressDialog (which implements nsIPrintProgressParams and nsIWebProgressListener) and notifyOnOpen to the caller. The observer might fire when dialog is open.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ So the dialog is open, and the child has handed back the caller of ShowProgress an nsIWebProgressListener and an nsIPrintProgressParams. Those things receive information, which gets forwarded through PPrintingDialog.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ Now let's think about the lifetime of the PrintProgressDialogParent/Child implementations now. Who controls how long this thing lives? Let's continue to tie the lifetime to the lifetime of nsIWebProgressListener and nsIPrintProgressParams in the child.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Like, the child implementation of PrintProgressDialogChild _is_ the nsIWebProgressListener and nsIPrintProgressParams. When the caller drops the nsCOMPtrs to us, we'll decrement the refcount, and eventually we'll destruct - at which point we should tell the parent that we destructed.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  So, let's suppose that the child drops the references, and we destruct. On the parent-side, what do we do? We'll drop the references to mWPL and mPPP… if anything is still depending on them, they'll stay alive, but they just won't receive any updates. Ok, I think that works.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  A problem might arise if we destruct somehow before we're received the nsIObserver notification… so I think what should probably happen is that the manager of PPrintProgressDialog, when deleting, doesn't actually do any deleting, but decrements the refcount. That way, the nsIObserver will stay alive as long as anybody cares about it.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  But what if the channel is down and somehow we get the nsIObserver notification? I guess on __delete__, we should also set a flag internally for PrintProgressDialogParent that tells it that it's without a child, and then if an observer notification comes in, just warn and return.
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Phew, ok - I think this strategy might work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Alright, so I've kinda (kinda?) got things wired up to at least send progress events over, but now I'm getting a runtime failure that crashes the tab:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "IPDL protocol error: bad ID for PPrinting
+</div>
+<div>
+ IPDL protocol error: Error deserializing 'PPrintProgressDialogParent'"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So something is wrong with how I've instantiated PPringProgressDialogChild - maybe I have to send a construction request to the parent? I'll try that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yeah, that worked - but no progress is being sent from the child. Lemme find out why… attach ye olde MSVC debugger...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok! We're hooked up! I've got a progress dialog that shows progress, and then closes!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Do the send message work on the child side.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Figure out garbled logging and crash on close.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So we're crashing in the parent process because we're attempting to ReleaseListeners in nsPrintProgress, and… I think we're attempting to free something that's already been freed. Like, I think the nsIObserver has been destroyed already, but it didn't tell everybody. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let me confirm that by putting a breakpoint in the PrintProgressDialogParent destructor...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, yep - so, we delete the PPrintProgressDialogParent, when we should probably be decrementing the refcount instead.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Right, so that's working - and I can confirm that the PPrintProgressDialogParent/Child are going down at the right time (need to wait for garbage collection after printing, but it happens).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So that's great!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  What happens if somebody cancels the progress dialog?
+ </s>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh this is hilarious. This doesn't work, even without e10s, and even without any of my printing work.
+ <b>
+  Cancelling print jobs from the progress dialog does not work, and has not worked for some time.
+ </b>
+ Bug 424965 and bug 761008. Yeesh. So, uh, not my division I guess - though I'll likely have the skills to fix this when I'm done. I might want to get those bugs backlogged.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <img height="282" src="assets/1090444-948FDA8A-9021-41E2-9C65-FA50360C0EE3.gif" width="500"/>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Test lifetime scenarios to ensure we're not leaking the world
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We seem to be good here. It looks like the PrintProgressDialogParent needs to wait a while to get garbage collected, but it eventually does.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Alright, posted. Let's see what blassey thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ He digs it! Just some formatting issues, and then let's land this puppy… actually, I might do a try push first, just to be sure.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c785f606a53b">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=c785f606a53b
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Phew, glad I did that. Busted build on Linux debug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=82ded1c64f38">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=82ded1c64f38
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Re-push with some includes in the .cpp file...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Guh, and again:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ remote:
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=b9011873fd29">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=b9011873fd29
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GUH, and AGAIN.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=a346670b7a1a">
+  https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=a346670b7a1a
+ </a>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ If this fails to build again, I'm booting up my Ubuntu VM and doing this once and for all over there.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo, been building for 44 minutes. That's a good sign.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WOO BUILT - aaaaand landed on fx-team.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TODO:
+</div>
+<div>
+ <input type="checkbox"/>
+ <s>
+  File bug to support ShowPrinterProperties, which blocks Linux printing
+ </s>
+ - just appending information on bug 1090448.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File bug to remove observer from ShowPageSetup call in nsIPrintingPromptService - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1100988">
+  bug 1100988.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
