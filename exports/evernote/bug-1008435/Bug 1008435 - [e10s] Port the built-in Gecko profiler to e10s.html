@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.1 (451119)"/><meta name="keywords" content="M4, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-10-02 22:17:24 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1008435"/><meta name="updated" content="2014-11-21 19:51:41 +0000"/><title>Bug 1008435 - [e10s] Port the built-in Gecko profiler to e10s</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">Oh yes, thank goodness. We definitely want this.
+<div><br/></div>
+<div>So BenWa, victorporof and I are going to have a meeting tomorrow to discuss how we want to approach this. BenWa discussed two possibilities:</div>
+<div><br/></div>
+<ol>
+<li>Create a new IPDL protocol that all child processes (content or plugin) need to implement. This would signal to all child processes that it's time to start/stop profiling (along with specific profiling features for the child process).</li>
+<li>Use the Devtools communications protocol to signal to child processes that it's time to start profiling.</li>
+<li>Use the message manager, all in JS, to tell content processes that it's time to start profiling. I think this will miss plugin processes.</li>
+</ol>
+<div><br/></div>
+<div>BenWa and I are leaning towards 1, but we need to talk to victorporof and DevTools to get their input too.</div>
+<div><br/></div>
+<div>Talked to victorporof and BenWa - we're going to go with route 1. I was right about 3 - that's tempting, but no good, because we can't communicate with plugins that way.</div>
+<div><br/></div>
+<div>I think I need a better overview of how the Profiler works, so let's do a quick tour of that this morning.</div>
+<div><br/></div>
+<div>Where to start, where to start… I guess I'll start at the XPIDL interface that can be used for enabling, disabling, and retrieving profiles from the Profiler - that'd be nsIProfiler.</div>
+<div><br/></div>
+<div>nsIProfiler.idl: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/nsIProfiler.idl">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/nsIProfiler.idl</a></div>
+<div><br/></div>
+<div>Let's follow the white rabbit. Where is this interface implemented?</div>
+<div><br/></div>
+<div>That'd be nsProfiler.cpp: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/nsProfiler.cpp">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/nsProfiler.cpp</a></div>
+<div><br/></div>
+<div>Huh, interesting to see how we do locking / unlocking when opening private browsing windows here, via observer notifications.</div>
+<div><br/></div>
+<div>Looks like nsProfiler.cpp is mostly just a wrapper around some functions, like "profiler_lock", "profiler_start", etc. Where are those defined?</div>
+<div><br/></div>
+<div>profiler_start is defined in a header in here: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/GeckoProfilerImpl.h">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/GeckoProfilerImpl.h</a>, and wraps mozilla_sampler_start… curiouser and curiouser.</div>
+<div><br/></div>
+<div>Ok, here's mozilla_sampler_start: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.cpp#l710">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.cpp#l710</a></div>
+<div><br/></div>
+<div>Actually, let's back up and look at mozilla_sampler_init first: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.cpp#l514">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.cpp#l514</a>, since that'd likely be called up during, well, initialization.</div>
+<div><br/></div>
+<div>Oh, good - there's a logging mechanism in here that I can use. Excellent.</div>
+<div><br/></div>
+<div>"TableTicker" seems to be a pretty big deal - I wonder what its purpose is...</div>
+<div><br/></div>
+<div>Actually, I suspect TableTicker is doing most of the work here - but I'll check that out in a second.</div>
+<div><br/></div>
+<div>TableTicker also seems to be responsible for parsing the feature string that is passed to mozilla_sampler_start.</div>
+<div><br/></div>
+<div>We instantiate a TableTicker, and stash it in a…threadsafe local or something, called tlsTicker. tlsTicker is a mozilla::ThreadLocal. What is that? </div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/mfbt/ThreadLocal.h#l46">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/mfbt/ThreadLocal.h#l46</a></div>
+<div><br/></div>
+<div>Ah, documentation:</div>
+<div><br/></div>
+<div>* Thread Local Storage helpers.</div>
+<div>*</div>
+<div>* Usage:</div>
+<div>*</div>
+<div>* Only static-storage-duration (e.g. global variables, or static class members)</div>
+<div>* objects of this class should be instantiated. This class relies on</div>
+<div>* zero-initialization, which is implicit for static-storage-duration objects.</div>
+<div>* It doesn't have a custom default constructor, to avoid static initializers.</div>
+<div><br/></div>
+<div>So…yeah, it looks like thread-specific storage.</div>
+<div><br/></div>
+<div>Then we "start" the TableTicker - I'm curious to see what that means, but I'll get there in a sec.</div>
+<div><br/></div>
+<div>Ah, interesting - after the TableTicker is started, we do this thing where we iterate the threads in the main process if we're profiling JS or in privacy mode, and in each thread, if possible, enable JS sampling. </div>
+<div><br/></div>
+<div>So I wonder if we'd want to alert all of the other processes that we're starting to sample somewhere in here as well.</div>
+<div><br/></div>
+<div>An Interpose observer is lazily instantiated and registered if we're recording main thread IO...</div>
+<div><br/></div>
+<div>And then a profiler-started observer notification is sent, and then we're done.</div>
+<div><br/></div>
+<div>Ok, let's look at TableTicker now. Here's the code: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/TableTicker.cpp">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/TableTicker.cpp</a></div>
+<div><br/></div>
+<div>Looks like the constructor is actually defined in the header file. I kinda hate that, but whatever.</div>
+<div><br/></div>
+<div>So the constructor parses the features string and sets a bunch of member variables with it.</div>
+<div><br/></div>
+<div>TableTicker extends Sampler, which is defined here: <a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.h#l246">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/platform.h#l246</a></div>
+<div><br/></div>
+<div>I… I cannot find the definition of TableTicker::Start. Garrrr.. fine, I'll use my debugger to step in.</div>
+<div><br/></div>
+<div>Ah, ok - on my MacBook, TableTicker::Start is implemented by platform-macos.cc:</div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/file/76b85b90a8cb/tools/profiler/platform-macos.cc">http://hg.mozilla.org/mozilla-central/file/76b85b90a8cb/tools/profiler/platform-macos.cc</a></div>
+<div><br/></div>
+<div>I haven't really gotten into the guts of how the profiler actually collects samples, but I think that's probably enough exploring for now.</div>
+<div><br/></div>
+<div>So let's look again at what we're trying to accomplish, and how we're going to do it:</div>
+<div><br/></div>
+<ol>
+<li>Somehow gather the information about what we want to gather from each process from the UI (this is probably out of scope for this bug, and we'll fallback to reasonable defaults and fix this in a follow-up, since it'll involve changing the extension)</li>
+<li>When profiling gets started… we need to send a message to the children (we'll target all children to start, but the UI will allow us to select which probably) to start their profilers. The children do that, and send messages to their children to start profilers, etc. </li>
+<li>When gathering profiles, we need to request them of all of the children (which will request profiles from their children, etc), and return them asynchronously</li>
+<li>We need to sew all of those profiles together properly to return the final profile</li>
+</ol>
+<div><br/></div>
+<div>Hm - interesting - looks like we're already kind of alerting subprocesses about things:</div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/TableTicker.cpp#l340">http://hg.mozilla.org/mozilla-central/file/cbe6afcae26c/tools/profiler/TableTicker.cpp#l340</a></div>
+<div><br/></div>
+<div>Interesting… looks like the Plugin stuff uses this.</div>
+<div><br/></div>
+<div>Interesting - it looks like the child blocks the parent when gathering profiles from the plugins:</div>
+<div><br/></div>
+<div>intr GeckoGetProfile()</div>
+<div>^-- that blocks, and is set for the child in PPluginModule.ipdl.</div>
+<div><br/></div>
+<div>Maybe I've got the mental model wrong. Let me check.</div>
+<div><br/></div>
+<div>Yeah… yeah, that seems to be the case… lemme double-check with johns or jimm.</div>
+<div><br/></div>
+<div>This theory seems to be corroborated by <a href="https://developer.mozilla.org/en-US/docs/IPDL/Tutorial">https://developer.mozilla.org/en-US/docs/IPDL/Tutorial</a></div>
+<div><br/></div>
+<div>Anywho, this might all be academic. It looks like both the parent and child can do intr. It's not great, but I think when gathering profiles, we might be able to get away with doing it synchronously with intr.</div>
+<div><br/></div>
+<div>So… instead of introducing a new IPDL, I could add a GeckoGetProfile to PContent.</div>
+<div><br/></div>
+<div>Then, have ContentParent.cpp listen for the profiler-start and profiler-subprocess notifications...</div>
+<div><br/></div>
+<div>I talked to BenWa, and the plugin process just unconditionally starts profiling. We want it to respond to profile start and stop messages instead.</div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=853358">Bug 853358</a> added the plugin profiling stuff.</div>
+<div><br/></div>
+<div>Ahhhhh - OK - so, according to BenWa, even though there is some facility here for profiling plugins, we don't actually expose that functionality in a convenient way. Like, even though Gecko assumes that the plugin process can gather profiles, it's not the case unless that plugin process gets started with the MOZ_PROFILER_STARTUP environment variable.</div>
+<div><br/></div>
+<div>So this was kind of half-done, and what we're getting out of this work is a more streamlined approach.</div>
+<div><br/></div>
+<div>Got it.</div>
+<div><br/></div>
+<div>Now, is there any shared IPDL stuff between plugins and the content process that I can use here? That way, I don't have to repeat myself...</div>
+<div><br/></div>
+<div>Wooooo - so distracted today because we landed a freaking robot on a comet (<a href="https://en.wikipedia.org/wiki/Rosetta_%28spacecraft%29">https://en.wikipedia.org/wiki/Rosetta_%28spacecraft%29</a> and <a href="https://en.wikipedia.org/wiki/Philae_%28spacecraft%29">https://en.wikipedia.org/wiki/Philae_%28spacecraft%29</a>). SO EXCITE</div>
+<div><br/></div>
+<div>Ok, focus.</div>
+<div><br/></div>
+<div>So, I don't believe there is a common IPDL that the plugin and content processes implement. Nope, doesn't look like it. So I guess I'm adding controls for the profiler on both PContent.ipdl and PPluginModule.ipdl.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Add StartProfiler, StopProfiler and GetProfile to PContent.ipdl</div>
+<div><input checked="true" type="checkbox"/>Make profiler-started observer notification pass along initialization data.</div>
+<div><br/></div>
+<div>So this task is way more annoying than I thought it'd be. I want to send the startup stuff along nsIObserverService, but it accepts nsISupports. I was going to use an nsIWritablePropertyBag2 to send the properties along, but the array of strings for features and thread name filters means an nsIMutableArray and nsISupportsString, and that all sounds like a hell of a lot of machinery.</div>
+<div><br/></div>
+<div>smaug suggests that I create a new IDL interface that holds the initial values, and add notxpcom/nostring getters and setters for the arrays of strings. That might be my shortest path to success here.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Have ContentParent.cpp listen for profiler-start and profiler-subprocess notifications in the same way that PluginModuleParent does it.</div>
+<div><input type="checkbox"/><s>Find out why there are no samples getting sent up to the parent process…</s></div>
+<div><br/></div>
+<div><img src="Bug%201008435%20-%20%5Be10s%5D%20Port%20the%20built-in%20Gecko%20profiler%20to%20e10s.resources/467B84FE-A14B-41A9-9BDB-2B20CD3DAEE5.png" height="639" width="1024"/></div>
+<div><br/></div>
+<div>Oh! I got it to work! I just had to disable all the features in the panel. So some combination of features causes the samples to go away. I should find it.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Find out what items in the panel cause the samples to go away</div>
+<ul>
+<li>Jank only works, but when clicked, makes most samples go away. That's what I was hitting before, naturally.</li>
+<li>JS Profiling</li>
+<li>GC Stats</li>
+<li>Main thread IO</li>
+<li><b>Breakpad (All samples empty) -> "mUnwinderThread"</b></li>
+<li><b>GPU (Crazy sluggish)…</b></li>
+</ul>
+<div><b><br/></b></div>
+<div>Oh… these problems exist even without my patch. Good! (I think).</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Add StartProfiler, StopProfiler and rename GeckoGetProfile to GetProfile? in PPluginModule.ipdl</div>
+<div><input checked="true" type="checkbox"/>Test profiling the plugin process</div>
+<div><br/></div>
+<div>Whoo! This seems to work. The main problem is, however, that we've gotta stop profiling, start the plugin process, and <b>then </b>start profiling. I'll need to file a bug to handle the case where a subprocess starts and we're already profiling.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Test on Windows and Linux</div>
+<div><br/></div>
+<div>Seems to mostly work here? Couldn't get symbol server working for Linux… but even without symbols, this seems to work.</div>
+<div><br/></div>
+<div>There are crazy performance problems when pulling up a profile on Windows, even in an opt build. Some kinda irony there.</div>
+<div><br/></div>
+<div>Ok, up for review!</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>File a bug for solving the case where the content process or plugin starts and the profiler is already running. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1103094">bug 1103094</a></div>
+<div><br/></div>
+</body></html>

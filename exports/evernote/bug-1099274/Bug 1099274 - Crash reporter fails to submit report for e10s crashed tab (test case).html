@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.1 (451119)"/><meta name="keywords" content="Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2014-11-19 20:34:38 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1099274"/><meta name="updated" content="2014-11-22 05:40:59 +0000"/><title>Bug 1099274 - Crash reporter fails to submit report for e10s crashed tab (test case)</title></head><body>
+<div>First off, this isn't very easy to reproduce, but I've done it, on this little Surface thing.</div>
+<div><br/></div>
+<div>The problem seems to be that we're not getting a dumpID set on the nsIPropertyBag2 subject passed to the TabCrashReporter observer for ipc:content-shutdown.</div>
+<div><br/></div>
+<div>Now why is that? Who sends that notification?</div>
+<div><br/></div>
+<div>DXR points to ContentParent.cpp: <a href="http://hg.mozilla.org/mozilla-central/file/6ce1b906c690/dom/ipc/ContentParent.cpp#l1779">http://hg.mozilla.org/mozilla-central/file/6ce1b906c690/dom/ipc/ContentParent.cpp#l1779</a></div>
+<div><br/></div>
+<div>What I need, really, is a debug build that I can breakpoint on this Surface thing. I've never tried to remotely connect to a debug build on Windows before. I guess there's a first time for everything.</div>
+<div><br/></div>
+<div>Let me read up and see how I can do that with Visual Studio. jimm said this was possible, and I'd actually be really surprised if it isn't - remote debugging isn't exactly revolutionary.</div>
+<div><br/></div>
+<div>Gahhhhhh - Visual Studio 2010 Express does not get remote debugging. Rats. :/</div>
+<div><br/></div>
+<div>I wonder if windbg could be used here instead.</div>
+<div><br/></div>
+<div>Ok, installing Standalone Debugging Tools for Windows, a la these instructions: <a href="http://msdn.microsoft.com/en-us/windows/hardware/hh852365.aspx">http://msdn.microsoft.com/en-us/windows/hardware/hh852365.aspx</a></div>
+<div><br/></div>
+<div>Ok, I have a debug build on this Surface, and windbg installed and running. This thing feels awful. I feel like I'm banging rocks together.</div>
+<div><br/></div>
+<div>How the hell do I set a breakpoint in this thing?</div>
+<div><br/></div>
+<div>Ah, Alt-F9 opens up some kind of breakpoint interface… mozilla::dom::ContentParent::ActorDestroy is where I want to set my breakpoint. Let's see if that works.</div>
+<div><br/></div>
+<div>Huh, so, I can set breakpoints, but I can't hit them. windbg complains about not being able to resolve the symbols. So I guess I need to somehow load the symbols for this build into windbg.</div>
+<div><br/></div>
+<div>How the hell do I do that?</div>
+<div><br/></div>
+<div>*sigh*. I couldn't find symbols for the build I got.</div>
+<div><br/></div>
+<div>Feelin' like this (courtesy of dolske):</div>
+<div><br/></div>
+<div><img src="Bug%201099274%20-%20Crash%20reporter%20fails%20to%20submit%20report%20for%20e10s%20crashed%20tab%20(test%20case).resources/1E05FF29-CCAB-49F0-8349-10713A110336.gif" height="180" width="320"/></div>
+<div><br/></div>
+<div>Ok, I've found a build, got some symbols, and now I'm hooking up windbg. Fingers crossed I can actually debug my stuff now.</div>
+<div><br/></div>
+<div>Aaaaand I need the source as well. Damn it.</div>
+<div><br/></div>
+<div>Downloading… waiting...</div>
+<div><br/></div>
+<div>Unzipping… time to decompress - 55 minutes. WTF Oh, ok, now 28 minutes. I forgot how Windows measured time.</div>
+<div><br/></div>
+<div>AH GEEZ, 1 hour 50 minutes now. What the hell.</div>
+<div><br/></div>
+<div>And now 10 minutes. What a rollercoaster.</div>
+<div><br/></div>
+<div>GUHHHHHH - finally unzipped, and I still can't hit breakpoints. windbg complains about "Unable to resolve unqualified symbol in Bp expression mozilla::dom::TabParent::TabParent"… maybe I'm doing this wrong. :/</div>
+<div><br/></div>
+<div>I think I'm going to have to get some more serious hardware here.</div>
+<div><br/></div>
+<div>OK! I've got a debug environment on this little Surface, and we're breakpointing. Finally.</div>
+<div><br/></div>
+<div>So it looks like crashReporter->ChildDumpID() is returning the empty string… why is that?</div>
+<div><br/></div>
+<div>Because we're straight up not creating a minidump! That's the problem here.</div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/file/3366c0fcf9c2/ipc/chromium/src/base/process_util_win.cc#l185">Apparently, we're reaching this "we're screwed" stuff?</a></div>
+<div><br/></div>
+<div>It looks like the ProcessHandle in PContentParent is getting overwritten with null from ContentParent::KillHard...</div>
+<div><br/></div>
+<div>Also looks like Toplevel->TakeMinidump is failing because nsExceptionHandler's GetEnabled is returning false (because gExceptionHandler is nullptr… wtf?)</div>
+<div><br/></div>
+<div>Why is gExceptionHandler nullptr?</div>
+<div><br/></div>
+<div>OH FOR PETE'S SAKE. <b>The crash reporter is disabled in debug builds - no wonder this doesn't work.</b></div>
+<div><b><br/></b></div>
+<div>I need to enable it with MOZ_CRASHREPORTER in debug builds.</div>
+<div><br/></div>
+<div>Ok, even with the crash reporter enabled, we still can't seem to find the mOtherProcess.</div>
+<div><br/></div>
+<div>In fact… yeah, the plugin-process is *flat out gone* by the time we start debugging. Even if I attach a debugger to it, it looks like there are certain types of crashes that make it shut down *immediately*.</div>
+<div><br/></div>
+<div>We're calling KillHard because we get a ProcessingError...</div>
+<div><br/></div>
+<div>>     xul.dll!mozilla::dom::ContentParent::KillHard() Line 2984     C++
+<div>      xul.dll!mozilla::dom::ContentParent::ProcessingError(mozilla::ipc::HasResultCodes::Result what) Line 1605     C++</div>
+<div>      xul.dll!mozilla::dom::PContentParent::OnProcessingError(mozilla::ipc::HasResultCodes::Result aCode) Line 6129     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::MaybeHandleError(mozilla::ipc::HasResultCodes::Result code, const IPC::Message &amp; aMsg, const char * channelName) Line 1475     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::DispatchAsyncMessage(const IPC::Message &amp; aMsg) Line 1107     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::DispatchMessageW(const IPC::Message &amp; aMsg) Line 1047     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::OnMaybeDequeueOne() Line 1034     C++</div>
+<div>      xul.dll!DispatchToMethod&lt;mozilla::ipc::MessageChannel,bool (__thiscall mozilla::ipc::MessageChannel::*)(void)>(mozilla::ipc::MessageChannel * obj, bool (void) * method, const Tuple0 &amp; arg) Line 384     C++</div>
+<div>      xul.dll!RunnableMethod&lt;mozilla::ipc::MessageChannel,bool (__thiscall mozilla::ipc::MessageChannel::*)(void),Tuple0>::Run() Line 307     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::RefCountedTask::Run() Line 403     C++</div>
+<div>      xul.dll!mozilla::ipc::MessageChannel::DequeueTask::Run() Line 420     C++</div>
+<div>      xul.dll!MessageLoop::RunTask(Task * task) Line 362     C++</div>
+<div>      xul.dll!MessageLoop::DeferOrRunPendingTask(const MessageLoop::PendingTask &amp; pending_task) Line 372     C++</div>
+<div>      xul.dll!MessageLoop::DoWork() Line 447     C++</div>
+<div>      xul.dll!mozilla::ipc::DoWorkRunnable::Run() Line 234     C++</div>
+<div>      xul.dll!nsThread::ProcessNextEvent(bool aMayWait, bool * aResult) Line 830     C++</div>
+<div>      xul.dll!NS_ProcessNextEvent(nsIThread * aThread, bool aMayWait) Line 265     C++</div>
+<div>      xul.dll!mozilla::ipc::MessagePump::Run(base::MessagePump::Delegate * aDelegate) Line 99     C++</div>
+<div>      xul.dll!MessageLoop::RunInternal() Line 234     C++</div>
+<div>      xul.dll!MessageLoop::RunHandler() Line 227     C++</div>
+<div>      xul.dll!MessageLoop::Run() Line 201     C++</div>
+<div>      xul.dll!nsBaseAppShell::Run() Line 166     C++</div>
+<div>      xul.dll!nsAppShell::Run() Line 178     C++</div>
+<div>      xul.dll!nsAppStartup::Run() Line 281     C++</div>
+<div>      xul.dll!XREMain::XRE_mainRun() Line 4150     C++</div>
+<div>      xul.dll!XREMain::XRE_main(int argc, char * * argv, const nsXREAppData * aAppData) Line 4226     C++</div>
+<div>      xul.dll!XRE_main(int argc, char * * argv, const nsXREAppData * aAppData, unsigned int aFlags) Line 4446     C++</div>
+<div>      firefox.exe!do_main(int argc, char * * argv, nsIFile * xreDirectory) Line 287     C++</div>
+<div>      firefox.exe!NS_internal_main(int argc, char * * argv) Line 656     C++</div>
+<div>      firefox.exe!wmain(int argc, wchar_t * * argv) Line 113     C++</div>
+<div>      [External Code]    </div>
+</div>
+<div>      [Frames below may be incorrect and/or missing, no symbols loaded for kernel32.dll]</div>
+<div><br/></div>
+<div>Looks like a message with name PDocAccessible::Msg_ShowEvent is returning something that the parent can't process. Because the parent can't process it, it flips out and calls KillHard on it. When we call KillHard on it, we clear out our notion of the process ID, which prevents us from getting the crash report. KillHard, if I had to guess, also likely kills the child before it has a chance to dump its crashreport.</div>
+<div><br/></div>
+<div>If I get rid of the KillHard, then we never "crash".</div>
+<div><br/></div>
+<div>So that's what's going on - total infanticide - the parent is receiving a message from the child that it can't process, so it just kills the child, so there's no crash report.</div>
+<div><br/></div>
+<div>Ah, and billm has identified this as a dupe of <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1068349">bug 1068349</a>.</div>
+<div><br/></div>
+<div>Aaaand closed. </div>
+</body></html>

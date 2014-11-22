@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1099274 - Crash reporter fails to submit report for e10s crashed tab (test case)</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1099274.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201099274%20-%20Crash%20reporter%20fails%20to%20submit%20report%20for%20e10s%20crashed%20tab%20%28test%20case%29_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1099274 - Crash reporter fails to submit report for e10s crashed tab (test case)</h1>
+    <p class="meta">Nov 22, 2014</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1099274">
+ Bug 1099274 - Crash reporter fails to submit report for e10s crashed tab (test case)
+</a>
+<div>
+ First off, this isn't very easy to reproduce, but I've done it, on this little Surface thing.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem seems to be that we're not getting a dumpID set on the 
+nsIPropertyBag2 subject passed to the TabCrashReporter observer for 
+ipc:content-shutdown.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Now why is that? Who sends that notification?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ DXR points to ContentParent.cpp:
+ <a href="http://hg.mozilla.org/mozilla-central/file/6ce1b906c690/dom/ipc/ContentParent.cpp#l1779">
+  http://hg.mozilla.org/mozilla-central/file/6ce1b906c690/dom/ipc/ContentParent.cpp#l1779
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What I need, really, is a debug build that I can breakpoint on this 
+Surface thing. I've never tried to remotely connect to a debug build on 
+Windows before. I guess there's a first time for everything.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let me read up and see how I can do that with Visual Studio. jimm said 
+this was possible, and I'd actually be really surprised if it isn't - 
+remote debugging isn't exactly revolutionary.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gahhhhhh - Visual Studio 2010 Express does not get remote debugging. Rats. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I wonder if windbg could be used here instead.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, installing Standalone Debugging Tools for Windows, a la these instructions:
+ <a href="http://msdn.microsoft.com/en-us/windows/hardware/hh852365.aspx">
+  http://msdn.microsoft.com/en-us/windows/hardware/hh852365.aspx
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, I have a debug build on this Surface, and windbg installed and 
+running. This thing feels awful. I feel like I'm banging rocks together.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How the hell do I set a breakpoint in this thing?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, Alt-F9 opens up some kind of breakpoint interface… 
+mozilla::dom::ContentParent::ActorDestroy is where I want to set my 
+breakpoint. Let's see if that works.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh, so, I can set breakpoints, but I can't hit them. windbg complains 
+about not being able to resolve the symbols. So I guess I need to 
+somehow load the symbols for this build into windbg.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How the hell do I do that?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ *sigh*. I couldn't find symbols for the build I got.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Feelin' like this (courtesy of dolske):
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201099274%20-%20Crash%20reporter%20fails%20to%20submit%20report%20for%20e10s%20crashed%20tab%20%28test%20case%29_files/1099274-1E05FF29-CCAB-49F0-8349-10713A110336.gif" height="180" width="320">
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, I've found a build, got some symbols, and now I'm hooking up windbg. Fingers crossed I can actually debug my stuff now.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Aaaaand I need the source as well. Damn it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Downloading… waiting...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Unzipping… time to decompress - 55 minutes. WTF Oh, ok, now 28 minutes. I forgot how Windows measured time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AH GEEZ, 1 hour 50 minutes now. What the hell.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And now 10 minutes. What a rollercoaster.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GUHHHHHH - finally unzipped, and I still can't hit breakpoints. windbg 
+complains about "Unable to resolve unqualified symbol in Bp expression 
+mozilla::dom::TabParent::TabParent"… maybe I'm doing this wrong. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I think I'm going to have to get some more serious hardware here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OK! I've got a debug environment on this little Surface, and we're breakpointing. Finally.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So it looks like crashReporter-&gt;ChildDumpID() is returning the empty string… why is that?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Because we're straight up not creating a minidump! That's the problem here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="http://hg.mozilla.org/mozilla-central/file/3366c0fcf9c2/ipc/chromium/src/base/process_util_win.cc#l185">
+  Apparently, we're reaching this "we're screwed" stuff?
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks like the ProcessHandle in PContentParent is getting overwritten with null from ContentParent::KillHard...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Also looks like Toplevel-&gt;TakeMinidump is failing because 
+nsExceptionHandler's GetEnabled is returning false (because 
+gExceptionHandler is nullptr… wtf?)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Why is gExceptionHandler nullptr?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OH FOR PETE'S SAKE.
+ <b>
+  The crash reporter is disabled in debug builds - no wonder this doesn't work.
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ I need to enable it with MOZ_CRASHREPORTER in debug builds.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, even with the crash reporter enabled, we still can't seem to find the mOtherProcess.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ In fact… yeah, the plugin-process is *flat out gone* by the time we 
+start debugging. Even if I attach a debugger to it, it looks like there 
+are certain types of crashes that make it shut down *immediately*.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We're calling KillHard because we get a ProcessingError...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ &gt;&nbsp;&nbsp;&nbsp;&nbsp; xul.dll!mozilla::dom::ContentParent::KillHard() Line 2984&nbsp;&nbsp;&nbsp;&nbsp; C++
+ <div>
+  
+xul.dll!mozilla::dom::ContentParent::ProcessingError(mozilla::ipc::HasResultCodes::Result
+ what) Line 1605&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  
+xul.dll!mozilla::dom::PContentParent::OnProcessingError(mozilla::ipc::HasResultCodes::Result
+ aCode) Line 6129&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  
+xul.dll!mozilla::ipc::MessageChannel::MaybeHandleError(mozilla::ipc::HasResultCodes::Result
+ code, const IPC::Message &amp; aMsg, const char * channelName) Line 
+1475&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessageChannel::DispatchAsyncMessage(const 
+IPC::Message &amp; aMsg) Line 1107&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessageChannel::DispatchMessageW(const IPC::Message &amp; aMsg) Line 1047&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessageChannel::OnMaybeDequeueOne() Line 1034&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!DispatchToMethod&lt;mozilla::ipc::MessageChannel,bool 
+(__thiscall 
+mozilla::ipc::MessageChannel::*)(void)&gt;(mozilla::ipc::MessageChannel *
+ obj, bool (void) * method, const Tuple0 &amp; arg) Line 
+384&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!RunnableMethod&lt;mozilla::ipc::MessageChannel,bool 
+(__thiscall mozilla::ipc::MessageChannel::*)(void),Tuple0&gt;::Run() 
+Line 307&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessageChannel::RefCountedTask::Run() Line 403&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessageChannel::DequeueTask::Run() Line 420&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::RunTask(Task * task) Line 362&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::DeferOrRunPendingTask(const 
+MessageLoop::PendingTask &amp; pending_task) Line 
+372&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::DoWork() Line 447&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::DoWorkRunnable::Run() Line 234&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!nsThread::ProcessNextEvent(bool aMayWait, bool * aResult) Line 830&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!NS_ProcessNextEvent(nsIThread * aThread, bool aMayWait) Line 265&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!mozilla::ipc::MessagePump::Run(base::MessagePump::Delegate * aDelegate) Line 99&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::RunInternal() Line 234&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::RunHandler() Line 227&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!MessageLoop::Run() Line 201&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!nsBaseAppShell::Run() Line 166&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!nsAppShell::Run() Line 178&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!nsAppStartup::Run() Line 281&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!XREMain::XRE_mainRun() Line 4150&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!XREMain::XRE_main(int argc, char * * argv, const nsXREAppData * aAppData) Line 4226&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  xul.dll!XRE_main(int argc, char * * argv, const nsXREAppData * 
+aAppData, unsigned int aFlags) Line 4446&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  firefox.exe!do_main(int argc, char * * argv, nsIFile * xreDirectory) Line 287&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  firefox.exe!NS_internal_main(int argc, char * * argv) Line 656&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  firefox.exe!wmain(int argc, wchar_t * * argv) Line 113&nbsp;&nbsp;&nbsp;&nbsp; C++
+ </div>
+ <div>
+  [External Code]
+ </div>
+</div>
+<div>
+ [Frames below may be incorrect and/or missing, no symbols loaded for kernel32.dll]
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Looks like a message with name PDocAccessible::Msg_ShowEvent is 
+returning something that the parent can't process. Because the parent 
+can't process it, it flips out and calls KillHard on it. When we call 
+KillHard on it, we clear out our notion of the process ID, which 
+prevents us from getting the crash report. KillHard, if I had to guess, 
+also likely kills the child before it has a chance to dump its 
+crashreport.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ If I get rid of the KillHard, then we never "crash".
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So that's what's going on - total infanticide - the parent is receiving
+ a message from the child that it can't process, so it just kills the 
+child, so there's no crash report.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, and billm has identified this as a dupe of
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1068349">
+  bug 1068349
+ </a>
+ .
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Aaaand closed.
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
