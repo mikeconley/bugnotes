@@ -30,6 +30,7 @@ DEFAULT_FRONT_MATTER = """---
 layout: post
 title:  "{{ post_title }}"
 date:   {{ post_date }}
+categories: {{ categories }}
 tags:
 ---
 
@@ -68,6 +69,20 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
         return
     bug_title = bug_title_tag.string
     logging.info("Found a bug title: %s" % bug_title)
+
+    category_tag = document.find("meta", {"name":"keywords"})
+    categories = ""
+    if category_tag:
+        logging.info("Looking for categories...")
+        category_string = category_tag['content']
+        # Some fancy functional stuff, and I should no better than to be fancy,
+        # but I doubt anyone else will use this script. This splits the comma
+        # separated keywords, finds each one prefixed with "jekyll:", removes
+        # that prefix, and adds it to a list, which is then joined by spaces
+        # as a new string.
+        categories = " ".join([c[7:] for c in category_string.split(", ")
+                               if c.startswith("jekyll:")])
+        logging.info("Found the following categories: %s" % categories)
 
     if len(resources):
         # We have resources, meaning we're going to need to do some
@@ -108,7 +123,7 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
     # The bug_title might have some quotes in it, which Jekyll will not like
     # unless we escape them.
     bug_title = bug_title.replace('"', '\\"')
-    front_matter = fm_template.render(post_title=bug_title, post_date=date)
+    front_matter = fm_template.render(post_title=bug_title, post_date=date, categories=categories)
 
     logging.info("Extracting document body and inserting into post")
     content_string = ''.join([str(thing) for thing in document.body.contents])
