@@ -11,4 +11,4 @@ github_username:  mikeconley
 markdown: kramdown
 permalink: /:title.html
 
-exclude: [exports, Gruntfile.js, node_modules, scripts]
+exclude: [attachments, exports, Gruntfile.js, node_modules, scripts]
