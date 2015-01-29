@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.5 (451190)"/><meta name="keywords" content="M4, Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2014-12-10 20:16:57 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1108761"/><meta name="updated" content="2015-01-29 04:24:07 +0000"/><title>Bug 1108761 - Add class to let menulist > menupopup stylings apply to other popups</title></head><body>
+<div>So Dao's idea is to add a class, but instead of duplicating the class for every rule, have the class supplant the child rule, and have the menulist binding apply the class on the menupopup when it opens. Dao said popup.xml, but I think he means menulist.xml.</div>
+<div><br/></div>
+<div>Ok, that sounds pretty straight forward. Let's get started.</div>
+<div><br/></div>
+<div>Places I'm likely going to need to update:</div>
+<div><br/></div>
+<div>toolkit/themes/[platform]/global/popup.css</div>
+<div>toolkit/themes/[platform]/global/global.css</div>
+<div>toolkit/themes/[platform]/global/menu.css</div>
+<div><br/></div>
+<div>Garrr… this isn't going to be so simple. Some of the rules look like this:</div>
+<div><br/></div>
+<div>menulist[editable="true"] > menupopup > […] {</div>
+<div>  /** rule **/</div>
+<div>}</div>
+<div><br/></div>
+<div>So we need to know whether or not the menulist is editable...</div>
+<div><br/></div>
+<div>So maybe we actually need two classes:</div>
+<div><br/></div>
+<div>editable-menulist-menupopup</div>
+<div>uneditable-menulist-menupopup</div>
+<div><br/></div>
+<div>Or… or just have the editable attribute get inherited by the child. Can that even happen? Not on &lt;children> it seems. Hrm.</div>
+<div><br/></div>
+<div>Ok, so how about we have the menulist also copy the editable attribute on the menupopup when it opens it? Just like the class.</div>
+<div><br/></div>
+<div>That way, we have one class, and one maybe attribute. Let's try that.</div>
+<div><br/></div>
+<div>:not(menulist) > menupopup > menuitem[checked="true"],
+<div>:not(menulist) > menupopup > menuitem[selected="true"] {</div>
+<div>  -moz-appearance: checkmenuitem;</div>
+</div>
+<div>}</div>
+<div><br/></div>
+<div>Tricky - the leftmost part of both selectors says:</div>
+<div><br/></div>
+<div>"Any menupopup that is not a child of a menulist… apply rule"</div>
+<div><br/></div>
+<div>However, we want to modify these to be:</div>
+<div><br/></div>
+<div>"Any menupopup that is not a child of a menulist AND any menupopup that does not have the .menulist-menupopup class… apply rule"</div>
+<div><br/></div>
+<div>Actually, since we can guarantee that the menulist will add the menulist-menupopup class, we can simply say:</div>
+<div><br/></div>
+<div>"Any menupopup that does not have the menulist-menupopup class… apply rule". Simpler than I had thought.</div>
+<div><br/></div>
+<div>menupopup:not(.menulist-menupopup) > menuitem[checked="true"],</div>
+<div>menupopup:not(.menulist-menupopup) > menuitem[selected="true"] {</div>
+<div>  /* foo */</div>
+<div>}</div>
+<div><br/></div>
+<div>Hrmph. Due to specificity, I had to add a rule for the _moz-menuactive attribute so that the text gets highlighted properly. Lovely.</div>
+<div><br/></div>
+<div><img src="Bug%201108761%20-%20Add%20class%20to%20let%20menulist%20%3E%20menupopup%20stylings%20apply%20to%20other%20popups.resources/F64918D1-7650-43C3-9AE7-54810FA71726.png" height="554" width="450"/></div>
+<div><br/></div>
+<div><img src="Bug%201108761%20-%20Add%20class%20to%20let%20menulist%20%3E%20menupopup%20stylings%20apply%20to%20other%20popups.resources/6BB09433-851C-4B31-B53B-1DF92314EB15.gif" height="197" width="255"/><br/></div>
+<div><br/></div>
+<div>Ok, getting things going for Linux now...</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Don't forget the inContent stuff</div>
+<div><input checked="true" type="checkbox"/>Fix weird checkbox thing on Linux</div>
+<div><br/></div>
+<div><br/></div>
+<div>CHANGE OF PLANS.</div>
+<div><br/></div>
+<div>I came up with something that I think is a simpler solution to this problem. I've been assuming that I can't use a standard menulist because I would have the top of the menulist to deal with. But now I've added a new type of menulist to XUL, with a popuponly="true" attribute that hides the top-bit. Now the menulist on the parent side keeps track of list state, which is nice. No more hackery - since the popup really expects to be inside some type of list.</div>
+<div><br/></div>
+<div>Dao thinks the way I'm hiding the top bit (the part that's usually clicked for menulists) can be done better… I'm using height: 0 !important, margin: 0 !important, border: 0 !important, to reduce the height and eliminate it's visibility from the DOM. Dao thinks I can do it by setting visibility: collapse on the parent and visibility: visible on the menupopup, but I couldn't get it to work. I've given him the patch to play with.</div>
+<div><br/></div>
+<div>FUCK. Failing tests.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=97a392cd9f9d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=97a392cd9f9d</a></div>
+<div><br/></div>
+<div>Huh. Only fails on Windows and Linux. That's great.</div>
+<div><br/></div>
+<div>dom/tests/mochitest/chrome/test_focus.xul is what's failing.</div>
+<div><br/></div>
+<div>821 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start events - got blur: f8 blur: frame-f7-document blur: frame-f7-window, expected blur: f8 blur: frame-f7-document blur: frame-f7-window focus: frame-f1-document focus: frame-f1-window</div>
+<div>822 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start focusedElement - got ContentSelectDropdown, expected f1</div>
+<div>823 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start focusedWindow - got [object ChromeWindow], expected [object Window]</div>
+<div>824 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start getFocusedElementForWindow - got [object HTMLInputElement], expected [object HTMLHtmlElement]</div>
+<div>826 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start hasFocus - got false, expected true</div>
+<div>827 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start activeElement - got f2, expected f1</div>
+<div>828 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to start commandDispatcher focusedWindow - got [object ChromeWindow], expected [object Window]</div>
+<div>830 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | frameset shift tab key wrap to end events - got focus: frame-f7-document focus: frame-f7-window focus: f8, expected blur: frame-f1-document blur: frame-f1-window focus: frame-f7-document focus: frame-f7-window focus: f8</div>
+<div>929 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | switch document forward and wrap events - got blur: frame-f7-document blur: frame-f7-window, expected blur: frame-f7-document blur: frame-f7-window focus: frame-f1-document focus: frame-f1-window</div>
+<div>930 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | switch document forward and wrap focusedElement - got ContentSelectDropdown, expected f1</div>
+<div>931 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | switch document forward and wrap focusedWindow - got [object ChromeWindow], expected [object Window]</div>
+<div>934 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | switch document forward and wrap hasFocus - got false, expected true</div>
+<div>
+<div>936 INFO TEST-UNEXPECTED-FAIL | dom/tests/mochitest/chrome/test_focus.xul | switch document forward and wrap commandDispatcher focusedWindow - got [object ChromeWindow], expected [object Window]</div>
+</div>
+<div><br/></div>
+<div>Ah, OK. So having the ContentSelectDropdown not be hidden immediately causes it to be focusable when we don't want it to be. I'll set hidden="true" on it by default, and only remove that hidden="true" whenever we want the &lt;select> dropdown to open. Piece of cake. Phew.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3322f4157cf7">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3322f4157cf7</a><br/></div>
+<div><br/></div>
+<div>Posted for review. Hopefully Enn gets to it soon!</div>
+<div><br/></div>
+<div>Woo! Enn r+'d me - though he wants to know why the menulist isn't automatically scrolling the selected menuitem into view - apparently, nsMenuPopupFrame::EnsureMenuItemIsVisible is supposed to be called. He wants to know why this doesn't work.</div>
+<div><br/></div>
+<div>I'll look into it.</div>
+<div><br/></div>
+<div>We do hit nsMenuPopupFrame::EnsureMenuItemIsVisible, and then go into PresShell::ScrollFrameRectIntoView. We climb the ancestor chain until we hit an nsXULScrollFrame, and then call ScrollToShowRect, which calls ComputeNeedToScroll...</div>
+<div>
+<div><br/></div>
+<div>And we end up passing in all 0's for targetRect.y, targetRect.YMost, visibleRect.y and visibleRect.YMost. So ComputeNeedToScroll returns false, and we don't scroll.</div>
+</div>
+<div><br/></div>
+<div>I suspect this is because our &lt;xul:menulist> item has no rect to speak of.</div>
+<div><br/></div>
+<div>Landed. Done.</div>
+</body></html>
