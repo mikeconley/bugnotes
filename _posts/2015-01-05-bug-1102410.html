@@ -1,0 +1,674 @@
+---
+layout: post
+title:  "Bug 1102410 - AboutProtocolChild attempts to register the same factory twice for multiple nsIAboutModule's"
+date:   2015-01-05
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1102410">
+ Bug 1102410 - AboutProtocolChild attempts to register the same factory twice for multiple nsIAboutModule's
+</a>
+<div>
+ Ok, starting to look into this now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I was able to reproduce this on the weekend. Let me just confirm again.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); font-family: Monaco; font-size: 12px; orphans: 2; text-align: -webkit-auto; widows: 2; -webkit-text-size-adjust: auto;">
+  <span style="color: rgb(0, 68, 136);">
+   16:53
+  </span>
+  <span style="color: rgb(255, 0, 255);">
+   (emtwo)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley:
+  </strong>
+  <a href="https://github.com/mozilla/interest-dashboard/tree/5cf5a9ac817d486dfa8cfa5b9442dbaec14eac35" style="word-break: break-all;">
+   https://github.com/mozilla/interest-dashboard/tree/5cf5a9ac817d486dfa8cfa5b9442dbaec14eac35
+  </a>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); font-family: Monaco; font-size: 12px; orphans: 2; text-align: -webkit-auto; widows: 2; -webkit-text-size-adjust: auto;">
+  <span style="color: rgb(0, 68, 136);">
+   16:53
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   zz_miketaylr is now known as miketaylr
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; font-family: Monaco; font-size: 12px; orphans: 2; text-align: -webkit-auto; widows: 2; -webkit-text-size-adjust: auto; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   16:53
+  </span>
+  <span style="color: rgb(255, 0, 255);">
+   (emtwo)
+  </span>
+  the latest commit is "Added pga matcher" that was included on amo
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, that's useful. That revision that emtwo linked me to is the revision that's on AMO, which is breaking BugzillaJS.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I can reproduce this without difficulty using that particular revision, and the AMO version of BugzillaJS.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Both BugzillaJS and ID are restartless, and I have BugzillaJS installed and working, and then install ID, BugzillaJS continues to work until restart.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Which makes me think that somehow ID is interfering with BugzillaJS's start-up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Also, I just want to see if this is reproducible using the tip of the ID repository. If not, then I can bisect, which will really narrow things down.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ HA! LUCKY! Looks like BugzillaJS works with the tip of the ID repository. Bisecting time!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… getting this from git bisect:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Some good revs are not ancestor of the bad rev.
+ <div>
+  git bisect cannot work properly in this case.
+ </div>
+ <div>
+  Maybe you mistake good and bad revs?
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I guess bisect is not used to the idea that something _used_ to be broken, and now something is fixed. Huh. So now I have to swap my notion of good/bad works/broken to use git bisect. Lovely.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, bisect done. Apparently
+ <a href="https://github.com/mozilla/interest-dashboard/tree/873566fcf6d5660eed7867a127497783ea4a9d2e">
+  873566fcf6d5660eed7867a127497783ea4a9d2e
+ </a>
+ is what fixed things:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So one of these changes fixed things on tip. I'd like to figure out which one. I'm going to revert them one by one until I go from
+ <b>
+  working to busted.
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And then I'll know which file change resulted in Interest Dashboard being fixed. And then I'll probably bisect the changes in the file itself until I find the change that fixed the problem.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why all of this effort? I want to make sure that whatever problem Interest Dashboard used to have is not something that could easily happen with other add-ons, and make sure there's nothing in there that our shims could have fixed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm, I was just going to do this in order, but I think it's far more likely that something from lib/ fixed things. Let's go by most to least likely.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Changes I tested:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  <input checked="true" type="checkbox"/>
+ </b>
+ deleted:    lib/Headliner.js
+</div>
+<div>
+ <s>
+  <input checked="true" type="checkbox"/>
+ </s>
+ deleted:    data/about-keywords.html
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I skipped ahead and didn't need to test the following:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <input type="checkbox"/>
+  <s>
+   modified:   lib/Controller.js
+  </s>
+ </div>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    lib/Dispatcher.js
+ </s>
+</div>
+<div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   modified:   lib/HistoryReader.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/KeywordExtractor.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/NYTUtils.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/NYTimesHistoryVisitor.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/Surveyor.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   modified:   lib/Utils.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   modified:   lib/WorkerFactory.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/areaDataProcessorBolt.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/dailyKeywordsSpout.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/intentInterestDataProcessorBolt.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/spiderDataProcessorBolt.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/timelineDataProcessorBolt.js
+  </s>
+ </div>
+ <div>
+  <s>
+   <input type="checkbox"/>
+   deleted:    lib/streams/totalKeywordCountBolt.js
+  </s>
+ </div>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    lib/streams/weightIntensityDataProcessorBolt.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/about-keywords.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/AreaGraph.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/IntentInterestCharts.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/IntentInterestCharts.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/SpiderGraph.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/TimelineChart.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/charts/WeightIntensityChart.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/consent-translations.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/consent.html
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/consent.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/css/nytimes/newstyles.css
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/devmenu.html
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/devmenu.js
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  deleted:    data/interests/keywordsWorker.js
+ </s>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <b>
+   <input type="checkbox"/>
+   modified:   lib/Application.js
+  </b>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah… some change in Application.js broke things… let me try to confirm… what were these changes?
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  I guess I'll need to revert the changes one by one until I find the thing that caused the problem...
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Oh, not revert now - since I've already reverted Application.js for this test, I'll
+  <b>
+   reapply
+  </b>
+  the changes, to see when I go from broken to fixed.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Ah, so apparently what fixed things was when in Application.js, we removed DevMenu, which is an about: module.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Hypothesis - our add-on shims break horribly if an SDK add-on (or any add-on, really) attempts to register more than 1 about: module.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ So what's a cheap way to test this?...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Probably the cheapest way is to create a test-case add-on that creates two nsIAboutModule components and registers them.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is looking very plausible - I've isolated the changes down to the registration of the DevMenu nsIAboutModule factory.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now looking increeeeedbly plausible. I deregistered the second nsIAboutModule, and things worked again - so it has nothing specifically to do with the DevMenu nsIAboutModule per se, but almost certainly because the fact that there's two of them.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I think this is definitely our shims bugging out. Let me write this in the bug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I might be able to create a test case using the pre-existing shims tests.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ (If my minimal testcase doesn't work - I should check to make sure that the problem isn't in how the SDK registers factories… though that seems pretty unlikely as the cause.)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NS_ERROR_FACTORY_EXISTS: Component returned failure code: 0xc1f30100 (NS_ERROR_FACTORY_EXISTS) [nsIComponentRegistrar.registerFactory]
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is likely the issue. Why would this break pagemod though?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ohhh… because that operates during initialization...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait… is that the problem? Wouldn't this happen even without the ID add-on?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm, no it doesn't. Ok.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Time to write a test case. Let's register two about: pages and make sure they work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ My test case isn't doing the right thing - anyhow, I think I've solved the mystery here - the AboutProtocolChild will attempt to register itself twice when it tracks an nsIAboutModule getting registered in the parent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So here's what happens.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The first browser-child.js starts up… and it calls RemoteAddonsChild.init on itself.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ RemoteAddonsChild, starts itself up the first time, and calls makeReady on itself.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NotificationTracker.init is called, which populates the NotificationTracker with all of the information about shims it should hook up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ContentPolicyChild.init is called. That goes just fine.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AboutProtocolChild.init is called - here's where things go wrong - for each tracking for the AboutProtocol, we attempt to register the same AboutProtocolChild as the factory. Repeated calls result in an exception being thrown.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So we throw an exception, and so makeReady fails out. That's why subsequent creations of browser-child.js's result in makeReady getting called again - because makeReady didn't succeed, RemoteAddonsChild just assumed that it had never started up before, and calls makeReady again for that new browser-child.js.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let me write this up in the bug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Changing bug summary from
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interest Dashboard breaks BugzillaJS
+</div>
+<div>
+ to
+</div>
+<div>
+ AboutProtocolChild attempts to register the same factory twice for multiple nsIAboutModule's
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ since it's more descriptive.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So my test does a good job of getting us into the error state - but it's not so good at detecting when the error is occurring. This is because attempts at loading my about: pages results in them being loaded in the parent process, since they're blacklisted.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What's a good way of testing that this registration of the about: pages has gone all wrong?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh - I can take advantage that we prefix test some about: urls in E10SUtils shouldBrowserBeRemote to determine if… well, a browser should be remote. about:neterror is one of the things that passes the prefix sniff test - so perhaps I should name my test pages about:neterror-test1 and about:neterror-test2. It's hacky, but it's also a test and the best I can come up with, and I'd rather have a hacky test then no test at all.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's give that a shot.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes, this works. Before I continue though, I had a new idea - perhaps add-on code can XHR to those about pages. That'd be a little less hacky, probably… and it'd bypass the blacklisting that E10SUtils uses. A little more verbose though.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's try that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ooooh - yes, this will work nicely.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, test written. Fix written. Cleaning up now, and attaching.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Posted.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The one thing I'm not sure about is this loadGroup change I had to make. In AboutProtocolChannel in RemoteAddonsChild.jsm, I ran into a problem where I'd get a "this.loadGroup is null" error when running the test. From my understanding, loadGroup is something that starts out as null, and that the caller needs to set (ugh)… so have I uncovered a networking bug here? I've changed the code to handle the null case, but I'm not sure if that's the right call. I've asked billm for more information.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hey, ok - billm likes the fix. I'm redirected the review request for the test patch to ally, since she wants to get her hands more dirty, review-wise.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ For the test, ally likes it, mrbkap likes it, billm has the following suggestion:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 15:59 billm: mconley: I think this code should just set loadGroup to null when the child had no load group:
+ <a href="http://mxr.mozilla.org/mozilla-central/source/toolkit/components/addoncompat/RemoteAddonsParent.jsm#244">
+  http://mxr.mozilla.org/mozilla-central/source/toolkit/components/addoncompat/RemoteAddonsParent.jsm#244
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I can do that, no problem, and then I'll land. Woo!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hrm… actually, I'm not sure if billm meant I should replace what I'd done with loadGroup with his suggestion. A flat out replacement results in a throw, because I'm still attempting to access this.loadGroup.notificationCallbacks in the RemoteAddonsChild.jsm when this.loadGroup is null. Perhaps billm meant this as "in addition to"? I've needinfo'd him.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah yep, he meant "as well as" - we're good to go to land the test.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Aaaaaaaand the trees are closed because AWS. Guess I'll just wait until they're re-opened.
+</div>
