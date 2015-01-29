@@ -1,0 +1,226 @@
+---
+layout: post
+title:  "Bug 1117936 - After trying to print preview about:newtab, print preview fails on other pages."
+date:   2015-01-28
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1117936">
+ Bug 1117936 - After trying to print preview about:newtab, print preview fails on other pages.
+</a>
+<div>
+ Grrrr - this is probably a regression from my e10s printing work (
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1082579">
+  bug 1082579
+ </a>
+ ,
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1082575">
+  bug 1082575
+ </a>
+ ), and it affects non-e10s. :(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ STR:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 1) Open Firefox, and open a new tab
+</div>
+<div>
+ 2) Open Print Preview
+</div>
+<div>
+ 3) See an error message in an alert dialog. Dismiss it.
+</div>
+<div>
+ 4) Go to some web page, and print preview it
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ER:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Should show print preview, and maybe we shouldn't have errored out on the about:newtab page
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AR:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We show that error message (not sure if that's a regression), and then we fail to show the print preview for the web page. We (sometimes) show the print preview progress dialog, but the following error is in the error console: "ppBrowser is null" for printUtils.js:440.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so the behaviour before the regression was to fail to print preview the about: page silently (like, we'd show this flash, and then it'd go away). And then print previewing anything else goes normally.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks like docShell.printPreview.printPreview(printSettings, contentWindow, this); in the child process is throwing NS_ERROR_UNEXPECTED. Is that also what happens before the regression?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes! And then we catch the exception, and then call onEnter/onExit for the callback, and then return.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I think the solution is to catch the exception in browser-content.js, and then inform the parent that we need to call onEnter/onExit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… that's causing a crash for some reason. :/ What the hell… building a debug build now...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This crash might be unrelated… it looks like it might be
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1106610">
+  bug 1106610
+ </a>
+ .
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yeah, I'm pretty sure it's that. Some kind of CPOW bug. Unrelated. Let's move on from that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I've got this thing working properly now, except that the fix has an alert dialog come up when there was no alert dialog before… the reason for the alert dialog is quite clear to me, actually. In nsPrintEngine::DoCommonPrint, there's this line:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ rv = mPrt-&gt;mPrintObject-&gt;Init(webContainer, aDoc, aIsPrintPreview);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ and the rv for that is NS_ERROR_UNEXPECTED for XUL documents because XUL documents don't clone properly. We straight-up do not print XUL documents, so this is expected. With that rv being not a success, we fall back out to nsPrintEngine::CommonPrint, and pass the error result along to ShowPrintErrorDialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, ok, I think I understand. The way things used to work, ShowPrintErrorDialog would attempt to show a print error dialog using the print progress dialog as the parent window for the modal message. That window was closed before the alert dialog could get set up, so no alert dialog appears.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Right, so the reason that the alert is showing up with my patch is because the progress dialog isn't closing! If I can figure out why that is, then I'm golden.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why doesn't the progress dialog go away? I feel like I figured this out earlier, but I must not have written it down. :( GRRR….
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FOR SHAME.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The reason why the progress dialog doesn't go away is because the modal dialog is open. Huh, chicken and egg. nsGlobalWindow::Close bails out if a window is in a modal state, which the progress dialog is in when the error dialog shows up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why didn't this happen before?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now that we're sending the state change through the message manager, the signal to close the window isn't being received right away - only when the messages get dequeued. We've changed the order of events, so the progress dialog stays open long enough for the modal dialog to be opened. Essentially, we made closing the progress dialog asynchronous, and that's what's causing this problem.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We used to have an error message displayed when a user attempted to print a XUL page that prevented us from getting to the print preview dialog. That was bug 965693.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Maybe it's enough to not let nsPrintEngine get far enough in processing a XUL document...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think what we might want to do is fix this bug without worrying about the fact that the alert dialog prevents the progress dialog from closing. The fix I've got will at least not break print preview on other valid documents in the same window.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think I should file a follow-up bug to make the print progress dialog display the error message if nsPrintEngine sees an error and we've shown the print progress dialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's see what Mossop thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File follow-up bug for showing error messages in print progress dialog if dialog is open - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1119562">
+  bug 1119562
+ </a>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File follow-up bug to disable print commands on documents that are clearly not printable - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1119563">
+  bug 1119563
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <img height="280" src="assets/1117936-C2958121-1C67-4579-87A4-E98DB5B51F9D.gif" width="420"/>
+ <br/>
+</div>
