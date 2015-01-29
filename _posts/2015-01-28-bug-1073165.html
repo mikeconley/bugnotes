@@ -1,0 +1,196 @@
+---
+layout: post
+title:  "Bug 1073165 - [e10s] TypeError: this._historyListener is null when clicking crashed tabs that were never loaded."
+date:   2015-01-28
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1073165">
+ Bug 1073165 - [e10s] TypeError: this._historyListener is null when clicking crashed tabs that were never loaded.
+</a>
+<div>
+ So I thought this would get fixed by
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1065785">
+  bug 1065785
+ </a>
+ , but no dice. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ STR:
+ <div>
+  <br/>
+ </div>
+ <div>
+  1) In Preferences &gt; General, configure Firefox to not load tabs until selected.
+ </div>
+ <div>
+  2) Open a number of tabs, and load some pages in them
+ </div>
+ <div>
+  3) Shut down the session
+ </div>
+ <div>
+  4) Reload Firefox but stay on the default selected tab
+ </div>
+ <div>
+  5) Find the plugin-container for the content process, and kill it - or somehow else reliably create a crash for the content process.
+ </div>
+ <div>
+  6) The selected tab should show the tab crashed interface. Open the Browser Console, and click on any of the background tabs that were never loaded / selected.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  ER:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  No error messages in the Browser Console.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  AR:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  The Browser Console shows:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  "TypeError: this._historyListener is null". According to ttaubert in bug 1070096 comment 16:
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What is _historyListener?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Seems like all usage of _historyListener is contained within
+ <a href="https://hg.mozilla.org/mozilla-central/file/63006936ab99/browser/components/sessionstore/ContentRestore.jsm">
+  ContentRestore.jsm
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ According to
+ <a href="https://hg.mozilla.org/mozilla-central/file/63006936ab99/browser/components/sessionstore/ContentRestore.jsm#l99">
+  this
+ </a>
+ :
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ // This listener is used to detect reloads on restoring tabs. Set in
+</div>
+<div>
+ // restoreHistory and removed in restoreTabContent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We're hitting the error in restoreTabContent, when we try to call:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ this._historyListener.uninstall();
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Clearly, we've set it to null before this.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://hg.mozilla.org/mozilla-central/file/63006936ab99/browser/components/sessionstore/SessionStore.jsm#l1431">
+  https://hg.mozilla.org/mozilla-central/file/63006936ab99/browser/components/sessionstore/SessionStore.jsm#l1431
+ </a>
+ &lt;-- this looks pretty important. When you click on a tab, I think this gets called, and because tab.linkedBrowser.__SS_restoreState == TAB_STATE_NEEDS_RESTORE, we try to restore it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I guess for crashed tabs, we should probably clear the __SS_restoreState.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, that's pretty straight-forward. SessionStore hears about crashed tabs, so I guess it just needs to clear __SS_restoreState for them.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh. So that works. The problem with that though is that when you click on those unrestored tabs after a crash, they don't show the tab crashed page - they just show white. So maybe my solution is too naive.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, ok, it's because a browser with pending="true" on it has display: none, so it's not laid out. We need to remove that pending-ness.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, _resetLocalTabRestoringState in SessionStore looks relevant...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait, wut - I switched to using _resetLocalTabRestoringState, but now the warning is back in the console. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Heh, this is because I'm a fool and copy-pasted the call to _resetLocalTabRestoringState without updating the variable name of the tab I'm passing in.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yay! It works!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Local tests pass. I don't think we need a new test here. Posting for review...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
