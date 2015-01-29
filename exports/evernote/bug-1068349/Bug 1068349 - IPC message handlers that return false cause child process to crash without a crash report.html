@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.3 (451151)"/><meta name="keywords" content="M4, Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2014-11-22 17:27:18 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1068349"/><meta name="updated" content="2014-12-20 04:14:29 +0000"/><title>Bug 1068349 - IPC message handlers that return false cause child process to crash without a crash report</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+<div>Picking this up from <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1068349">bug 1099274</a>. Summary from billm:
+<div><br/></div>
+"There are a number of places where ContentParent.cpp calls KillHard(). One of them is in ContentParent::ProcessingError. In this case, the parent has decided that a message sent by the child was malformed or something and we should kill the child. However, we don't submit a crash report in that case. For sync messages, a crash report would tell us why the child sent the message. For async messages, it would crash at a random spot, but at least we would know about the crash."
+<div><br/></div>
+and ted:
+<div><br/></div>
+"We basically want to call CreatePairedMinidumps in this situation:<br/>
+<a href="http://hg.mozilla.org/mozilla-central/annotate/4c449dcda453/dom/ipc/CrashReporterParent.h#l112">http://hg.mozilla.org/mozilla-central/annotate/4c449dcda453/dom/ipc/CrashReporterParent.h#l112</a>
+<div><br/></div>
+Not sure if we need other plumbing around that to make it get submitted or if the "child died, look for minidump" logic handles that."
+<div><br/></div>
+Maybe it's really just that simple - maybe we just need to call CreatePairedMinidump in the KillAll method.
+<div><br/></div>
+Let's try that and see what happens.
+<div><br/></div>
+Hm - there are two functions that sound interesting: CreatePairedMinidump, and GeneratePairedMinidump. What's the difference between these two?
+<div><br/></div>
+It looks like GeneratePairedMinidump calls CreatePairedMinidump. What else does it do?
+<div><br/></div>
+Seems to set mChildDumpID to the generated dump ID as well.
+<div><br/></div>
+Here it is being used for the plugin process: <a href="http://hg.mozilla.org/mozilla-central/file/8c02f3280d0c/dom/plugins/ipc/PluginModuleParent.cpp#l592">http://hg.mozilla.org/mozilla-central/file/8c02f3280d0c/dom/plugins/ipc/PluginModuleParent.cpp#l592</a> - I think this deals with plugin hangs.
+<div><br/></div>
+I can probably use that as an example.
+<div><br/></div>
+So how does it work here in PluginModuleParent? … well, first it gets itself a handle on the associated crash reporter...
+<div><br/></div>
+Then it annotates it, calls it a plugin hang.
+<div><br/></div>
+Calls crashReporter->GeneratePairedMinidump and passes this, where this is the PluginChromeModuleParent.
+<div><br/></div>
+So, can I do something similar in ContentParent when it calls KillHard? Isn't KillHard similar to PluginChromeModuleParent's TerminateChildProcess? They both end up calling KillProcess, so while I'm inclined to believe that some of the details might be different, the idea is very much the same.
+<div><br/></div>
+So let's see if I can do something similar for ContentParent then.
+<div><br/></div>
+But first, tea.
+<div><br/></div>
+Ok, tea acquired. Let's rock and roll.
+<div><br/></div>
+So what does GeneratePairedMinidump expect as an argument? A "Toplevel*".
+<div><br/></div>
+What is a Toplevel*?
+<div><br/></div>
+I'm having trouble finding its definition...
+<div><br/></div>
+I'm seeing some Toplevel*'s called "actor", so I wonder if this is something that the IPC libraries give us? Maybe we can just pass in ContentParent and call it a day?
+<div><br/></div>
+Let's go on that assumption for now.
+<div><br/></div>
+Took a little break there for some meetings and some food, some code review, and to land another thing. Back at this now.
+<div><br/></div>
+Ah, failing right now because I (again) forgot to set MOZ_CRASHREPORTER env variable. Repeat after me - the crash reporter is disabled by default in debug builds.
+<div><br/></div>
+Hey, it worked! Woo! That's awesome. I can get a crash report generated here.
+<div><br/></div>
+So now… I have a few choices:<br/></div>
+<ol>
+<li>I can just post what I've got and get feedback</li>
+<li>I can take a closer look at what PluginChromeModuleParent annotates the crash report with and try to adapt it for our new crash reports here, and <b>then</b> ask for feedback.</li>
+</ol>
+<div><br/>
+Gonna go to 2.
+<div><br/></div>
+So what kind of things does PluginChromeModuleParent do with the crash report?
+<div><br/></div>
+    crashReporter->AnnotateCrashReport(NS_LITERAL_CSTRING("PluginHang"),<br/>
+                                       NS_LITERAL_CSTRING("1"));
+<div><br/></div>
+Er, that might actually be it. Heh, so maybe I really just should ask for feedback on other things to annotate with here.
+<div><br/></div>
+Alright, eff it, let's post a patch.
+<div><br/></div>
+Oh, before I posted it - I transferred the patch to my Macbook to test there, and made sure things appeared to run properly in ContentParent::ActorDestroy. They do.
+<div><br/></div>
+Argh, so after some testing, this isn't good enough.
+<div><br/></div>
+When I say not good enough, I mean that while we're displaying the checkbox to submit a crash report, we're not actually annotating the crash report with the extra minidump from the content process that we've killed - so if the child started spewing garbage at us and we killed it, this crash report is of minimal use.
+<div><br/></div>
+What we need to do is something akin to what PluginModuleParent does in TerminateChildProcess, where we add an entry to the additional_minidumps list, and annotate it with the minidump generated from the content process.
+<div><br/></div>
+Another (separate) problem is that we don't get the additional minidumps displayed in the UI of crash stats. We can view them in the unprocessed JSON blob of the crash report, but that's not great. bsmedberg said we have bugs about that somewhere.
+<div><br/></div>
+Huh, so I've modified ContentParent to do the job of creating a crash report with additional minidumps using PluginModuleParent as a template, but it's not working… the problem appears to be in crashReporter->GenerateCrashReport… *sigh*, time to dig in.
+<div><br/></div>
+Looks like by the time I get to PContentParent::OtherSidePID, mOtherProcess is nullptr. So I can't get the OtherSidePID, which means I can't get the minidump for the child.
+<div><br/></div>
+What are the phases in creating a crash report? It looks to me like we first create minidumps… then we annotate the crash report, and then we actual generate (finalize) the crash report. Is that correct?
+<div><br/></div>
+*sigh*, so I really think I need to understand the OOP crash reporting infrastructure more before I can proceed. :(
+<div><br/></div>
+<b>AND NOW FOR A CRASH (HA) COURSE IN OOP CRASH REPORTING</b>
+<div><br/></div>
+Just to be clear, the problem that this infrastructure is trying to solve is:
+<div><br/></div>
+Suppose we have some main browser process, and that main process has opened some child process. Now suppose that one of these child processes has crashed. When the main process hears about this, it should gather a minidump for the child process (and well, maybe the parent process too, depending on the means of the child process's death), and generate a crash report. Then, we should alert the front-end code that this crash report exists so that the user has the option to submit it.
+<div><br/></div>
+That's pretty much what this stuff solves. So, there are some extra pieces - let's look at those next.
+<div><br/></div>
+The "Crash Reporter Injector". This appears to be Windows-only at this time, and what it does is injects a crash reporter DLL into an already-running process. I think we do this for plugins like Flash, where we have no access to the source code. We run these plugins, inject this crash reporter DLL on Windows, and so the main process can do some forensics when the Flash process dies. That injector itself probably (maybe?) runs in the actual Flash process itself… maybe that's plugin-container. I'm not sure.
+<div><br/></div>
+<a href="https://support.mozilla.org/en-US/kb/What%20is%20plugin-container">What is plugin-container.</a>
+<div><br/></div>
+Ahhhh - ok, so I was curious to know why we needed a process injector if we're just running plugin-container, which we have some access to. Like, why inject when we could just tell plugin-container to tell us when it crashes so we can get a minidump? <a href="http://blogs.adobe.com/security/2012/06/inside-flash-player-protected-mode-for-firefox.html">The answer is because of Flash's protected mode stuff.</a> When using protected mode, which is Windows-only, the plugin-container acts as a broker between the browser process and the plugin, but the plugin also runs as a child process of the plugin process. So what we end up with is:
+<div><br/></div>
+Main browser process ---> plugin-container ---> Flash player process (Windows only)
+<div><br/></div>
+And it's that last Flash player process that we have no access to and we want to inject our crash reporter stuff in. Got it.
+<div><br/></div>
+Ok, good. I think I understand the injector. Next...
+<div><br/></div>
+The actual process of creating a crash report is separate from the sending of the crash report. While we're waiting for the user to choose whether or not to send a crash report, we stash the crash report somewhere in their profile for them to decide what to do with it.
+<div><br/></div>
+That first part, I would assume, is called "generating the crash report". Like, we're actually dumping stuff to a file.
+<div><br/></div>
+A crash report is more than just a minidump, or set of minidumps - it's annotated with interesting system stats, and might also include stuff from the user if the user decided to include their email address or a message to us telling us what they were doing at the time of the crash.
+<div><br/></div>
+So now let's look at KillHard and all of that business.
+<div><br/></div>
+ContentParent::ProcessingError is called when something went wrong over the communications channel to the child process. ProcessingError calls KillHard to wipe out that child process.
+<div><br/></div>
+After we do the kill, the IPC infrastructure calls ActorDestroy on ContentParent, which is IPC's way of saying "your communications are being torn down - deal with it."
+<div><br/></div>
+By the time we're doing ActorDestroy, the child process has already died, so there's no point in trying to get a minidump from it. We have to get the minidump <b>before </b>the child is killed.
+<div><br/></div>
+But the minidumps can hang around and get picked up later. So think of it like this:
+<div><br/></div>
+Communications problem! ContentParent::ProcessingError calls KillHard. KillHard says, "otay, let's start getting a crash report started here - we'll create a paired minidump at this point", and it gets minidumps for the parent and child processes, and stashes those away.
+<div><br/></div>
+Then, afterwards, in ActorDestroy, we need to notice those minidumps are lying around, and sew together the actual crash report. I can't just do the sewing together in KillHard, because we don't always go through KillHard to create these reports.
+<div><br/></div>
+GeneratePairedMinidump - what does this do? So this actually does the job of dumping the minidumps for both the parent and child to disk. That's good.
+<div><br/></div>
+Will GenerateCrashReport in ActorDestroy ever work? Since by the time ActorDestroy is called, the other process is probably already dead?
+<div><br/></div>
+What does GenerateCrashReport <b>actually do?</b>
+<div><br/></div>
+Well, let's look… <a href="http://hg.mozilla.org/mozilla-central/file/5288b15d22de/dom/ipc/CrashReporterParent.h#l135">start here</a>… t->TakeMinidump() actually looks like it's generated, and runs <a href="http://hg.mozilla.org/mozilla-central/file/5288b15d22de/toolkit/xre/nsEmbedFunctions.cpp#l248">XRE_TakeMinidumpForChild</a>...
+<div><br/></div>
+That seems to return an nsIFile to a minidump for the child process. Ok… and then CrashReporter::GetIDFromMinidump makes sure we can get an ID from the minidump file… and if so, we GenerateChildData. This decorates the CrashReporterParent with a bunch of information about the process (what kind of child process is it? content? plugin? GMP plugin?). This stuff goes into the .extra file that is matched to the minidump.
+<div><br/></div>
+And THEN we notify the crash service that we have our crash report created. Got it.
+<div><br/></div>
+Alright, I think I have a better understanding of things right now.
+<div><br/></div>
+The good news is that GenerateCrashReport seems to be doing the right thing if I, for example, send a kill SIGABRT to the content process. I'll bet you GenerateCrashReport is not going to work if I've already done… talking to bsmedberg now.
+<div><br/></div>
+PluginModuleParent is probably the canonical source of truth in how to do things...
+<div><br/></div>
+<b>The function which finds a minidump is called GenerateChildData.</b><br/>
+GenerateCrashReport is a combination function that does multiple things. First it takes the minidump (finds it on the filesystem), gets the ID of that minidump, and then calls GenerateChildData. If I already have the ID of the minidump, then all I need is GenerateChildData.
+<div><br/></div>
+In the PluginModuleParent, ActorDestroy forwards this work off to ProcessFirstMinidump. At some point, you have to call GenerateChildData in order to get all of the annotations that you care about.
+<div><br/></div>
+So my current plan is as follows:<br/></div>
+<ol>
+<li>Set a member variable in ContentParent for the child minidump if we've already created it</li>
+<li>Alter ContentParent::ActorDestroy so that if a minidump pre-exists, instead of calling GenerateCrashReport, we call GenerateChildData to annotate the pre-existing minidump properly.</li>
+</ol>
+<div><br/>
+And I guess that'd be enough? Maybe? bsmedberg says to give it a shot. So let's do it.
+<div><br/></div>
+Yes - OK - things are showing up. That's good. Not 100% there yet though - <a href="https://crash-stats.mozilla.com/api/ProcessedCrash/?crash_id=a2e97e3d-7e90-462d-8c7c-de3892141212">https://crash-stats.mozilla.com/api/ProcessedCrash/?crash_id=a2e97e3d-7e90-462d-8c7c-de3892141212</a>
+<div><br/></div>
+It's got upload_file_minidump_content, but it says:
+<div><br/></div>
+  "upload_file_minidump_content": {<br/>
+    "mdsw_status_string": "ERROR_NO_THREAD_LIST",<br/>
+    "json_dump": {<br/>
+      "status": "ERROR_NO_THREAD_LIST",<br/>
+      "sensitive": {<br/>
+       <br/>
+      }<br/>
+    },<br/>
+    "mdsw_return_code": 0,<br/>
+    "success": false<br/>
+  },
+<div><br/></div>
+mdsw = minidump-stackwalker, I guess...
+<div><br/></div>
+<a href="https://github.com/mozilla/socorro/blob/11f8661c0346145532775b9b2e643cfc1274192b/minidump-stackwalk/stackwalker.cc#L760">A quick search for ERROR_NO_THREAD_LIST gets me here…</a> so there's something wrong with the child's minidump.
+<div><br/></div>
+Did I miss a step? Let's take a look at PluginModuleParent again.
+<div><br/></div>
+I seem to be doing most of the same stuff? Here's what's inside the content process minidump:
+<div><br/></div>
+4d44 4d50 93a7 0000 0700 0000 2000 0000<br/>
+0000 0000 4c62 8b54 0000 0000 0000 0000<br/>
+0000 0000 0000 0000 0000 0000 0000 0000<br/>
+0000 0000 0000 0000 0000 0000 0000 0000<br/>
+0000 0000 0000 0000 0000 0000 0000 0000<br/>
+0000 0000 0000 0000 0000 0000 0000 0000<br/>
+0000 0000 0000 0000 0000 0000 0000 0000<br/>
+0000 0000 0000 0000
+<div><br/></div>
+Hm…yeah, that's pretty empty. I wonder if we kill the child before it has a chance to finish getting this written out?
+<div><br/></div>
+Hm… I'm seeing this same binary signature in the same minidump from the child each time. I wonder what's going on?
+<div><br/></div>
+Like I said earlier, I'm pretty sure GeneratePairedMinidump is responsible for sending the minidumps to the disk, so let's check that out.
+<div><br/></div>
+So there's this OTHER file in the minidumps directory that doesn't have any kind of suffix to it (the browser process one has -browser suffix)… I wonder if that's the one? Where does the corrupted -content one get created?
+<div><br/></div>
+Ah, CreateAdditionalChildMinidump creates it. AHHH, yep, we do (I believe) want the one that doesn't have the -content suffix. Excellent.
+<div><br/></div>
+Ah, GOT IT. So, I had an incorrect assumption. I thought I had to (for some reason - it's silly looking back) kinda create that minidump for the child even after calling GeneratePairedMinidump. I then thought I had to tell the crash reporter parent about two additional minidumps - browser, and content.
+<div><br/></div>
+The thing is, when using GeneratePairedMinidump, what's happening is that there's a <b>main minidump</b>, which is for the child. The only additional one we send along is the one for "browser".
+<div><br/></div>
+So I don't have to use that CreateAdditionalChildMinidump stuff at all.
+<div><br/></div>
+Here's the crash report I sent: <a href="https://crash-stats.mozilla.com/api/ProcessedCrash/?crash_id=e7a59f07-33a3-4048-b241-aca082141212">https://crash-stats.mozilla.com/api/ProcessedCrash/?crash_id=e7a59f07-33a3-4048-b241-aca082141212</a>
+<div><br/></div>
+Both stacks! \o/
+<div><br/></div>
+</div>
+<div>Posting for review...</div>
+<div><br/></div>
+<div>Landed, but bounced. :(</div>
+<div><br/></div>
+<div>Log from bustage: <a href="https://treeherder.mozilla.org/ui/logviewer.html#?job_id=1454635&amp;repo=fx-team">https://treeherder.mozilla.org/ui/logviewer.html#?job_id=1454635&amp;repo=fx-team</a><br/></div>
+<div><br/></div>
+<div>ted sez:</div>
+<div><br/></div>
+<div>"It looks like the browser-chrome tests under browser/components/customizableui/test launch a lot of child processes, so maybe one of them is hitting this KillHard path you've added, and it now causes a failure because the minidumps get written?
+<div><br/></div>
+<div>I do see some spew like this in the log:</div>
+<div>11:13:47     INFO -  [Parent 2384] WARNING: pipe error (49): Connection reset by peer: file /builds/slave/fx-team-lx-0000000000000000000/build/src/ipc/chromium/src/chrome/common/ipc_channel_posix.cc, line 457</div>
+<div>11:13:47     INFO -  ###!!! [Parent][OnMaybeDequeueOne] Error: Channel error: cannot send/recv</div>
+<div>11:13:47     INFO -  ###!!! [Parent][OnMaybeDequeueOne] Error: Channel error: cannot send/recv</div>
+<div>11:13:47     INFO -  ###!!! [Parent][OnMaybeDequeueOne] Error: Channel error: cannot send/recv</div>
+<div>11:13:47     INFO -  ###!!! [Parent][OnMaybeDequeueOne] Error: Channel error: cannot send/recv</div>
+<div><br/></div>
+<div>The B2G desktop mochitests seem to be hitting something similar. It's possible this is something that has always happened and your patch turns it into a test failure."</div>
+</div>
+<div><br/></div>
+<div>So I've reduced the tests in customizableui that cause the stack to appear to 2 subtests:</div>
+<div><br/></div>
+<div>[browser_878452_drag_to_panel.js]                                                                       </div>
+<div>
+<div>[browser_880382_drag_wide_widgets_in_panel.js]</div>
+</div>
+<div><br/></div>
+<div>The crash seems to depend on both of these tests to run. Interesting. I assume we're hitting kill hard, right?</div>
+<div><br/></div>
+<div>I would assume so, since we're generating paired minidumps. Let's find out why we're hitting KillHard.</div>
+<div><br/></div>
+<div>Building a debug build...</div>
+<div><br/></div>
+<div>Huh. Can't reproduce in a debug build.</div>
+<div><br/></div>
+<div>I can, however, introduce some logging. Here's what I'm seeing:</div>
+<div><br/></div>
+<div>First of all - recall that when entering customize mode, we go to about:customizing, which is not in our whitelisted URIs for about: pages. We usually transition to about:customizing from about:blank, which <b>is</b> whitelisted.</div>
+<div><br/></div>
+<div>What that means is that we're going from a single remote tab to a single non-remote tab, and we do this several times in these tests, back and forth.</div>
+<div><br/></div>
+<div>Since the content process is torn down when the last remote tab closes, this means that many separate content processes are being spawned, and then being asked to shutdown during the entirety of these tests.</div>
+<div><br/></div>
+<div>Actually, for these two tests, here's how it's looking when run with --e10s:</div>
+<div><br/></div>
+<ol>
+<li>Browser starts with about:blank as remote tab - content process boots</li>
+<li>browser_878452_drag_to_panel.js starts, which moves about:blank to about:customizing - message is sent to content process to die via ContentParent::NotifyTabDestroying - a KillHard timeout is started.</li>
+<li>Child receives message and shuts down successfully.</li>
+<li>We exit customizing mode, which puts us back at about:blank, which spawns a new content process</li>
+<li>We immediately move back into customizing mode for browser_880382_drag_wide_widgets_in_panel.js. Message is sent to content process to die via ContentParent::NotifyTabDestroying. A KillHard timeout is started.</li>
+<li>Child never receives this message!</li>
+<li>KillHard is called, and we create the minidumps, which results in test failure.</li>
+</ol>
+<div><br/></div>
+<div>Questions to be answered:</div>
+<div><br/></div>
+<div>Which KillHard is being obeyed in 7? I assume it's the one fired in 5, but are we sure it's not the one fired in 2? <b>Yes - I am sure. ContentParent::~ContentParent is cancelling the KillHard timeout before it can fire.</b></div>
+<div><br/></div>
+<div><b>So the question is: why isn't the child receiving the message to shut down?</b></div>
+<div><br/></div>
+<div>That's the big question here - I think if I can crack that, I've got the answer to this puzzle.</div>
+<div><br/></div>
+<div>My hypothesis is that teardown is occurring before setup has ever really finished - like, the IPC communications channel is not set up yet, so we can't even tell the child to shut down.</div>
+<div><br/></div>
+<div>So yes, it looks like TabDestroyed has never been called after TabDestroying. WHY???</div>
+<div><br/></div>
+<div><img src="Bug%201068349%20-%20IPC%20message%20handlers%20that%20return%20false%20cause%20child%20process%20to%20crash%20without%20a%20crash%20report.resources/BA1C44FB-FB9B-46B9-A8AD-A44D9B40A1AF.gif" height="240" width="427"/></div>
+<div><br/></div>
+<div>Ah… so I talked to bent. It looks like a timer issue. Like, if I up the timeout for KillHard to 100 seconds, everything is hunky-dory.</div>
+<div><br/></div>
+<div>Here's the explanation of what's going on:</div>
+<div><br/></div>
+<div>In order for the content process to respond to messages, it needs to fire up XPCOM and start spinning its event loop. Only then can it react to messages. We have a 5 second default timeout on opt builds so that when we send a destroy to the content process, if we don't hear back over 5 seconds, we should just kill it hard (which causes our minidump).</div>
+<div><br/></div>
+<div>What bent suggests is that for mochitests, we either up the timeout, or even better, set dom.ipc.tabs.shutdownTimeoutSecs to 0 so that we don't actually do the KillHard bit when running mochitests. Let's try that.</div>
+<div><br/></div>
+<div>Yes - this appears to work. So, let's do a try push with the builds that failed:</div>
+<div><br/></div>
+<div>Linux opt (e10s mochitests), B2G Desktop Linux opt mochitests, B2G Desktop Linux x64 opt mochitests</div>
+<div><br/></div>
+<div>Ok, try push is out:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=68bda0cf96c2">https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=68bda0cf96c2</a></div>
+<div><br/></div>
+<div>smaug wants me to just try bumping up the delay a bit - trying 10 seconds. Also, I need to extend the delay for b2g as well.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/%23/jobs?repo=try&amp;revision=2613ff7d534c%0A">https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=2613ff7d534c</a><br/></div>
+<div><br/></div>
+<div>And here we are just disabling it again:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=dd24e18396a6">https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=dd24e18396a6</a></div>
+<div><br/></div>
+<div><br/></div>
+<div>GRAAWWARR so much rage</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=de069bdb5aed">https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=de069bdb5aed</a></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=8f94fbe813cd">https://treeherder.mozilla.org/ui/#/jobs?repo=try&amp;revision=8f94fbe813cd</a><br/></div>
+</body></html>
