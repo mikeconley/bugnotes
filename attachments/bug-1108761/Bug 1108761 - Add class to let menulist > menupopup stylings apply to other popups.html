@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1108761 - Add class to let menulist &gt; menupopup stylings apply to other popups</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1108761.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201108761%20-%20Add%20class%20to%20let%20menulist%20%3E%20menupopup%20stylings%20apply%20to%20other%20popups_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1108761 - Add class to let menulist &gt; menupopup stylings apply to other popups</h1>
+    <p class="meta">Jan 28, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1108761">
+ Bug 1108761 - Add class to let menulist &gt; menupopup stylings apply to other popups
+</a>
+<div>
+ So Dao's idea is to add a class, but instead of duplicating the class 
+for every rule, have the class supplant the child rule, and have the 
+menulist binding apply the class on the menupopup when it opens. Dao 
+said popup.xml, but I think he means menulist.xml.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, that sounds pretty straight forward. Let's get started.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Places I'm likely going to need to update:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ toolkit/themes/[platform]/global/popup.css
+</div>
+<div>
+ toolkit/themes/[platform]/global/global.css
+</div>
+<div>
+ toolkit/themes/[platform]/global/menu.css
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Garrr… this isn't going to be so simple. Some of the rules look like this:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ menulist[editable="true"] &gt; menupopup &gt; […] {
+</div>
+<div>
+ /** rule **/
+</div>
+<div>
+ }
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we need to know whether or not the menulist is editable...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So maybe we actually need two classes:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ editable-menulist-menupopup
+</div>
+<div>
+ uneditable-menulist-menupopup
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Or… or just have the editable attribute get inherited by the child. Can
+ that even happen? Not on &lt;children&gt; it seems. Hrm.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, so how about we have the menulist also copy the editable attribute on the menupopup when it opens it? Just like the class.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That way, we have one class, and one maybe attribute. Let's try that.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ :not(menulist) &gt; menupopup &gt; menuitem[checked="true"],
+ <div>
+  :not(menulist) &gt; menupopup &gt; menuitem[selected="true"] {
+ </div>
+ <div>
+  -moz-appearance: checkmenuitem;
+ </div>
+</div>
+<div>
+ }
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Tricky - the leftmost part of both selectors says:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Any menupopup that is not a child of a menulist… apply rule"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ However, we want to modify these to be:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Any menupopup that is not a child of a menulist AND any menupopup that
+ does not have the .menulist-menupopup class… apply rule"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Actually, since we can guarantee that the menulist will add the menulist-menupopup class, we can simply say:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Any menupopup that does not have the menulist-menupopup class… apply rule". Simpler than I had thought.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ menupopup:not(.menulist-menupopup) &gt; menuitem[checked="true"],
+</div>
+<div>
+ menupopup:not(.menulist-menupopup) &gt; menuitem[selected="true"] {
+</div>
+<div>
+ /* foo */
+</div>
+<div>
+ }
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hrmph. Due to specificity, I had to add a rule for the _moz-menuactive 
+attribute so that the text gets highlighted properly. Lovely.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201108761%20-%20Add%20class%20to%20let%20menulist%20%3E%20menupopup%20stylings%20apply%20to%20other%20popups_files/1108761-F64918D1-7650-43C3-9AE7-54810FA71726.png" height="554" width="450">
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201108761%20-%20Add%20class%20to%20let%20menulist%20%3E%20menupopup%20stylings%20apply%20to%20other%20popups_files/1108761-6BB09433-851C-4B31-B53B-1DF92314EB15.gif" height="197" width="255">
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, getting things going for Linux now...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Don't forget the inContent stuff
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Fix weird checkbox thing on Linux
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ CHANGE OF PLANS.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I came up with something that I think is a simpler solution to this 
+problem. I've been assuming that I can't use a standard menulist because
+ I would have the top of the menulist to deal with. But now I've added a
+ new type of menulist to XUL, with a popuponly="true" attribute that 
+hides the top-bit. Now the menulist on the parent side keeps track of 
+list state, which is nice. No more hackery&nbsp;- since the popup really
+ expects to be inside some type of list.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Dao thinks the way I'm hiding the top bit (the part&nbsp;that's usually
+ clicked for menulists) can be done better… I'm using height: 
+0&nbsp;!important, margin: 0 !important, border: 0 !important, to reduce
+ the height and eliminate it's visibility from&nbsp;the DOM. Dao thinks I
+ can do it by setting visibility: collapse on&nbsp;the parent and 
+visibility: visible on the menupopup, but I couldn't get it to work. 
+I've given him the patch to play with.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUCK. Failing tests.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=97a392cd9f9d">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=97a392cd9f9d
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh. Only fails on Windows and Linux. That's great.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ dom/tests/mochitest/chrome/test_focus.xul is what's failing.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 821 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start events - got blur: f8 blur: frame-f7-document blur: 
+frame-f7-window, expected blur: f8 blur: frame-f7-document blur: 
+frame-f7-window focus: frame-f1-document focus: frame-f1-window
+</div>
+<div>
+ 822 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start focusedElement - got ContentSelectDropdown, expected f1
+</div>
+<div>
+ 823 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start focusedWindow - got [object ChromeWindow], expected [object 
+Window]
+</div>
+<div>
+ 824 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start getFocusedElementForWindow - got [object HTMLInputElement], 
+expected [object HTMLHtmlElement]
+</div>
+<div>
+ 826 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start hasFocus - got false, expected true
+</div>
+<div>
+ 827 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start activeElement - got f2, expected f1
+</div>
+<div>
+ 828 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset tab key wrap to 
+start commandDispatcher focusedWindow - got [object ChromeWindow], 
+expected [object Window]
+</div>
+<div>
+ 830 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | frameset shift tab key wrap 
+to end events - got focus: frame-f7-document focus: frame-f7-window 
+focus: f8, expected blur: frame-f1-document blur: frame-f1-window focus:
+ frame-f7-document focus: frame-f7-window focus: f8
+</div>
+<div>
+ 929 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | switch document forward and 
+wrap events - got blur: frame-f7-document blur: frame-f7-window, 
+expected blur: frame-f7-document blur: frame-f7-window focus: 
+frame-f1-document focus: frame-f1-window
+</div>
+<div>
+ 930 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | switch document forward and 
+wrap focusedElement - got ContentSelectDropdown, expected f1
+</div>
+<div>
+ 931 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | switch document forward and 
+wrap focusedWindow - got [object ChromeWindow], expected [object Window]
+</div>
+<div>
+ 934 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | switch document forward and 
+wrap hasFocus - got false, expected true
+</div>
+<div>
+ <div>
+  936 INFO TEST-UNEXPECTED-FAIL | 
+dom/tests/mochitest/chrome/test_focus.xul | switch document forward and 
+wrap commandDispatcher focusedWindow - got [object ChromeWindow], 
+expected [object Window]
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, OK. So having the ContentSelectDropdown not be hidden immediately 
+causes it to be focusable when we don't want it to be. I'll set 
+hidden="true" on it by default, and only remove that hidden="true" 
+whenever we want the &lt;select&gt; dropdown to open. Piece of cake. 
+Phew.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3322f4157cf7">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3322f4157cf7
+ </a>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Posted for review. Hopefully Enn gets to it soon!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Woo! Enn r+'d me - though he wants to know why the menulist isn't 
+automatically scrolling the selected menuitem into view - apparently, 
+nsMenuPopupFrame::EnsureMenuItemIsVisible is supposed to be called. He 
+wants to know why this doesn't work.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I'll look into it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We do hit nsMenuPopupFrame::EnsureMenuItemIsVisible, and then go into 
+PresShell::ScrollFrameRectIntoView. We climb the ancestor chain until we
+ hit an nsXULScrollFrame, and then call ScrollToShowRect, which calls 
+ComputeNeedToScroll...
+</div>
+<div>
+ <div>
+  <br>
+ </div>
+ <div>
+  And we end up passing in all 0's for targetRect.y, targetRect.YMost, 
+visibleRect.y and visibleRect.YMost. So ComputeNeedToScroll returns 
+false, and we don't scroll.
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I suspect this is because our &lt;xul:menulist&gt; item has no rect to speak of.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Landed. Done.
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
