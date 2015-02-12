@@ -15,7 +15,7 @@ import urlparse
 
 from bs4 import BeautifulSoup
 from jinja2 import Template
-
+from xml.sax.saxutils import escape
 
 """
 A script to extract useful things from an Evernote-exported bugnote
@@ -35,6 +35,16 @@ tags:
 
 
 """
+
+HTML_ESCAPE_TABLE = {
+    '"': "&quot;",
+    "'": "&apos;"
+}
+
+
+def html_escape(text):
+    return escape(text, HTML_ESCAPE_TABLE)
+
 
 def extract(document, resources, destination, assets, folder, dry_run=False):
     logging.info("Identifying associated bug...")
@@ -108,7 +118,8 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
     # The bug_title might have some quotes in it, which Jekyll will not like
     # unless we escape them.
     bug_title = bug_title.replace('"', '\\"')
-    front_matter = fm_template.render(post_title=bug_title, post_date=date)
+    front_matter = fm_template.render(post_title=html_escape(bug_title),
+                                      post_date=date)
 
     logging.info("Extracting document body and inserting into post")
     content_string = ''.join([str(thing) for thing in document.body.contents])
