@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.6 (451290)"/><meta name="keywords" content="M5, Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2015-01-28 16:10:31 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1126311"/><meta name="updated" content="2015-01-29 15:16:10 +0000"/><title>Bug 1126311 - Disable OMTC warning for new e10s windows on Linux if browser.remote.tabs.autostart.1 is true</title></head><body>
+<div>Wait - is this a bug or not? I just tested this, and I can't seem to get the alert to display even if I have e10s disabled. The hell?</div>
+<div><br/></div>
+<div>The reason I filed this bug was because of the test I wrote for bug 1047603. Let me build that and try to get the alert to display.</div>
+<div><br/></div>
+<div>"To use out-of-process tabs, you must set the layers.offmainthreadcomposition.enabled preference and restart. Opening a normal window instead."</div>
+<div><br/></div>
+<div><a href="https://dxr.mozilla.org/mozilla-central/source/browser/base/content/browser.js#3877">https://dxr.mozilla.org/mozilla-central/source/browser/base/content/browser.js#3877</a></div>
+<div><br/></div>
+<div>Ah, ok - I had OMTC force-enabled on my e10s profile.</div>
+<div><br/></div>
+<div>So I actually don't think this is a bug. I'll explain in my livecoding session.</div>
+<div><br/></div>
+<div>What I really want to do is have those tests disabled due to bug 994541.</div>
+<div><br/></div>
+<div>So I just need to update my patch in bug 1047603 with a new comment.</div>
+<div><br/></div>
+<div>WAAAAAAAIT. There is a bug here. I WAS WRONG.</div>
+<div><br/></div>
+<div>EVEN WITH e10s enabled by default, we still display that warning dialog when I try to open a window.</div>
+<div><br/></div>
+<div>STR:</div>
+<div><br/></div>
+<div>1) On a Linux machine with e10s enabled by default, open up the browser console (Ctrl-Shift-J)</div>
+<div>2) Enter this into the console: OpenBrowserWindow({remote: true}); and press Enter</div>
+<div><br/></div>
+<div>ER:</div>
+<div><br/></div>
+<div>This should open up an e10s window without any difficulty, since we're already running with an e10s window.</div>
+<div><br/></div>
+<div>AR:</div>
+<div><br/></div>
+<div>We get a warning about OMTC being disabled, which is FALSE because OMTC has been force enabled by way of e10s being enabled by default.</div>
+<div><br/></div>
+<div>Review request up!</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Why is privateWindow commented out in the test for bug 1047603? Huh, no need. Looks like leftover cruft. I've updated the patch.</div>
+</body></html>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.6 (451290)"/><meta name="keywords" content="M5, Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2015-01-28 16:10:54 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1112243"/><meta name="updated" content="2015-01-29 19:29:30 +0000"/><title>Bug 1112243 - [e10s] &lt;select> dropdowns are blank, if there are many options (e.g. at http://www.bls.gov/data/inflation_calculator.htm )</title></head><body>
+<div>Test case: <a href="https://bug1112243.bugzilla.mozilla.org/attachment.cgi?id=8537362">https://bug1112243.bugzilla.mozilla.org/attachment.cgi?id=8537362</a></div>
+<div><br/></div>
+<div>I can totally reproduce on my local machine, and now I'm going to attempt to jam open the menupopup in an attempt to figure out what styling is being applied to the menuitems in the ContentSelectDropdown.</div>
+<div><br/></div>
+<div>The core of the bug is that short labels, plus scrollbar (so long list) equals squished labels. The labels are there, but they're being squeezed smaller than they should be.</div>
+<div><br/></div>
+<div>sizetopopup pref. Wtf is that?</div>
+<div><br/></div>
+<div>Ok, sizetopopup is a pref available to menulists. <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/Attribute/sizetopopup">Here is the documentation.</a></div>
+<div><br/></div>
+<div>If we set the value to "always" on the ContentSelectDropdown, we get:</div>
+<div><br/></div>
+<div>"Both the preferred and minimum width of the menu label or button will be the same as that necessary for the menupopup."</div>
+<div><br/></div>
+<div>
+<div>The XUL menulist popup that we use for displaying &lt;html:select> dropdowns</div>
+<div>from the content process is sometimes not wide enough to properly display</div>
+<div>the labels inside of it - especially if there is a scrollbar. The sizetopopup</div>
+<div>attribute allows us to make sure that the popup assumes its preferred size</div>
+<div>and is not constrained by the size of the menulist item. This ensures that</div>
+</div>
+<div>all labels are displayed properly.</div>
+<div><br/></div>
+<div>Dao writes:</div>
+<div><br/></div>
+<div>
+<div>"I don't think I understand this patch. <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/menulist">https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/menulist</a> says:</div>
+<div><br/></div>
+<div>"If the sizetopopup attribute is left out or set to none, the menu will be its preferred width and the popup may extend outside of this width, unaffected by the maximum width of the menu itself."</div>
+<div><br/></div>
+</div>
+<div>which is pretty much what we want, isn't it?"</div>
+<div><br/></div>
+<div>I suspect that things aren't working properly because the menulist doesn't actually have any dimensions.</div>
+<div><br/></div>
+<div>Let's prove this.</div>
+<div><br/></div>
+<div>prefSize: 3637, 21000</div>
+<div>minSize: 0, 0</div>
+<div>maxSize: 1073741824, 21000</div>
+<div>bounds: 3637, 21000</div>
+<div><br/></div>
+<div>This is the code inside nsMenuPopupFrame::LayoutPopup that I think is involved...</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo"> </span> <span style="font: 11.0px Menlo; color: #008400">// get the preferred, minimum and maximum size. If the menu is sized to the</span></div>
+<div><span style="font-family: Menlo;"><span style="font-size: 11px;">  <span style="font: 11.0px Menlo; color: #008400">// popup, then the popup's width is the menu's width.</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;"><span style="color: rgb(0, 132, 0);">...</span></span></span></div>
+<div><span style="font: 11.0px Menlo"> </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font-style: normal; font-variant: normal; font-weight: normal;"><span style="font-size: 11px;"><span style="font-family: Menlo;">(aSizedToPopup) {<br/>
+    prefSize.width = aParentMenu->GetRect().width;</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">  }</span></span></div>
+<div><br/></div>
+<div>bounds: 4537, 21000</div>
+<div><br/></div>
+<div><br/></div>
+<div>Looking at the documentation, it seems as if the sizetopopup pref is really about the size of the menu / menulist item, and not the popup itself.</div>
+<div><br/></div>
+<div>However, reading into nsMenuPopupFrame::LayoutPopup, it seems clear that if the sizetopopup pref on the parent is set to "always" (looking at the call to IsSizedToPopup in nsMenuFrame::DoLayout, I guess it could be set to "pref" too, since aRequireAlways is false), then the preferred size of the menupopup becomes the width of the parent menu.</div>
+<div><br/></div>
+<div>So now that I think about it, this is kind of a hack, and there might be a better way. I *think* a better solution is to fix nsMenuPopupFrame to correctly calculate its preferred size so that the label is displayed.</div>
+<div><br/></div>
+<div>Let's see what Enn thinks.</div>
+<div><br/></div>
+<div>Enn says:</div>
+<div><br/></div>
+<div>"What you should do is add:
+<div><br/></div>
+<div>    &lt;content sizetopopup="pref"></div>
+<div><br/></div>
+<div>to the menulist-popuponly binding, as the other menulist bindings have, so they always default to sizing themselves properly.</div>
+<div><br/></div>
+</div>
+<div>That's not actually the width you want though for the ContentSelectDropdown; you actually want the popup to be same width as the &lt;select> element. But that's best done after 873923."</div>
+<div><br/></div>
+<div>Okie dokie, let's give that a shot.</div>
+<div><br/></div>
+<div>Got review! Done here, folks. Landed.</div>
+<div><br/></div>
+</body></html>

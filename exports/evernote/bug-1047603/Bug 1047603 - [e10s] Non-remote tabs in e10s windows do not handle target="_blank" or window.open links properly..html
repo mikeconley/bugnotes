@@ -1,0 +1,1283 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.6 (451290)"/><meta name="keywords" content="M5, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-08-11 17:28:27 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1047603"/><meta name="updated" content="2015-02-11 15:37:59 +0000"/><meta name="application-data:rememberthemilkinc" content="task_id=424634113"/><title>Bug 1047603 - [e10s] Non-remote tabs in e10s windows do not handle target="_blank" or window.open links properly.</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+<div>(originally [e10s] Contents does not load when I click a link in sidebar panel)</div>
+<div><br/></div>
+STR:
+<div>
+<ol>
+<li>Bookmark a page that has links on it that use target="_blank", or window.open.<br/></li>
+<li>Edit that bookmark, and choose to open it in the sidebar<br/></li>
+<li>Open the bookmark in the sidebar<br/></li>
+<li>Click on any of those links</li>
+</ol>
+<div>The links don't work properly… new windows don't open (I get NS_ERROR_FAILURE from window.open), and new tabs don't load any content.</div>
+</div>
+<div><br/></div>
+<div>This seems like maybe it's not an M2…</div>
+<div><br/></div>
+<div>I've asked blassey if we should take this off the M2 list. He said I we should renom and triage on Thursday.</div>
+<div><br/></div>
+<div>It turns out that we're bad at opening links from non-remote tabs in e10s windows. My guess is that we're trying to pass a TabOpener for the non-remote tab, and that's going to break when we try to get the process for that TabOpener… that's the theory, anyhow.</div>
+<div><br/></div>
+<div>Let me make sure…</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">windowCreator2->CreateChromeWindow2</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>^-- that's failing.</div>
+<div><br/></div>
+<div>Specifically, because we're failing this assertion:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">NS_ENSURE_STATE(xulWin->mPrimaryContentShell);</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">aOpeningTab is, correctly, nullptr, so my "accidentally passing some tab opener" theory is bunk.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">So who normally sets mPrimaryContentShell?</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Ah hah, so here's what's happening:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">For popups:</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>The popup is trying to open, but it doesn't have a tab opener, so we get ready to open it not in a remote browser. However, the updateBrowserRemoteness stuff gets called in browser.js on delayed startup, which determines that yes, based on the URI, this thing we're opening should be in a remote tab… so it sets remote on it, which conflicts with the UseRemoteTabs assumptions built into the new window.</div>
+<div><br/></div>
+<div>Waaaait - that shouldn't be the case. The new window should have useRemoteTabs set to false… so gMultiProcessBrowser should be false. Right?</div>
+<div><br/></div>
+<div>Ah, interesting… it's not. gMultiProcessBrowser is being set to true on the popup that's opening even though the opening browser is not remote. Is that because the _root_ docshell of the opener says that we're loading remote tabs?</div>
+<div><br/></div>
+<div>I think that's the case. We look at the XULParent (so that's the e10s enabled browser.xul window), and dig into its load context to see whether or not to use remote tabs. And we say "yes".</div>
+<div><br/></div>
+<div>So there are a few things to fix:</div>
+<div><br/></div>
+<div>1) Sidebar browser in e10s windows should be remote.</div>
+<div>2) Find if there are any about: pages that use target="_blank" or window.open… if so, we need to handle the case where we open those tabs within the e10s window. If not, we might need some plan if such things ever get added before those about: pages get remotable.</div>
+<div><br/></div>
+<div>This is not M2 so I'm not going to lean on it just yet.</div>
+<div><br/></div>
+<div>And whooaaaaaa this is suddenly a high priority again. This is blocking bug 1063680 which is now a BFD.</div>
+<div><br/></div>
+<div>Why is this blocking? Well, because we have quite a few blacklisted URI's that don't get remote browsers with e10s (most about: pages, for example, and chrome: URLs, at least for now).</div>
+<div><br/></div>
+<div>I seem to recall having an interesting discussion with smaug about this, and I seem to recall writing a tiny little patch about it too… where is that stuff?</div>
+<div><br/></div>
+<div>Ah, yes, I still have a commit on my tree about it. Let's see what I did… oh, ok, I just made it so that remoteTabs is only set to true on the load context of a window if we have browser.tabs.remote.autostart set to true - and, if there is a parent context, only if the parent context has UseRemoteTabs and an opening tab.</div>
+<div><br/></div>
+<div>So even with the patch, what happens when I try to open a tab from a non-remote tab in an e10s window is that a new remote tab opens, and then a new _window_ opens with the link. Time to figure out why that is.</div>
+<div><br/></div>
+<div>So by the time we even get to my patch in nsAppShellService::JustCreateTopWindow, we've already decided to open a new window. Why?</div>
+<div><br/></div>
+<div>nsWindowWatcher::OpenWindowInternal must decide that it's the right thing to do. Where does it determine that?</div>
+<div><br/></div>
+<div>Ah, ok, so here's the problem:</div>
+<div><br/></div>
+<div>In nsBrowserAccess, we find out that we're opening a new tab, and handle that in openURI. We find out that we want to open the link in a new tab, which is great. We load up a new tab, which happens to be about:blank (remote), and then attempt to return the contentWindow of that browser - which is 100% null. So that fails out, and nsWindowWatcher responds by attempting to open a new window instead, which is does successfully.</div>
+<div><br/></div>
+<div>Perhaps we can make it so that openURI only ever opens non-remote tabs. Who even calls openURI? That's nsContentTreeOwner::ProvideWindow…</div>
+<div><br/></div>
+<div>In <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1047603#c8">this comment</a>, Mossop is concerned that if about:preferences opens a new window, all tabs in that window will be non-remote.</div>
+<div><br/></div>
+<div>I suppose the constraint is only important if the new window needs a handle on the opener. If it's a clean-break, then we probably can go ahead and be remote.</div>
+<div><br/></div>
+<div>Let's check to see what the current patch does and see if we can modify it to do what I just described.</div>
+<div><br/></div>
+<div>I'll also comment in the bug to that effect.</div>
+<div><br/></div>
+<div>Hm. So, back to basics - it seems like any time you open a window from some other window, either via _blank or window.open, the resulting window always has a handle back to the opener with window.opener. Interesting.</div>
+<div><br/></div>
+<div>Hrm. From billm:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">(In reply to Bill McCloskey (:billm) from comment #11)<br/>
+> Comment on attachment 8485883<br/>
+> Make it possible to load new windows from non-remote browsers within an e10s<br/>
+> window. r=?<br/>
+><br/>
+> Review of attachment 8485883:<br/>
+> -----------------------------------------------------------------<br/>
+><br/>
+> ::: browser/base/content/browser.js<br/>
+> @@ +4138,5 @@<br/>
+> >                                        referrerURI: referrer,<br/>
+> >                                        fromExternal: aIsExternal,<br/>
+> >                                        inBackground: loadInBackground});<br/>
+> >      let browser = win.gBrowser.getBrowserForTab(tab);<br/>
+> > +    win.gBrowser.updateBrowserRemoteness(browser, false);<br/>
+><br/>
+> This doesn't seem right to me. We can get here from openURIInFrame, which is<br/>
+> called whenever the child process asks to open a new tab:<br/>
+><br/>
+> <a href="http://mxr.mozilla.org/mozilla-central/source/dom/ipc/TabParent.cpp#440">http://mxr.mozilla.org/mozilla-central/source/dom/ipc/TabParent.cpp#440</a><br/>
+><br/>
+> We definitely don't want to open all new tabs non-remotely.<br/>
+><br/>
+> I haven't looked at this code for a while though. Maybe I'm missing<br/>
+> something?<br/>
+<br/></span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Ah, ok, so I put that line in the wrong function. I should have put it in openURI, where it's implied that the browser coming in is non-remote (should put in an assertion to make sure aOpener is not a CPOW).</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">I talked to billm about this. He's cool with the idea of putting this code in the openURI function instead, and maybe asserting that aOpener is not a CPOW.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Ok… I have a patch, but I think I should probably write tests for this.</div>
+<div><br/></div>
+<div>Mossop gave feedback+. Feels good.</div>
+<div><br/></div>
+<div>Patch with tests are now up.</div>
+<div><br/></div>
+<div>r+ on everything, but it looks like my test is failing on at least Linux:</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">63 ERROR TEST-UNEXPECTED-TIMEOUT | chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug1047603.js | application timed out after 330 seconds with no output<br/>
+<br/>
+64 ERROR TEST-UNEXPECTED-FAIL | chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug1047603.js | application terminated with exit code 6<br/>
+<br/>
+PROCESS-CRASH | chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug1047603.js | application crashed [@ <a href="http://linux-gate.so">linux-gate.so</a> + 0x424] </span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">:(</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>I've got a bc1 pass on Windows 8 opt…  and Windows XP… I should kick off a build on Linux. If it's Linux only, maybe I'll just OHHHH - I know why. I think… if we try to open an e10s window on Linux without OMTC, all sortsa shit breaks - so we display a prompt, which blocks, and of course this test won't work. AH HAH. Ok. Let me test to confirm.</div>
+<div><br/></div>
+<div>Uh huh, that's exactly what's happening. Landed fix on a closed tree thanks to dholbert.</div>
+<div><br/></div>
+<div>Fingers crossed!</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/ui/#/jobs?repo=fx-team&amp;revision=1e0e069b5cc7">https://treeherder.mozilla.org/ui/#/jobs?repo=fx-team&amp;revision=1e0e069b5cc7</a><br/></div>
+<div><br/></div>
+<div>SHIT. This caused bug 1067164. What the hell. Backed out.</div>
+<div><br/></div>
+<div>Ok, so this solution didn't take into account the possibility that other callers of nsIBrowserDOMWindow::OpenURI actually pass a URI and expect the browser to go to that URI! So what we did was tell a new tab to open at a URI, and then immediately set it to be non-remote. This kills the browser content loading.</div>
+<div><br/></div>
+<div>Alternatives:</div>
+<div>
+<ol>
+<li>Make openURI only set ensureNonRemote to true if a URI hasn't been passed in.</li>
+<li>Make use of aContext - only set ensureNonRemote to true is aContext is not external.</li>
+</ol>
+<div>Or, how about we use aOpener and aContext?</div>
+</div>
+<div><br/></div>
+<div>Like… if aOpener &amp;&amp; aContext is OPEN_NEW (so, internal), then ensure that the tab we open is straight-up not remote. Otherwise, leave it alone.</div>
+<div><br/></div>
+<div>I think I can make that work - and then I should write a test to make sure I don't cause bug 1067164 again. Or, wait, does this test already do that?: <a href="http://hg.mozilla.org/mozilla-central/file/426497473505/browser/base/content/test/general/browser_bug562649.js">http://hg.mozilla.org/mozilla-central/file/426497473505/browser/base/content/test/general/browser_bug562649.js</a></div>
+<div><br/></div>
+<div>Let's try it. Yes - this test fails in e10s mode with my patch, once I get rid of the isBusy thing.</div>
+<div><br/></div>
+<div>Now, let's try my solution to see if it fixes the test, and if it does… well, now we've got a stew goin'.</div>
+<div><br/></div>
+<div>Ok, new patches up. Let's see what folks think.</div>
+<div><br/></div>
+<div>Try build: <a href="https://tbpl.mozilla.org/?tree=Try&amp;rev=e4c1f5922dd5">https://tbpl.mozilla.org/?tree=Try&amp;rev=e4c1f5922dd5</a></div>
+<div><br/></div>
+<div>AH.</div>
+<div><br/></div>
+<div>So, bittersweet story: I've been barking up the wrong tree and trying to solve a problem that doesn't need to be solved. That doesn't happen too, too often - but it's kinda got that bittersweetness where I go "Nice, I don't have to spend time solving this anymore", but also "Damn it, I spent all that time trying to solve this.".</div>
+<div><br/></div>
+<div>Here's the story: Mossop is working on a separate bug (<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=999239">bug 999239</a>) that makes it so that transitions in and out of remote browsers don't make us lose history. While he's doing that, his patch also adds assurances so that every URL that is browsed to (regardless of _how_ it is browsed to), gets properly shunted to the right process.</div>
+<div><br/></div>
+<div>Up until now, we've been doing our detection for when to use remote / non-remote browsers mostly in tabbrowser.xml - we see that the user is requesting a URL for one of our browsers at a particular URL, we check against our blacklist, and if it's blacklisted, we flip the browser to be non-remote.</div>
+<div><br/></div>
+<div>Mossop's patch goes deeper into DocShell, and makes it so that we check the URL before the load begins at a really deep level - regardless of how the page started to be loaded. That's great, because it means that if we're at about:crashes (the canonical example for this bug), and we click on a link to take us to crash stats - we will transition from a non-remote to a remote browser!</div>
+<div><br/></div>
+<div>This is great news.</div>
+<div><br/></div>
+<div>So we're still busted if we (for some reason) try to open a tab from an about: page (and why aren't we using openUILinkIn there?), and opening popups / new tabs from the bookmarks sidebar browser. So Mossop has downgraded the severity / priority.</div>
+<div><br/></div>
+<div>(MONTHS PASS)</div>
+<div><br/></div>
+<div>And we're back! This has been biting us in the butt because, surprise, there are a ton of places that open links in the front-end.</div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/buglist.cgi?bug_id=1041917%2C1055590%2C1060346%2C1077023%2C1098305%2C1099479%2C1102683%2C1103897%2C1112151%2C1115687%2C1116598%2C1116604%2C1117957&amp;list_id=11811050">Check out a few of them.</a></div>
+<div><br/></div>
+<div>So it's time to bang this out, once and for all. LET'S DO THIS.</div>
+<div><br/></div>
+<div><img src="Bug%201047603%20-%20%5Be10s%5D%20Non-remote%20tabs%20in%20e10s%20windows%20do%20not%20handle%20target=%22_blank%22%20or%20window.open%20links%20properly..resources/8B9A0BEF-5583-4B33-99A8-538BA3C414D6.gif" height="252" width="446"/></div>
+<div><img src="Bug%201047603%20-%20%5Be10s%5D%20Non-remote%20tabs%20in%20e10s%20windows%20do%20not%20handle%20target=%22_blank%22%20or%20window.open%20links%20properly..resources/756B0FAF-0360-49B8-B0A4-C951854676DA.gif" height="258" width="401"/></div>
+<div><br/></div>
+<div>Our test case will be <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1060346">bug 1060346</a> - The Learn More link in about:privatebrowsing in a private window opens a blank tab in e10s.</div>
+<div><br/></div>
+<div>STR:</div>
+<div><br/></div>
+<div>1) With e10s enabled, open a private browsing window</div>
+<div>2) Click on the Learn More link in the page that the first private browsing window shows you</div>
+<div><br/></div>
+<div>Ba boom. We're in business - I can pos-a-lootly reproduce this.</div>
+<div><br/></div>
+<div>So, some thoughts here:</div>
+<div><br/></div>
+<div>If we have a non-remote browser in an e10s window… I think it's a pretty safe assumption that it's an "unusual" browser, like the sidebar browser, or a non-remote iframe in some chrome, or one of our blacklisted about: pages. In that case, I think it's likely OK that the opened tab be remote, and have no notion of the opener.</div>
+<div><br/></div>
+<div>So perhaps the rule should be: if we're an e10s window, and a non-remote browser attempts to open a new tab, make the new tab's browser be remote by default.</div>
+<div><br/></div>
+<div>That's the theory, but I believe the problem is that the consumer of nsBrowserAccess's openURI is being called by something that expects a nsIDOMWindow** back (nsContentTreeOwner::ProvideWindow).</div>
+<div><br/></div>
+<div>Perhaps we can modify the caller of ProvideWindow (nsWindowWatcher)… have it use OpenURIInFrame instead? The problem with that is that OpenURIInFrame returns an nsIFrameLoaderOwner, and not an nsIDOMWindow.</div>
+<div><br/></div>
+<div>Hrm. <a href="http://mikeconley.ca/blog/2014/04/30/electrolysis-code-spelunking-how-links-open-new-windows-in-firefox/">So this old blog post</a> has some notes about how we go from clicking on a link in a non-remote browser to nsContentTreeOwner::ProvideWindow. Maybe that can give me some guidance.</div>
+<div><br/></div>
+<div>Guh… it looks like the code that hand link-clicking over to nsWindowWatcher is expecting a nsIDOMWindow back…</div>
+<div><br/></div>
+<div>nsILinkHandler::OnLinkClickSync expects an nsIDocShell to be returned, which is no good if we're opening a remote browser because we can't get at the nsIDocShell in the remote process. Damn it!</div>
+<div><br/></div>
+<div>So let me look at what my old solution was, way back in the day before this bug was deprioritized...</div>
+<div><br/></div>
+<div>Ah, heh - this is interesting. I apply the patches, and the new tab loads properly (though shows a perma spinner), and it's remote!</div>
+<div><br/></div>
+<div>It looks like Mossop's work in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=999239">bug 999239</a> is actually hijacking my attempt to force this browser to be non-remote. And so we go from remote, to non-remote, back to remote, and it works again.</div>
+<div><br/></div>
+<div>That sounds crazy inefficient. It's time for me to figure out how Mossop's patch works in more detail.</div>
+<div><br/></div>
+<div>Wow - it really looks like Mossop's patch is what we want to use here. Looks like it solves the exact problem we're hitting here, but now I have to find out why it's not actually solving it.</div>
+<div><br/></div>
+<div>Oh! This is great! The reason why Mossop's solution wasn't working for all of these cases was because the tree owner in the case of some chrome documents having links is nsChromeTreeOwner. Mossop's patch do_GetInterface's the tree owner for nsIWebBrowserChrome3, which nsContentTreeOwner implements. I just need nsChromeTreeOwner to forward the GetInterface of nsIWebBrowserChrome3 over to its XULWindow, and then add some GetInterface glue in nsXULWindow to get to the nsContentTreeOwner.</div>
+<div><br/></div>
+<div>So now I've got this puzzle - when I click on a link in about:privatebrowsing in a private window, I end up responding in a docshell that has a nsChromeTreeOwner as its nsIDocShellTreeOwner. When I click on a link in a about:crashes in a private window, I end up getting a docshell that has a nsContentTreeOwner as its nsIDocShellTreeOwner. Why is that?</div>
+<div><br/></div>
+<div>What is the structure of this invisible tree?</div>
+<div><br/></div>
+<div>It looks like nsXULWindow owns a nsChromeTreeOwner, and two nsContentTreeOwners. One is just called mContentTreeOwner, and one is called mPrimaryContentTreeOwner.</div>
+<div><br/></div>
+<div>What is the difference between mContentTreeOwner and mPrimaryContentTreeOwner?</div>
+<div><br/></div>
+<div>In nsXULWindow::ContentShellAdded we have an argument to the method bool aPrimary, and depending on what that value is, we assign mPrimaryContentTreeOwner as the owner of the new nsIDocShellTreeItem (if primary is true) or mContentTreeOwner as the owner of the new nsIDocShellTreeItem (if primary is false).</div>
+<div><br/></div>
+<div>Who calls nsXULWindow::ContentShellAdded, and what makes them pass in aPrimary as true or false?</div>
+<div><br/></div>
+<div>It looks like an nsIDocShellTreeItem can be primary or not primary. If they're primary, their owner is mPrimaryContentTreeOwner, and if not primary, it's mContentTreeOwner.</div>
+<div><br/></div>
+<div>Ok, here's what I think is going on. The relationship seems to be about whether or not the current document being displayed is primary - and by primary, I mean can be accessed from the global window as window.content (like, it's got the content-primary value for type set on the browser).</div>
+<div><br/></div>
+<div><a href="https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/Attribute/browser.type">https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/Attribute/browser.type</a></div>
+<div><a href="https://developer.mozilla.org/en-US/docs/Web/API/window.content">https://developer.mozilla.org/en-US/docs/Web/API/window.content</a></div>
+<div><br/></div>
+<div>Experiment:</div>
+<div><br/></div>
+<div>If I make the links in about:crashes do target="_blank", do they get the same nsIDocShellTreeOwner as when I click on the Learn More link in about:privatebrowsing?</div>
+<div><br/></div>
+<div>So I've noticed that I re-enter nsDocShell::InternalLoad because we're opening what seems to be a new window when I click on a link in a non-remote tab in a e10s browser window that targets _blank. That seems really weird. Is that normal behaviour?</div>
+<div><br/></div>
+<div>That is not normal behaviour - it is true that we hit nsDocShell::InternalLoad twice in a row before the first time can exit because the new tab is probably trying to load something. My theory is about:blank, but I could be wrong.</div>
+<div><br/></div>
+<div>The difference is that with a non-e10s window, we don't attempt to open a new window. There's no trace of such acts on the stack.</div>
+<div><br/></div>
+<div>Stack when in a non-e10s window (good):</div>
+<div><br/></div>
+<div>#0     0x0000000105494f53 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:9387
+<div>#1     0x0000000105493960 in nsDocShell::LoadURI(nsIURI*, nsIDocShellLoadInfo*, unsigned int, bool) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:1632</div>
+<div>#2     0x0000000105498c0e in _ZThn424_N10nsDocShell7LoadURIEP6nsIURIP19nsIDocShellLoadInfojb at /Users/mikeconley/Projects/mozilla-central/obj-debug/docshell/base/Unified_cpp_docshell_base0.cpp:1635</div>
+<div>#3     0x0000000102ed396b in nsFrameLoader::ReallyStartLoadingInternal() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:461</div>
+<div>#4     0x0000000102ed2da9 in nsFrameLoader::ReallyStartLoading() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:311</div>
+<div>#5     0x0000000102e5258b in nsDocument::MaybeInitializeFinalizeFrameLoaders() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsDocument.cpp:7305</div>
+<div>#6     0x0000000102e52357 in nsDocument::EndUpdate(unsigned int) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsDocument.cpp:4899</div>
+<div>#7     0x0000000104899a95 in mozilla::dom::XULDocument::EndUpdate(unsigned int) at /Users/mikeconley/Projects/mozilla-central/dom/xul/XULDocument.cpp:3243</div>
+<div>#8     0x0000000102c4640c in mozAutoDocUpdate::~mozAutoDocUpdate() at /Users/mikeconley/Projects/mozilla-central/dom/base/mozAutoDocUpdate.h:38</div>
+<div>#9     0x0000000102c3d2a5 in mozAutoDocUpdate::~mozAutoDocUpdate() at /Users/mikeconley/Projects/mozilla-central/dom/base/mozAutoDocUpdate.h:36</div>
+<div>#10     0x0000000102effe9b in nsINode::ReplaceOrInsertBefore(bool, nsINode*, nsINode*, mozilla::ErrorResult&amp;) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsINode.cpp:2216</div>
+<div>#11     0x0000000102d6a184 in nsINode::InsertBefore(nsINode&amp;, nsINode*, mozilla::ErrorResult&amp;) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsINode.h:1600</div>
+<div>#12     0x0000000102d6a1c2 in nsINode::AppendChild(nsINode&amp;, mozilla::ErrorResult&amp;) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsINode.h:1604</div>
+<div>#13     0x000000010374eae7 in mozilla::dom::NodeBinding::appendChild(JSContext*, JS::Handle&lt;JSObject*>, nsINode*, JSJitMethodCallArgs const&amp;) at /Users/mikeconley/Projects/mozilla-central/obj-debug/dom/bindings/./NodeBinding.cpp:598</div>
+<div>#14     0x0000000103c4cd90 in mozilla::dom::GenericBindingMethod(JSContext*, unsigned int, JS::Value*) at /Users/mikeconley/Projects/mozilla-central/dom/bindings/BindingUtils.cpp:2484</div>
+<div>#15     0x000000010716d714 in js::CallJSNative(JSContext*, bool (*)(JSContext*, unsigned int, JS::Value*), JS::CallArgs const&amp;) at /Users/mikeconley/Projects/mozilla-central/js/src/jscntxtinlines.h:229</div>
+<div>#16     0x00000001070ec5e9 in js::Invoke(JSContext*, JS::CallArgs, js::MaybeConstruct) at /Users/mikeconley/Projects/mozilla-central/js/src/vm/Interpreter.cpp:502</div>
+<div>#17     0x000000010710cf67 in Interpret(JSContext*, js::RunState&amp;) at /Users/mikeconley/Projects/mozilla-central/js/src/vm/Interpreter.cpp:2560</div>
+<div>#18     0x000000010710076a in js::RunScript(JSContext*, js::RunState&amp;) at /Users/mikeconley/Projects/mozilla-central/js/src/vm/Interpreter.cpp:452</div>
+<div>#19     0x00000001070ec709 in js::Invoke(JSContext*, JS::CallArgs, js::MaybeConstruct) at /Users/mikeconley/Projects/mozilla-central/js/src/vm/Interpreter.cpp:521</div>
+<div>#20     0x00000001070d53f2 in js::Invoke(JSContext*, JS::Value const&amp;, JS::Value const&amp;, unsigned int, JS::Value const*, JS::MutableHandle&lt;JS::Value>) at /Users/mikeconley/Projects/mozilla-central/js/src/vm/Interpreter.cpp:558</div>
+<div>#21     0x0000000106ea584f in JS_CallFunctionValue(JSContext*, JS::Handle&lt;JSObject*>, JS::Handle&lt;JS::Value>, JS::HandleValueArray const&amp;, JS::MutableHandle&lt;JS::Value>) at /Users/mikeconley/Projects/mozilla-central/js/src/jsapi.cpp:4547</div>
+<div>#22     0x00000001024866c8 in nsXPCWrappedJSClass::CallMethod(nsXPCWrappedJS*, unsigned short, XPTMethodDescriptor const*, nsXPTCMiniVariant*) at /Users/mikeconley/Projects/mozilla-central/js/xpconnect/src/XPCWrappedJSClass.cpp:1205</div>
+<div>#23     0x00000001024807d9 in nsXPCWrappedJS::CallMethod(unsigned short, XPTMethodDescriptor const*, nsXPTCMiniVariant*) at /Users/mikeconley/Projects/mozilla-central/js/xpconnect/src/XPCWrappedJS.cpp:532</div>
+<div>#24     0x000000010172cf39 in PrepareAndDispatch at /Users/mikeconley/Projects/mozilla-central/xpcom/reflect/xptcall/md/unix/xptcstubs_x86_64_darwin.cpp:122</div>
+<div>#25     0x000000010172b99b in SharedStub ()</div>
+<div>#26     0x000000010556f19a in nsContentTreeOwner::ProvideWindow(nsIDOMWindow*, unsigned int, bool, bool, bool, nsIURI*, nsAString_internal const&amp;, nsACString_internal const&amp;, bool*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsContentTreeOwner.cpp:922</div>
+<div>#27     0x000000010556f310 in _ZThn32_N18nsContentTreeOwner13ProvideWindowEP12nsIDOMWindowjbbbP6nsIURIRK18nsAString_internalRK19nsACString_internalPbPS1_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/xpfe/appshell/Unified_cpp_xpfe_appshell0.cpp:925</div>
+<div>#28     0x00000001054f82dd in nsWindowWatcher::OpenWindowInternal(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsIArray*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/nsWindowWatcher.cpp:631</div>
+<div>#29     0x00000001054fa4cc in nsWindowWatcher::OpenWindow2(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsISupports*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/nsWindowWatcher.cpp:420</div>
+<div>#30     0x00000001054fa5ce in _ZThn8_N15nsWindowWatcher11OpenWindow2EP12nsIDOMWindowPKcS3_S3_bbbP12nsITabParentP11nsISupportsPS1_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/embedding/components/windowwatcher/Unified_cpp_windowwatcher0.cpp:421</div>
+<div>#31     0x0000000102c87b08 in nsGlobalWindow::OpenInternal(nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, bool, bool, bool, bool, bool, nsIArray*, nsISupports*, nsIPrincipal*, JSContext*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:11824</div>
+<div>#32     0x0000000102c884f2 in nsGlobalWindow::OpenNoNavigate(nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7690</div>
+<div>#33     0x0000000102c88547 in _ZThn32_N14nsGlobalWindow14OpenNoNavigateERK18nsAString_internalS2_S2_PP12nsIDOMWindow at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7694</div>
+</div>
+<div>#34     0x0000000105495ff7 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:9597</div>
+<div><br/></div>
+<div><br/></div>
+<div>Stack when in an e10s window (bad):</div>
+<div><br/></div>
+<div>#0     0x0000000105494f53 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:9387
+<div>#1     0x0000000105493960 in nsDocShell::LoadURI(nsIURI*, nsIDocShellLoadInfo*, unsigned int, bool) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:1632</div>
+<div>#2     0x00000001054a9d4d in nsDocShell::LoadURIWithBase(char16_t const*, unsigned int, nsIURI*, nsIInputStream*, nsIInputStream*, nsIURI*) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:4796</div>
+<div>#3     0x00000001054a93c1 in nsDocShell::LoadURI(char16_t const*, unsigned int, nsIURI*, nsIInputStream*, nsIInputStream*) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:4669</div>
+<div>#4     0x00000001054a9e4d in _ZThn432_N10nsDocShell7LoadURIEPKDsjP6nsIURIP14nsIInputStreamS5_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/docshell/base/Unified_cpp_docshell_base0.cpp:4671</div>
+<div>#5     0x00000001055612b6 in nsWebShellWindow::Initialize(nsIXULWindow*, nsIXULWindow*, nsIURI*, int, int, bool, nsITabParent*, nsWidgetInitData&amp;) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsWebShellWindow.cpp:231</div>
+<div>#6     0x000000010555df2e in nsAppShellService::JustCreateTopWindow(nsIXULWindow*, nsIURI*, unsigned int, int, int, bool, nsITabParent*, nsWebShellWindow**) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsAppShellService.cpp:602</div>
+<div>#7     0x000000010555e80b in nsAppShellService::CreateTopLevelWindow(nsIXULWindow*, nsIURI*, unsigned int, int, int, nsITabParent*, nsIXULWindow**) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsAppShellService.cpp:193</div>
+<div>#8     0x000000010557f130 in nsXULWindow::CreateNewContentWindow(int, nsITabParent*, nsIXULWindow**) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsXULWindow.cpp:1793</div>
+<div>#9     0x000000010557eb6a in nsXULWindow::CreateNewWindow(int, nsITabParent*, nsIXULWindow**) at /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsXULWindow.cpp:1731</div>
+<div>#10     0x000000010557ebbd in _ZThn16_N11nsXULWindow15CreateNewWindowEiP12nsITabParentPP12nsIXULWindow at /Users/mikeconley/Projects/mozilla-central/obj-debug/xpfe/appshell/Unified_cpp_xpfe_appshell0.cpp:1732</div>
+<div>#11     0x000000010589d10e in nsAppStartup::CreateChromeWindow2(nsIWebBrowserChrome*, unsigned int, unsigned int, nsIURI*, nsITabParent*, bool*, nsIWebBrowserChrome**) at /Users/mikeconley/Projects/mozilla-central/toolkit/components/startup/nsAppStartup.cpp:658</div>
+<div>#12     0x000000010589d44b in _ZThn8_N12nsAppStartup19CreateChromeWindow2EP19nsIWebBrowserChromejjP6nsIURIP12nsITabParentPbPS1_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/toolkit/components/startup/Unified_cpp_components_startup0.cpp:688</div>
+<div>#13     0x00000001054f89ab in nsWindowWatcher::OpenWindowInternal(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsIArray*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/nsWindowWatcher.cpp:732</div>
+<div>#14     0x00000001054fa4cc in nsWindowWatcher::OpenWindow2(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsISupports*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/nsWindowWatcher.cpp:420</div>
+<div>#15     0x00000001054fa5ce in _ZThn8_N15nsWindowWatcher11OpenWindow2EP12nsIDOMWindowPKcS3_S3_bbbP12nsITabParentP11nsISupportsPS1_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/embedding/components/windowwatcher/Unified_cpp_windowwatcher0.cpp:421</div>
+<div>#16     0x0000000102c87b08 in nsGlobalWindow::OpenInternal(nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, bool, bool, bool, bool, bool, nsIArray*, nsISupports*, nsIPrincipal*, JSContext*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:11824</div>
+<div>#17     0x0000000102c884f2 in nsGlobalWindow::OpenNoNavigate(nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7690</div>
+<div>#18     0x0000000102c88547 in _ZThn32_N14nsGlobalWindow14OpenNoNavigateERK18nsAString_internalS2_S2_PP12nsIDOMWindow at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7694</div>
+<div>#19     0x0000000105495ff7 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:9597</div>
+</div>
+<div><br/></div>
+<div>I … think? Something in ProvideWindow is breaking down...</div>
+<div><br/></div>
+<div>Ok, now we're on to something. Something goes on in the bad case in nsWindowWatcher::OpenWindowInternal that is different in the bad case. I need to understand it.</div>
+<div><br/></div>
+<div>I think the problem is here:</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo"> </span> <span style="font: 11.0px Menlo; color: #bb2ca2">bool</span> <span style="font: 11.0px Menlo">newWindowShouldBeModal =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">false</span><span style="font: 11.0px Menlo">;<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">bool</span> <span style="font: 11.0px Menlo">parentIsModal =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">false</span><span style="font: 11.0px Menlo">;<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(!newDocShellItem) {<br/>
+    windowIsNew =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">true</span><span style="font: 11.0px Menlo">;<br/>
+    isNewToplevelWindow =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">true</span><span style="font: 11.0px Menlo">;</span></div>
+<div><br/></div>
+<div><br/></div>
+<div>The call to CreateChromeWindow2 happens inside this block. I don't think we get there in the good case because we are successful in creating a newDocShellItem.</div>
+<div><br/></div>
+<div>Let's test that hypothesis.</div>
+<div><br/></div>
+<div>It is true that newDocShellItem is not nullptr at that point for the good case. So my hypothesis has been validated. Excellent! Now we need to find out where newDocShellItem gets defined for the good case, and find out why it doesn't get defined for the bad case.</div>
+<div><br/></div>
+<div>This bit is what defines newDocShellItem for the good case:</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo">        rv = provider->ProvideWindow(aParent, chromeFlags, aCalledFromJS,<br/>
+                                     sizeSpec.PositionSpecified(),<br/>
+                                     sizeSpec.SizeSpecified(),<br/>
+                                     uriToLoad, name, features, &amp;windowIsNew,<br/>
+                                     getter_AddRefs(newWindow));<br/>
+<br/>
+       </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font-style: normal; font-variant: normal; font-weight: normal;"><span style="font-size: 11px;"><span style="font-family: Menlo;">(NS_SUCCEEDED(rv)) {</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">          GetWindowTreeItem(newWindow, getter_AddRefs(newDocShellItem));</span></span></div>
+<div><br/></div>
+<div><br/></div>
+<div>It looks like ProvideWindow is returning nullptr for both the new window, and we're getting nullptr for GetWindowTreeItem. Excellent! I'll be those are related. Let's figure out why ProvideWindow is returning nullptr for newWindow.</div>
+<div><br/></div>
+<div>ProvideWindow is actually implemented in nsContentTreeOwner.</div>
+<div><br/></div>
+<div>Fuuuuu… <b>so now I know why it's not working.</b> I should have known. nsContentTreeOwner::ProvideWindow is calling OpenURI on the nsBrowserAccess assigned in browser.js, and that's not returning an nsIDOMWindow** properly.</div>
+<div><br/></div>
+<div>Wow, what a tour. I've gone right around this whole thing and ended up where I started, but I at least have a better understanding of it.</div>
+<div><br/></div>
+<div>So here's the story - we don't have enough time to hit Mossop's hooks. The DocShell hasn't even been created by the time we decide to open a new tab. The hook gets hit afterwards, once the new tab attempts to start loading some URI.</div>
+<div><br/></div>
+<div>My solution is to add a forceNotRemote attribute to loadOneTab/addTab that will cause the new tab to open so that the browser is initially not remote. Then, when the non-remote browser starts to load some URI, Mossop's hook will kick in and, if appropriate, switch the browser to be remote.</div>
+<div><br/></div>
+<div>I'm making an assumption here - I'm assuming that since nsIBrowserDOMWindow::OpenURI is supposed to return an nsIDOMWindow that any caller to it is going to want this kind of behaviour, so I'm making it so that openURI passes an argument to _openURIInNewTab that sets forceNotRemote to true.</div>
+<div><br/></div>
+<div>Ok, so that's written up, and I actually have an old test that I can retry here.</div>
+<div><br/></div>
+<div>The old test assumed that anything new that was opened from a non-remote tab would also be non-remote. This isn't true anymore - since the test opens up about:home, which is not blacklisted, the new tab can be remote. I've adjusted the test so that the new tab is confirmed loaded and <b>is</b> remote.</div>
+<div><br/></div>
+<div>There is a problem, however, with new windows. New windows, which are opened when browser.link.open_newwindow is 2 for target="_blank" links, aren't showing up. Something's going wrong. I need to find out what.</div>
+<div><br/></div>
+<div>Ah, ok - so the first problem was that (like early in this note), nsXULWindow was failure an NS_ENSURE_STATE check looking for mPrimaryContentWindow on a XULWindow because it didn't think we were opening a gMultiProcessBrowser window. I can fix that by making sure we check the UseRemoteTabs method on the LoadContext of the new window.</div>
+<div><br/></div>
+<div>Now I've got a new problem… the page loads, but it's loading the document in the chrome window docshell, so the whole browser shows the webpage! No browser chrome - I mean we've got web content all over the place:</div>
+<div><br/></div>
+<div><img src="Bug%201047603%20-%20%5Be10s%5D%20Non-remote%20tabs%20in%20e10s%20windows%20do%20not%20handle%20target=%22_blank%22%20or%20window.open%20links%20properly..resources/8F5EE324-10AB-4638-B1A2-03CD9351519D.png" height="564" width="900"/><br/></div>
+<div><br/></div>
+<div>That's the whole browser window. That's some bad news bears right there.</div>
+<div><br/></div>
+<div>The problem.. ohh boy. It looks like the problem is here, in OpenWindowInternal (again), right after we open the new window:</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo">     </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(newChrome) {<br/>
+       </span> <span style="font: 11.0px Menlo; color: #008400">/* It might be a chrome nsXULWindow, in which case it won't have<br/>
+            an nsIDOMWindow (primary content shell). But in that case, it'll<br/>
+            be able to hand over an nsIDocShellTreeItem directly. */</span><span style="font: 11.0px Menlo"><br/>
+        nsCOMPtr&lt;nsIDOMWindow> newWindow(do_GetInterface(newChrome));<br/>
+       </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(newWindow)<br/>
+          GetWindowTreeItem(newWindow, getter_AddRefs(newDocShellItem));<br/>
+       </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(!newDocShellItem)<br/>
+          newDocShellItem = do_GetInterface(newChrome);<br/>
+       </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font-style: normal; font-variant: normal; font-weight: normal;"><span style="font-size: 11px;"><span style="font-family: Menlo;">(!newDocShellItem)<br/>
+          rv = NS_ERROR_FAILURE;</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">      }</span></span></div>
+<div><br/></div>
+<div>So newChrome is defined, and we GetInterface an nsIDOMWindow from newChrome. The problem is that newChrome doesn't GetInterface us to an nsIDOMWindow properly, and so we end up getting the DocShell for the entire chrome window and setting that as the newDocShellItem. Oh snap!</div>
+<div><br/></div>
+<div>The reason that we can't get an nsIDOMWindow from newChrome is because at this point when the window is spawning, we've destroyed the mPrimaryContentShell because the onLoad handler in browser.js has set the remoteness of the lone browser to be  true. This destroys the content shell. The GetInterface defined on nsXULWindow is depending on a mPrimaryContentShell existing in order to get that nsIDOMWindow.</div>
+<div><br/></div>
+<div>So the problem, it seems, is that we've set the remoteness of the new window browser too early for the nsWindowWatcher to respond correctly.</div>
+<div><br/></div>
+<div>Straight-up not setting the remoteness of that first browser in onLoad does not solve the problem. It moves it instead:</div>
+<div><br/></div>
+<div>[Parent 31672] WARNING: NS_ENSURE_TRUE(xulWin->mDocShell->GetOpenedRemote()) failed: file /Users/mikeconley/Projects/mozilla-central/xpfe/appshell/nsXULWindow.cpp, line 1812</div>
+<div><br/></div>
+<div>Garrrrrrrrrrr. The problem here is that window.open from the content process is counting on creating that first remote browser in a new window to be synchronous. That's why we set remoteness in the onLoad handler (which runs in a nested event loop when the XUL window is opened).</div>
+<div><br/></div>
+<div>Basically, I seem to need to differentiate between a window that has been opened from the content process (which needs remoteness to be set synchronously), or from the parent process, where remoteness will be set when the DocShell starts to load some URI.</div>
+<div><br/></div>
+<div>I could (ab)use the "remote" argument passed to windows - meaning that if "remote" is passed, that means that the first browser in the window is forced to be remote while loading. Otherwise, the first browser will start non-remote (but might get updated once it starts to load some URI).</div>
+<div><br/></div>
+<div>I think I need to talk to smaug. Let me try to formulate this into a good question for him and ask him tomorrow.</div>
+<div><br/></div>
+<div>Context: It looks like the simplest solution for bug 1047603 is to make it so that when we open a new tab, that we force it to initialize as a non-remote browser. The DocShell hook that Mossop added in bug 999239 will notice it browsing to a non-blacklisted URL, and will then flip the remoteness of the browser.</div>
+<div><br/></div>
+<div>The problem is when we have browser.link.open_newwindow set to 2. In that setting, we open a new window instead of a new tab. browser.js, in the onLoad method of gBrowserInit (which runs when a new window is opened) notices if we've been set to load remote tabs in a window from the load context. Then, it finds the first browser and updates the remoteness of it to true. That way, when we click on a window.open link, we're able to return the PBrowser of the first created remote window back to the caller.When we have browser.link.open_newwindow set to 2, in order to make use of Mossop's patch, the initial browser needs to be non-remote. If we don't, then when nsWindowWatcher::OpenWindowInternal returns from opening the window and attempts to GetInterface the nsIDOMWindow of the newly created window, it doesn't find one, and instead gives back the root chrome DocShell to the caller of OpenWindowInternal, which causes webcontent to display in the root window. Youch!</div>
+<div><br/></div>
+<div>NEEDINFO TO SMAUG:</div>
+<div><br/></div>
+<div>So this last patch seems to fix things for the case where we're opening a target="_blank" or window.open link from a non-remote tab in an e10s window.
+<div><br/></div>
+<div>It, however, is pretty horribly broken if we attempt to do this with browser.link.open_newwindow set to 2 (so that we open links in new windows instead of new tabs).</div>
+<div><br/></div>
+<div>Here's what happens in that case:</div>
+<div><br/></div>
+<div><a href="https://www.dropbox.com/s/zqhpdolteycj1pa/Screenshot%202015-01-12%2017.30.36.png?dl=0">https://www.dropbox.com/s/zqhpdolteycj1pa/Screenshot%202015-01-12%2017.30.36.png?dl=0</a></div>
+<div><br/></div>
+<div>The content gets loaded into the chrome docshell. :/</div>
+<div><br/></div>
+<div>The code that does it is in here in nsWindowWatcher::OpenWindowInternal:</div>
+<div><br/></div>
+<div>      if (newChrome) {</div>
+<div>        /* It might be a chrome nsXULWindow, in which case it won't have</div>
+<div>            an nsIDOMWindow (primary content shell). But in that case, it'll</div>
+<div>            be able to hand over an nsIDocShellTreeItem directly. */</div>
+<div>        nsCOMPtr&lt;nsIDOMWindow> newWindow(do_GetInterface(newChrome));</div>
+<div>        if (newWindow)</div>
+<div>          GetWindowTreeItem(newWindow, getter_AddRefs(newDocShellItem));</div>
+<div>        if (!newDocShellItem)</div>
+<div>          newDocShellItem = do_GetInterface(newChrome);</div>
+<div>        if (!newDocShellItem)</div>
+<div>          rv = NS_ERROR_FAILURE;</div>
+<div>      }</div>
+<div><br/></div>
+<div>The problem is that we're not getting newWindow from newChrome - GetInterface is failing.</div>
+<div><br/></div>
+<div>The reason that GetInterface is failing is that the initial browser is being forced to be non-remote during the loading of the window, right here:</div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/file/cac64af410a1/browser/base/content/browser.js#l912">http://hg.mozilla.org/mozilla-central/file/cac64af410a1/browser/base/content/browser.js#l912</a></div>
+<div><br/></div>
+<div>Forcing non-remoteness removes the DocShell, which clears out the mPrimaryContentShell from the nsXULWindow, and that mPrimaryContentShell is what we look to in order to GetInterface an nsIDOMWindow from newChrome (which is an nsWebShellWindow).</div>
+<div><br/></div>
+<div>And the reason we do that is because the code I added in bug 989501 wants to have new windows opened from remote tabs to have a remote browser in it right away so that we can pass the PBrowser back to the caller synchronously.</div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1047603#c83">Ok - finished up my question to smaug here</a>.</div>
+</div>
+<div><br/></div>
+<div>So until I hear back from smaug, the question is:</div>
+<div><br/></div>
+<div>How do I reconcile the need to make the initial browser remote in some cases, and not remote in others? I guess the first step is to identify the cases in which I need one, and what cases I need the other. Then I need to check my assumptions - is it true that I must have things separated this way?</div>
+<div><br/></div>
+<div>Let me write down my current reckoning, and then check:</div>
+<div><br/></div>
+<div><b>Need the initial browser to be remote</b></div>
+<ul>
+<li>Anything that goes through TabParent::AnswerCreateWindow in an e10s window</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>Why? This is because the caller is expecting us to pass back the PBrowser for the newly opened window synchronously.</li>
+</ul>
+</li>
+</ul>
+<div><br/></div>
+<div><b>Need the initial browser to be not remote</b></div>
+<ul>
+<li>Anything that goes through nsWindowWatcher::OpenWindowInternal in an e10s window in the parent process (so a non-remote tab in an e10s window)</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>Why? This is because the OpenWindowInternal code is expecting to get an nsIDOMWindow back that it can direct to a particular URI.</li>
+</ul>
+</li>
+</ul>
+<div><br/></div>
+<div>There's a symmetry here. Both processes want an nsIDOMWindow back synchronously.</div>
+<div><br/></div>
+<div>Is it as simple as having gBrowserInit somehow being smarter, and knowing whether or not the initial browser should be remote or not?</div>
+<div><br/></div>
+<div>Test: Have gBrowserInit not set remote to true on the initial browser, and see if target="_blank" will work for new windows.</div>
+<div><br/></div>
+<div>No - this doesn't work. Not clear why yet...</div>
+<div><br/></div>
+<div>Ah, we fail an assertion: NS_ENSURE_STATE(xulWin->mDocShell->GetOpenedRemote());</div>
+<div><br/></div>
+<div>Yes, if I bypass that assertion if aOpeningTab, then this works.</div>
+<div><br/></div>
+<div>So, right - one solution is to make gBrowserInit somehow know that it needs to initialize that first browser as remote or not.</div>
+<div><br/></div>
+<div><b>Ideas to solve this:</b></div>
+<ol>
+<li>Add a new chromeFlag to a window, like, init-as-remote or something along those lines. gBrowserInit reads that and uses it to determine if the first browser should be remote or not. TabParent::AnswerCreateWindow sets that chrome flag.</li>
+<li>Add a new method to nsIXULBrowserWindow to force initial remoteness and have TabParent call this.</li>
+</ol>
+<div><br/></div>
+<div>Oooohhh - I actually kind of like solution #2. nsIXULBrowserWindow straight-up designed to be called from Gecko to interact with the browser UI.</div>
+<div><br/></div>
+<div>So let's think this through...</div>
+<div><br/></div>
+<div>Suppose I add a method to nsIXULBrowserWindow.idl called forceInitialBrowserRemoteness. TabParent::AnswerCreateWindow calls this after OpenWindow2, to force remoteness, which stashes the nsITabParent of the now remote browser into the docshell...</div>
+<div><br/></div>
+<div>That way, by default we don't set the initial browser to be remote - we let Mossop's patch do the magic to determine if a URL is supposed to be in a remote browser or not.</div>
+<div><br/></div>
+<div>I like this - at least a little bit. Let's try it.</div>
+<div><br/></div>
+<div>So there are a few problems - the first is that nsXULWindow::CreateNewContentWindow is expecting GetOpenedRemote to be set on the root docshell of the new window, which is before TabParent::AnswerCreateWindow has a chance to call forceInitialBrowserRemoteness.</div>
+<div><br/></div>
+<div>There's also the fact that getting to forceInitialBrowserRemoteness is a pain in the ass - I have to do a static_cast it seems, and that's always a bad smell.</div>
+<div><br/></div>
+<div>nsIBrowserDOMWindow might be easier to get to. So that's a thing to keep in mind.</div>
+<div><br/></div>
+<div>Ok…. ok, I've been able to simplify getting to the nsIXULBrowserWindow without casting, so that's good. And I've got things working...</div>
+<div><br/></div>
+<div>OMG - this seems to work. Have I solved it?? HAVE I SOLVED IT??</div>
+<div><br/></div>
+<div>I need to run these tests:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug562649.js <b>FAILS</b><br/></div>
+<div><input checked="true" type="checkbox"/>dom/tests/browser/browser_test_new_window_from_content.js  <b>FAILS</b><br/></div>
+<div><br/></div>
+<div>Hm - the test for browser_bug562649.js and browser_test_new_window_from_content.js fails with --e10s… strange.</div>
+<div><br/></div>
+<div>It looks like browser_test_new_window_from_content.js wasn't ever really tested with --e10s. What the hell.</div>
+<div><br/></div>
+<div><b>Get browser_test_new_window_from_content.js working</b></div>
+<div><b><br/></b></div>
+<div>Let's give this an hour or two and see where I get.</div>
+<div><br/></div>
+<div>Ok, fixed! It turns out QI'ing a nsIDocShellTreeOwner to an nsIXULWindow only sometimes works - using do_GetInterface is much better. It does the right thing.</div>
+<div><br/></div>
+<div>Also had to make it so that we could handle setting up the tab modal prompts asynchronously.</div>
+<div><br/></div>
+<div><b>Next is browser_bug562649.js.</b></div>
+<div><br/></div>
+<div>This is what I get when I enable and run the test with --e10s:</div>
+<div><br/></div>
+<div>27 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug562649.js | window is busy loading a page -
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug562649.js:test:8</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:696</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:593</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:750</div>
+<div>null:null:0</div>
+<div>28 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug562649.js | userTypedValue matches test URI - Got null, expected data:text/plain,bug562649</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug562649.js:test:9</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:696</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:593</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:750</div>
+<div>null:null:0</div>
+<div>29 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug562649.js | location bar value matches test URI - Got , expected data:text/plain,bug562649</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug562649.js:test:10</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:696</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:593</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:750</div>
+<div>null:null:0</div>
+<div>30 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug562649.js | userTypedValue matches test URI after switching tabs - Got null, expected data:text/plain,bug562649</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug562649.js:test:14</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:696</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:593</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:750</div>
+<div>null:null:0</div>
+<div>31 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug562649.js | location bar value matches test URI after switching tabs - Got , expected data:text/plain,bug562649</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug562649.js:test:15</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:696</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:593</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:750</div>
+</div>
+<div>null:null:0</div>
+<div><br/></div>
+<div>The isBusy thing was always a problem according to the comment that disabled the test, so I'll comment that part out right now and come back to it.</div>
+<div><br/></div>
+<div>The userTypedValue stuff is more interesting.. it's being properly set in "addTab", but by the time the test checks it, it's null. So something's gone and cleared it out. I wonder what?</div>
+<div><br/></div>
+<div>There are 6 places that can happen. Putting breakpoints at each point now.</div>
+<div><br/></div>
+<div>I *think* it's happening in LoadInOtherProcess, and is probably because the new tab that we're creating is… wait, is it being forced to be non-remote at first? Is that what's happening?</div>
+<div><br/></div>
+<div>Ah, yes. Ok. So this test manually calls browserDOMWindow::OpenURI. I think I am being too aggressive with making that new tab not remote. I can key it off opener instead.</div>
+<div><br/></div>
+<div>And that fixes things! Let's run the tests again!</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js (e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug562649.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug562649.js (e10s)</div>
+<div><input checked="true" type="checkbox"/>dom/tests/browser/browser_test_new_window_from_content.js  (no e10s)</div>
+<div><input checked="true" type="checkbox"/>dom/tests/browser/browser_test_new_window_from_content.js  (e10s)</div>
+<div><br/></div>
+<div><b>\o/</b></div>
+<div><b><br/></b></div>
+<div>All passing! We fucking did it!</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Test with variations on browser.link.open_newwindow</div>
+<div><input checked="true" type="checkbox"/>Get browser_test_new_window_from_content.js working? (Or maybe split that out into a separate bug…)</div>
+<div><input checked="true" type="checkbox"/>Get browser_bug562649.js working? (Or maybe split that out into a separate bug…)</div>
+<div><input checked="true" type="checkbox"/>Get rid of conflicting stuff in my patches</div>
+<div><input checked="true" type="checkbox"/>Try build: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=427c7874fe7b">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=427c7874fe7b</a></div>
+<div><input checked="true" type="checkbox"/>Post review request - using MozReview because I have multiple patches: <a href="https://reviewboard.mozilla.org/r/2461/">https://reviewboard.mozilla.org/r/2461/</a></div>
+<div><br/></div>
+<div>GRAHHHH - BULLSHIT. I have some failing tests on my try push. :/</div>
+<div><br/></div>
+<div>Strangely, a lot of them center on Linux, so I'm building on my VM right now. While I wait for that, there are some other failures I can look at.</div>
+<div><br/></div>
+<div>Let me put together a list:</div>
+<div><br/></div>
+<div><b>bc1</b></div>
+<ul>
+<li><input checked="true" type="checkbox"/>TEST-UNEXPECTED-TIMEOUT | browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>This appears to affect Linux opt/debug, both 32 and 64 bit. It's even causing a crash.</li>
+</ul>
+</li>
+</ul>
+<div><br/></div>
+<div>Ah hah - ok, this one is easy. We seem to display an alert when we try to open remote tabs from a session that doesn't have e10s enabled by default on Linux. I think I can safely disable this test for non-e10s.</div>
+<div><br/></div>
+<div><b>bc1 (e10s)</b></div>
+<ul>
+<li>TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug491431.js | Found an unexpected tab at the end of test run: about:blank</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>Affects Linux and OS X and Windows 7 on opt builds</li>
+<li><b>This seems like legitimate breakage</b></li>
+</ul>
+</li>
+<li>TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug609700.js | Test timed out</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>Affects Linux and OS X and Windows 7 on opt builds</li>
+<li><b>This seems like legitimate breakage</b></li>
+</ul>
+</li>
+<li>TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug623155.js | A promise chain failed to handle a rejection: - at chrome://global/content/bindings/browser.xml:398 - TypeError: this.docShell is null</li>
+<li style="display:inline;list-style:none;">
+<ul>
+<li>Affects Linux and OS X and Windows 7 on opt builds</li>
+<li>This appears to be running fine with --e10s… perhaps this is broken just because the previous two tests broke.</li>
+</ul>
+</li>
+</ul>
+<div><br/></div>
+<div>I've got some devtools failures, but they look like unrelated <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1110110">bug 1110110</a>.</div>
+<div><br/></div>
+<div>Ok, so I've been able to eliminate a bunch of test failures due to our crappy alert message about OMTC (I'm curious to know how e10s on Linux is working at all if OMTC is disabled!)… actually, it looks as if what's going on is that OMTC is force-enabled if browser.tabs.remote.autostart.1 is set… or something.</div>
+<div><br/></div>
+<div>Whatever. I'm more interested in this legitimate breakage I'm seeing.</div>
+<div><br/></div>
+<div><b>browser/base/content/test/general/browser_bug491431.js</b></div>
+<div><b><br/></b></div>
+<div>What does this test do? Luckily, it's a short one. Looks like it:</div>
+<div><br/></div>
+<ol>
+<li>Opens a dataURL in a new tab A</li>
+<li>Removes the tab A</li>
+<li>When the tab A has been closed, add a new tab B at the same URL</li>
+<li>Move that new tab B to a new window</li>
+<li>When the original tab B closes, make sure a detail was passed to the TabClose event saying that it was a move to a new window</li>
+<li>Close the new window</li>
+</ol>
+<div><br/></div>
+<div>This is in the e10s run, which isn't in the non-e10s run:</div>
+<div><br/></div>
+<div>JavaScript error: chrome://global/content/bindings/browser.xml, line 1104: NS_ERROR_NOT_IMPLEMENTED:</div>
+<div><br/></div>
+<div>So that's interesting. What is that? That's the swapFrameloaders call. Ah hah...</div>
+<div><br/></div>
+<div>Yes, ok - dragging a tab out used to kind of work, and with my patch, it very much doesn't. Let me confirm that. <b>I did this confirm this.</b></div>
+<div><br/></div>
+<div>So this is a problem because when gBrowser.replaceTabWithWindow(tabB); is called in the test, we open a new browser window, and that browser window is passed tabB as an argument, and then we run the following code in _delayedStartup:</div>
+<div><br/></div>
+<div>      else if (uriToLoad instanceof XULElement) {
+<div>        // swap the given tab with the default about:blank tab and then close</div>
+<div>        // the original tab in the other window.</div>
+<div><br/></div>
+<div>        // Stop the about:blank load</div>
+<div>        gBrowser.stop();</div>
+<div>        // make sure it has a docshell</div>
+<div>        gBrowser.docShell;</div>
+<div><br/></div>
+<div>        gBrowser.swapBrowsersAndCloseOther(gBrowser.selectedTab, uriToLoad);</div>
+</div>
+<div><br/></div>
+<div>The problem is that the new window that opens attempts to swap the frameloader of its initial browser with the frameloader of a remote browser, but the initial browser in the new window is not remote. We cannot currently swap frameloaders between remote and non-remote browsers. We therefore throw NS_ERROR_NOT_IMPLEMENTED, and bob's your uncle.</div>
+<div><br/></div>
+<div>The solution is to make that newly opened browser window have a remote browser that we can swap with right away. The question is where's the best place to do that?</div>
+<div><br/></div>
+<div>I found a solution by putting a check for a remote browser in the XULElement handler for arguments in delayedStartup that forces the initial browser to be remote if we're tearing out a remote browser to this new window.</div>
+<div><br/></div>
+<div>Tests pass!</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7fddf255a2a4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7fddf255a2a4</a><br/></div>
+<div><br/></div>
+<div>Ahh, damn it - another test failure. :( But this is why we do try builds, so :)</div>
+<div><br/></div>
+<div>My guess is I didn't see this one before because my fix for the last test failures opened it. This one is:</div>
+<div><br/></div>
+<div>browser/base/content/test/general/browser_bug880101.js:</div>
+<div><br/></div>
+<div>29 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange for correct URL - Got about:blank, expected <a href="http://example.com/browser/browser/base/content/test/general/dummy_page.html">http://example.com/browser/browser/base/content/test/general/dummy_page.html</a>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug880101.js:test/listener.onLocationChange:12</div>
+<div>chrome://browser/content/tabbrowser.xml:_callProgressListeners/&lt;:527</div>
+<div>self-hosted:forEach:173</div>
+<div>chrome://browser/content/tabbrowser.xml:_callProgressListeners:524</div>
+<div>chrome://browser/content/tabbrowser.xml:mTabProgressListener/&lt;._callProgressListeners:587</div>
+<div>chrome://browser/content/tabbrowser.xml:mTabProgressListener/&lt;.onLocationChange:808</div>
+<div>resource://gre/modules/RemoteWebProgress.jsm:RemoteWebProgressManager.prototype._callProgressListeners:126</div>
+<div>resource://gre/modules/RemoteWebProgress.jsm:RemoteWebProgressManager.prototype.receiveMessage:187</div>
+<div>null:null:0</div>
+<div>30 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug880101.js | leaked until shutdown [nsGlobalWindow #17 inner chrome://browser/content/browser.xul about:blank] - expected PASS</div>
+</div>
+<div>31 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug880101.js | leaked until shutdown [nsGlobalWindow #16 outer  about:blank] - expected PASS</div>
+<div><br/></div>
+<div>So onLocationChange is getting about:blank when we should be getting the dummy_page.html. That's probably because as soon as the window opens, we browse it to about:blank as we transition it to a remote browser.</div>
+<div><br/></div>
+<div>Grarrrrrr...</div>
+<div><br/></div>
+<div>So, those leaks I'm seeing at the bottom are, at least, not caused by me it seems. Those leaks exist on tip as well.</div>
+<div><br/></div>
+<div>I wonder if this is just a matter of not waiting for Mossop's hook to update the remoteness of the initial tab, but doing it in delayedStartup instead if gMultiProcessBrowser is true. Let's try that.</div>
+<div><br/></div>
+<div>Yes, that seems to fix this. \o/</div>
+<div><br/></div>
+<div>Now… all over again, let's run the tests.</div>
+<div><br/></div>
+<div>LKSDJFGKL:JSDGKLDSJG - NO, this breaks browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js. :( In fact, we regress opening new window links with this change. So that's no good.</div>
+<div><br/></div>
+<div>Maybe a better plan is to make it so that updating the remoteness of a browser does not cause location change events to fire.</div>
+<div><br/></div>
+<div><b>AW SHIT</b></div>
+<div><br/></div>
+<div>I've made a critical error. I haven't been basing any of this stuff on billm's work in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=567058">bug 567058</a>. He even warned me about it, and I agreed to base my work off if it! What happened?? :(((</div>
+<div><br/></div>
+<div>I might have to re-conceive parts of my solution here.</div>
+<div><br/></div>
+<div>Let's apply billm's patches and try to figure out what I can salvage. *sigh*.</div>
+<div><br/></div>
+<div>OK, applied. Now let's see what his patches change, and see how that re-orients my solutions.</div>
+<div><br/></div>
+<div>billm's patch reorients things - before, AnswerCreateWindow would make a new TabParent and send the PBrowser down to the child to deal with. Now, the child constructs a TabChild and sends UP a PBrowser for the parent process to know about.</div>
+<div><br/></div>
+<div>So there's some cleverness to create that PBrowser in the child, and stash it for later use.</div>
+<div><br/></div>
+<div>Ah, interesting - so it's a bit racy, but basically we say - whenever we open a new window from the child, we create a new TabChild, send the PBrowser up to the parent, get the parent to store the TabParent, and the next time some browser goes remote, we use the stashed TabParent. Seems kinda race-y, but OK. Ah, he adds an assert for assuredness.</div>
+<div><br/></div>
+<div>So I think my patch to use forceInitialBrowserRemote is still going to work. It's going to need to be re-based, but I think the procedure will work. Instead of getting the nsITabParent from being stashed in the docshell, we have forceInitialBrowserRemote return it to us.</div>
+<div><br/></div>
+<div>Y'know, we might be OK here.</div>
+<div><br/></div>
+<div>I'm going to start re-basing these commits one by one and see what happens.</div>
+<div><br/></div>
+<div>Part 1 rebased fine. On to part 2 - which will likely break...</div>
+<div><br/></div>
+<div>HOLY SHIT it merged all by itself. That's incredible. Wow. hg, you're awesome.</div>
+<div><br/></div>
+<div>Building now. Let's see if this broke any new stuff. Wow. I expected that to go a lot worse.</div>
+<div><br/></div>
+<div>OK, wow - stuff is working. That's incredible. I can't believe it.</div>
+<div><br/></div>
+<div>Let's run the tests again.</div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js (e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug562649.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug562649.js (e10s)</div>
+<div><input checked="true" type="checkbox"/>dom/tests/browser/browser_test_new_window_from_content.js  (no e10s)</div>
+</div>
+<div><input checked="true" type="checkbox"/>dom/tests/browser/browser_test_new_window_from_content.js  (e10s) <b>CRASH</b></div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug880101.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug880101.js (e10s) <b>FAILED</b></div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug491431.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug491431.js (e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug609700.js (no e10s)</div>
+<div><input checked="true" type="checkbox"/>browser/base/content/test/general/browser_bug609700.js (e10s)</div>
+<div><br/></div>
+<div>dom/tests/browser/browser_test_new_window_from_content.js  --e10s crashes!</div>
+<div><br/></div>
+<div>I wonder if this is from billm's patch, or if it's something I did. Ah - ok, it crashes with just billm's patch.</div>
+<div><br/></div>
+<div>So I'll file a follow-up bug to fix browser_testOpenNewRemoteTabsFromNonRemoteBrowsers.js for e10s, and I won't run that test anymore.</div>
+<div><br/></div>
+<div><b>browser/base/content/test/general/browser_bug880101.js (e10s) failure</b></div>
+<div><br/></div>
+<div>This is the same one I was dealing with at the end of day yesterday. It looks as if the tab progress listener for the tab that the test is checking is firing onLocationChange with about:blank when it's not supposed to. There seems to be provisions for that in mTabProgressListener with an mBlank property being true by default so that the initial load of about:blank is ignored.</div>
+<div><br/></div>
+<div>Bad run:</div>
+<div><br/></div>
+<div>2 INFO TEST-START | browser/base/content/test/general/browser_bug880101.js
+<div>State change called - flags: 65552 -- status: 2152398850 -- mBlank: true</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: true</div>
+<div>State change called - location: about:blank -- flags: 0 -- mBlank: true</div>
+<div>State change called - flags: 786448 -- status: 0 -- mBlank: true</div>
+<div>this.mBlank set to false</div>
+</div>
+<div>UPDATING REMOTENESS NOW</div>
+<div>DONE UPDATING REMOTENESS</div>
+<div><br/></div>
+<div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: true</div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: true</div>
+<div>this.mBlank set to false</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: false</div>
+</div>
+<div>State change called - location: about:blank -- flags: 0 -- mBlank: false</div>
+<div><br/></div>
+<div>
+<div>5 INFO TEST-PASS | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange from top frame</div>
+<div>6 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange for correct URL - Got about:blank, expected <a href="http://example.com/browser/browser/base/content/test/general/dummy_page.html">http://example.com/browser/browser/base/content/test/general/dummy_page.html</a></div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug880101.js:test/listener.onLocationChange:12</div>
+<div>chrome://browser/content/tabbrowser.xml:_callProgressListeners/&lt;:527</div>
+<div>self-hosted:forEach:173</div>
+<div>chrome://browser/content/tabbrowser.xml:_callProgressListeners:524</div>
+<div>chrome://browser/content/tabbrowser.xml:mTabProgressListener/&lt;._callProgressListeners:587</div>
+<div>chrome://browser/content/tabbrowser.xml:mTabProgressListener/&lt;.onLocationChange:813</div>
+<div>resource://gre/modules/RemoteWebProgress.jsm:RemoteWebProgressManager.prototype._callProgressListeners:126</div>
+<div>resource://gre/modules/RemoteWebProgress.jsm:RemoteWebProgressManager.prototype.receiveMessage:187</div>
+<div>null:null:0</div>
+<div>7 INFO MEMORY STAT vsize after test: 3292430336</div>
+<div>8 INFO MEMORY STAT vsizeMaxContiguous not supported in this build configuration.</div>
+<div>9 INFO MEMORY STAT residentFast after test: 242262016</div>
+<div>10 INFO MEMORY STAT heapAllocated after test: 109422776</div>
+<div>11 INFO TEST-OK | browser/base/content/test/general/browser_bug880101.js | took 407ms</div>
+</div>
+<div><br/></div>
+<div><br/></div>
+<div>Good run (which forces remoteness on initial browser to be remote):</div>
+<div><br/></div>
+<div>4 INFO TEST-START | browser/base/content/test/general/browser_bug880101.js
+<div>State change called - flags: 65552 -- status: 2152398850 -- mBlank: true</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: true</div>
+<div>State change called - location: about:blank -- flags: 0 -- mBlank: true</div>
+<div>State change called - flags: 786448 -- status: 0 -- mBlank: true</div>
+<div>this.mBlank set to false</div>
+<div>UPDATING REMOTENESS NOW</div>
+</div>
+<div>DONE UPDATING REMOTENESS</div>
+<div><br/></div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+<div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: false</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+</div>
+<div>State change called - location: <a href="http://example.com/browser/browser/base/content/test/general/dummy_page.html">http://example.com/browser/browser/base/content/test/general/dummy_page.html</a> -- flags: 0 -- mBlank: false</div>
+<div><br/></div>
+<div>
+<div>7 INFO TEST-PASS | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange from top frame</div>
+<div>8 INFO TEST-PASS | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange for correct URL</div>
+<div>9 INFO MEMORY STAT vsize after test: 3277836288</div>
+<div>10 INFO MEMORY STAT vsizeMaxContiguous not supported in this build configuration.</div>
+<div>11 INFO MEMORY STAT residentFast after test: 243974144</div>
+<div>12 INFO MEMORY STAT heapAllocated after test: 109739784</div>
+<div>13 INFO TEST-OK | browser/base/content/test/general/browser_bug880101.js | took 410ms</div>
+</div>
+<div><br/></div>
+<div><br/></div>
+<div>So, extraction - here's the broken case:</div>
+<div><br/></div>
+<div>
+<div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: true</div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: true</div>
+<div>this.mBlank set to false</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: false</div>
+</div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">State change called - location: about:blank -- flags: 0 -- mBlank: false</span></div>
+</div>
+<div><br/></div>
+<div>and the good case:</div>
+<div><br/></div>
+<div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+<div>
+<div>State change called - flags: 786448 -- status: 2152398850 -- mBlank: false</div>
+<div>State change called - flags: 983041 -- status: 0 -- mBlank: false</div>
+</div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">State change called - location: <a href="http://example.com/browser/browser/base/content/test/general/dummy_page.html">http://example.com/browser/browser/base/content/test/general/dummy_page.html</a> -- flags: 0 -- mBlank: false</span></div>
+</div>
+<div><br/></div>
+<div>It'd be good if I had a sense of what these flags and statuses were.</div>
+<div><br/></div>
+<div>  const unsigned long STATE_START          = 0x00000001;
+<div>  const unsigned long STATE_REDIRECTING    = 0x00000002;</div>
+<div>  const unsigned long STATE_TRANSFERRING   = 0x00000004;</div>
+<div>  const unsigned long STATE_NEGOTIATING    = 0x00000008;</div>
+</div>
+<div>  const unsigned long STATE_STOP           = 0x00000010;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_IS_REQUEST     = 0x00010000;
+<div>  const unsigned long STATE_IS_DOCUMENT    = 0x00020000;</div>
+<div>  const unsigned long STATE_IS_NETWORK     = 0x00040000;</div>
+</div>
+<div>  const unsigned long STATE_IS_WINDOW      = 0x00080000;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_IS_INSECURE     = 0x00000004;
+<div>  const unsigned long STATE_IS_BROKEN       = 0x00000001;</div>
+</div>
+<div>  const unsigned long STATE_IS_SECURE       = 0x00000002;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_BLOCKED_MIXED_ACTIVE_CONTENT  = 0x00000010;</div>
+<div>  const unsigned long STATE_LOADED_MIXED_ACTIVE_CONTENT   = 0x00000020;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_BLOCKED_MIXED_DISPLAY_CONTENT = 0x00000100;</div>
+<div>  const unsigned long STATE_LOADED_MIXED_DISPLAY_CONTENT  = 0x00000200;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_BLOCKED_TRACKING_CONTENT = 0x00001000;</div>
+<div>  const unsigned long STATE_LOADED_TRACKING_CONTENT  = 0x00002000;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_SECURE_HIGH     = 0x00040000;
+<div>  const unsigned long STATE_SECURE_MED      = 0x00010000;</div>
+</div>
+<div>  const unsigned long STATE_SECURE_LOW      = 0x00020000;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_IDENTITY_EV_TOPLEVEL    = 0x00100000;</div>
+<div><br/></div>
+<div>  const unsigned long STATE_USES_SSL_3                = 0x01000000;</div>
+<div>  const unsigned long STATE_USES_WEAK_CRYPTO          = 0x02000000;</div>
+<div><br/></div>
+<div><b>983041 is:</b></div>
+<div>11110000000000000001<br/></div>
+<div><br/></div>
+<div><b>786448 is:</b></div>
+<div>11000000000000010000<br/></div>
+<div><br/></div>
+<div>2152398850 = NS_BINDING_ABORTED</div>
+<div>The async request failed because it was aborted by some user action. (probably switching to remote)<br/></div>
+<div><br/></div>
+<div>The bad case seems to have an extra NS_BINDING_ABORTED being thrown. Remember in that case, I think Mossop's code is running, so we might be aborting the connection to the URI in such a way that…guh, I don't know. :(</div>
+<div><br/></div>
+<div><br/></div>
+<div><b>COMMON STATE CHANGES</b></div>
+<div><br/></div>
+<div><b>State change called - flags: 65552 -- status: 2152398850 -- mBlank: true</b><br/></div>
+<div>#22     0x0000000106f617ff in JS_CallFunctionValue(JSContext*, JS::Handle&lt;JSObject*>, JS::Handle&lt;JS::Value>, JS::HandleValueArray const&amp;, JS::MutableHandle&lt;JS::Value>) at /Users/mikeconley/Projects/mozilla-central/js/src/jsapi.cpp:4568
+<div>#23     0x000000010248a678 in nsXPCWrappedJSClass::CallMethod(nsXPCWrappedJS*, unsigned short, XPTMethodDescriptor const*, nsXPTCMiniVariant*) at /Users/mikeconley/Projects/mozilla-central/js/xpconnect/src/XPCWrappedJSClass.cpp:1205</div>
+<div>#24     0x0000000102484789 in nsXPCWrappedJS::CallMethod(unsigned short, XPTMethodDescriptor const*, nsXPTCMiniVariant*) at /Users/mikeconley/Projects/mozilla-central/js/xpconnect/src/XPCWrappedJS.cpp:532</div>
+<div>#25     0x000000010172d829 in PrepareAndDispatch at /Users/mikeconley/Projects/mozilla-central/xpcom/reflect/xptcall/md/unix/xptcstubs_x86_64_darwin.cpp:122</div>
+<div>#26     0x000000010172c28b in SharedStub ()</div>
+<div>#27     0x0000000105980540 in nsBrowserStatusFilter::OnStateChange(nsIWebProgress*, nsIRequest*, unsigned int, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/toolkit/components/statusfilter/nsBrowserStatusFilter.cpp:172</div>
+<div>#28     0x0000000105980695 in _ZThn8_N21nsBrowserStatusFilter13OnStateChangeEP14nsIWebProgressP10nsIRequestj12tag_nsresult at /Users/mikeconley/Projects/mozilla-central/toolkit/components/statusfilter/nsBrowserStatusFilter.cpp:177</div>
+<div>#29     0x000000010271fd4b in nsDocLoader::DoFireOnStateChange(nsIWebProgress*, nsIRequest*, int&amp;, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:1269</div>
+<div>#30     0x000000010271f3ff in nsDocLoader::FireOnStateChange(nsIWebProgress*, nsIRequest*, int, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:1232</div>
+<div>#31     0x000000010271f4f9 in nsDocLoader::doStopURLLoad(nsIRequest*, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:807</div>
+<div>#32     0x000000010271f22e in nsDocLoader::OnStopRequest(nsIRequest*, nsISupports*, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:613</div>
+<div>#33     0x000000010271f64d in _ZThn8_N11nsDocLoader13OnStopRequestEP10nsIRequestP11nsISupports12tag_nsresult at /Users/mikeconley/Projects/mozilla-central/obj-debug/uriloader/base/Unified_cpp_uriloader_base0.cpp:628</div>
+<div>#34     0x000000010185de24 in nsLoadGroup::RemoveRequest(nsIRequest*, nsISupports*, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/netwerk/base/src/nsLoadGroup.cpp:685</div>
+<div>#35     0x000000010185c490 in nsLoadGroup::Cancel(tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/netwerk/base/src/nsLoadGroup.cpp:290</div>
+<div>#36     0x000000010271de03 in nsDocLoader::Stop() at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:262</div>
+<div>#37     0x00000001055af855 in nsDocShell::Stop() at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.h:188</div>
+<div>#38     0x000000010555d549 in nsDocShell::Stop(unsigned int) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:5430</div>
+<div>#39     0x00000001055723f0 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:10109</div>
+<div>#40     0x000000010556dae0 in nsDocShell::LoadURI(nsIURI*, nsIDocShellLoadInfo*, unsigned int, bool) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:1634</div>
+<div>#41     0x0000000105572d8e in _ZThn424_N10nsDocShell7LoadURIEP6nsIURIP19nsIDocShellLoadInfojb at /Users/mikeconley/Projects/mozilla-central/obj-debug/docshell/base/Unified_cpp_docshell_base0.cpp:1637</div>
+<div>#42     0x0000000102edebfb in nsFrameLoader::ReallyStartLoadingInternal() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:461</div>
+<div>#43     0x0000000102ede039 in nsFrameLoader::ReallyStartLoading() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:311</div>
+<div>#44     0x0000000102e5d46b in nsDocument::MaybeInitializeFinalizeFrameLoaders() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsDocument.cpp:7311</div>
+<div>#45     0x000000010496b39c in mozilla::dom::XULDocument::DoneWalking() at /Users/mikeconley/Projects/mozilla-central/dom/xul/XULDocument.cpp:3094</div>
+<div>#46     0x000000010496ba0f in mozilla::dom::XULDocument::StyleSheetLoaded(mozilla::CSSStyleSheet*, bool, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/dom/xul/XULDocument.cpp:3172</div>
+<div>#47     0x000000010496ba74 in _ZThn1904_N7mozilla3dom11XULDocument16StyleSheetLoadedEPNS_13CSSStyleSheetEb12tag_nsresult at /Users/mikeconley/Projects/mozilla-central/obj-debug/dom/xul/Unified_cpp_dom_xul0.cpp:3177</div>
+<div>#48     0x0000000104cc597c in mozilla::css::Loader::SheetComplete(mozilla::css::SheetLoadData*, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:1790</div>
+<div>#49     0x0000000104cc0f7d in mozilla::css::Loader::HandleLoadEvent(mozilla::css::SheetLoadData*) at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:2424</div>
+<div>#50     0x0000000104cc0eb1 in mozilla::css::SheetLoadData::Run() at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:431</div>
+</div>
+<div><br/></div>
+<div><b>State change called - flags: 983041 -- status: 0 -- mBlank: true</b><br/></div>
+<div>#27     0x0000000105980540 in nsBrowserStatusFilter::OnStateChange(nsIWebProgress*, nsIRequest*, unsigned int, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/toolkit/components/statusfilter/nsBrowserStatusFilter.cpp:172
+<div>#28     0x0000000105980695 in _ZThn8_N21nsBrowserStatusFilter13OnStateChangeEP14nsIWebProgressP10nsIRequestj12tag_nsresult at /Users/mikeconley/Projects/mozilla-central/toolkit/components/statusfilter/nsBrowserStatusFilter.cpp:177</div>
+<div>#29     0x000000010271fd4b in nsDocLoader::DoFireOnStateChange(nsIWebProgress*, nsIRequest*, int&amp;, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:1269</div>
+<div>#30     0x000000010271f3ff in nsDocLoader::FireOnStateChange(nsIWebProgress*, nsIRequest*, int, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:1232</div>
+<div>#31     0x000000010271ec08 in nsDocLoader::doStartDocumentLoad() at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:767</div>
+<div>#32     0x000000010271ea0b in nsDocLoader::OnStartRequest(nsIRequest*, nsISupports*) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsDocLoader.cpp:470</div>
+<div>#33     0x000000010271ed57 in _ZThn8_N11nsDocLoader14OnStartRequestEP10nsIRequestP11nsISupports at /Users/mikeconley/Projects/mozilla-central/obj-debug/uriloader/base/Unified_cpp_uriloader_base0.cpp:482</div>
+<div>#34     0x000000010185d47c in nsLoadGroup::AddRequest(nsIRequest*, nsISupports*) at /Users/mikeconley/Projects/mozilla-central/netwerk/base/src/nsLoadGroup.cpp:563</div>
+<div>#35     0x000000010183b9b8 in nsBaseChannel::AsyncOpen(nsIStreamListener*, nsISupports*) at /Users/mikeconley/Projects/mozilla-central/netwerk/base/src/nsBaseChannel.cpp:649</div>
+<div>#36     0x000000010183ba27 in _ZThn80_N13nsBaseChannel9AsyncOpenEP17nsIStreamListenerP11nsISupports at /Users/mikeconley/Projects/mozilla-central/obj-debug/netwerk/base/src/Unified_cpp_netwerk_base_src1.cpp:654</div>
+<div>#37     0x0000000102725cbe in nsURILoader::OpenURI(nsIChannel*, unsigned int, nsIInterfaceRequestor*) at /Users/mikeconley/Projects/mozilla-central/uriloader/base/nsURILoader.cpp:834</div>
+<div>#38     0x00000001055738cc in nsDocShell::DoChannelLoad(nsIChannel*, nsIURILoader*, bool) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:10787</div>
+<div>#39     0x000000010559d850 in nsDocShell::DoURILoad(nsIURI*, nsIURI*, bool, unsigned int, nsISupports*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, bool, nsIDocShell**, nsIRequest**, bool, bool, bool, nsAString_internal const&amp;, nsIURI*, unsigned int) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:10616</div>
+<div>#40     0x0000000105572b55 in nsDocShell::InternalLoad(nsIURI*, nsIURI*, unsigned int, nsISupports*, unsigned int, char16_t const*, char const*, nsAString_internal const&amp;, nsIInputStream*, nsIInputStream*, unsigned int, nsISHEntry*, bool, nsAString_internal const&amp;, nsIDocShell*, nsIURI*, nsIDocShell**, nsIRequest**) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:10186</div>
+<div>#41     0x000000010556dae0 in nsDocShell::LoadURI(nsIURI*, nsIDocShellLoadInfo*, unsigned int, bool) at /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp:1634</div>
+<div>#42     0x0000000105572d8e in _ZThn424_N10nsDocShell7LoadURIEP6nsIURIP19nsIDocShellLoadInfojb at /Users/mikeconley/Projects/mozilla-central/obj-debug/docshell/base/Unified_cpp_docshell_base0.cpp:1637</div>
+<div>#43     0x0000000102edebfb in nsFrameLoader::ReallyStartLoadingInternal() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:461</div>
+<div>#44     0x0000000102ede039 in nsFrameLoader::ReallyStartLoading() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp:311</div>
+<div>#45     0x0000000102e5d46b in nsDocument::MaybeInitializeFinalizeFrameLoaders() at /Users/mikeconley/Projects/mozilla-central/dom/base/nsDocument.cpp:7311</div>
+<div>#46     0x000000010496b39c in mozilla::dom::XULDocument::DoneWalking() at /Users/mikeconley/Projects/mozilla-central/dom/xul/XULDocument.cpp:3094</div>
+<div>#47     0x000000010496ba0f in mozilla::dom::XULDocument::StyleSheetLoaded(mozilla::CSSStyleSheet*, bool, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/dom/xul/XULDocument.cpp:3172</div>
+<div>#48     0x000000010496ba74 in _ZThn1904_N7mozilla3dom11XULDocument16StyleSheetLoadedEPNS_13CSSStyleSheetEb12tag_nsresult at /Users/mikeconley/Projects/mozilla-central/obj-debug/dom/xul/Unified_cpp_dom_xul0.cpp:3177</div>
+<div>#49     0x0000000104cc597c in mozilla::css::Loader::SheetComplete(mozilla::css::SheetLoadData*, tag_nsresult) at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:1790</div>
+<div>#50     0x0000000104cc0f7d in mozilla::css::Loader::HandleLoadEvent(mozilla::css::SheetLoadData*) at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:2424</div>
+</div>
+<div>#51     0x0000000104cc0eb1 in mozilla::css::SheetLoadData::Run() at /Users/mikeconley/Projects/mozilla-central/layout/style/Loader.cpp:431</div>
+<div><br/></div>
+<div><b>State change called - flags: 786448 -- status: 0 -- mBlank: true</b><br/></div>
+<div>0 anonymous(aWebProgress = [xpconnect wrapped nsIWebProgress @ 0x11a4651c0 (native @ 0x11ae06460)], aRequest = [xpconnect wrapped nsIRequest @ 0x11a4411c0 (native @ 0x11a017ba0)], aStateFlags = 786448, aStatus = 2152398850) ["chrome://browser/content/tabbrowser.xml":634]
+<div>    this = [object Object]</div>
+<div>1 anonymous(methodName = "onStateChange", args = [object Object],[object Object],786448,2152398850, [object Object], 786448, 2152398850) ["resource://gre/modules/RemoteWebProgress.jsm":126]</div>
+<div>    this = [object Object]</div>
+<div>2 anonymous(aMessage = [object Object]) ["resource://gre/modules/RemoteWebProgress.jsm":167]</div>
+</div>
+<div>    this = [object Object]</div>
+<div><br/></div>
+<div>We just happen to get another onLocationChange with my patch for some reason. It's being sent up as a message from the content process.</div>
+<div><br/></div>
+<div>Is the content process sending more onLocationChange in the bad case, or am I just responding to it more in the bad case?</div>
+<div><br/></div>
+<div>It's sending it more in the child process. Here's why:</div>
+<div><br/></div>
+<div>0 onLocationChange(aWebProgress = [xpconnect wrapped (nsISupports, nsIDocShell, nsIInterfaceRequestor, nsIWebNavigation, nsILoadContext, nsIWebProgress) @ 0x11a28a040 (native @ 0x118f87008)], aRequest = null, aLocationURI = [xpconnect wrapped nsIURI @ 0x11a2a3be0 (native @ 0x11a26f470)], aFlags = 0) ["chrome://global/content/browser-child.js":146]
+<div>    this = [object Object]</div>
+<div>1 anonymous(epoch = 1, tabData = [object Object], reloadCallback = () => {</div>
+<div>          // Inform SessionStore.jsm about the reload. It will send</div>
+<div>          // restoreTabContent in response.</div>
+<div>          sendAsyncMessage("SessionStore:reloadPendingTab", {epoch: data.epoch});</div>
+<div>        }) ["resource:///modules/sessionstore/ContentRestore.jsm":139]</div>
+<div>    this = [object Object]</div>
+<div>2 anonymous( = [object Object]) ["chrome://browser/content/content-sessionStore.js":129]</div>
+</div>
+<div>    this = [object Object]</div>
+<div><br/></div>
+<div>AHHHHH - Ok, I have a theory.</div>
+<div><br/></div>
+<div>Mossop's patch for <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=999239">bug 999239</a> makes it so that when you transition from remote/non-remote or vice versa, the history gets updated in the browser that you transition to. We're doing that when we transition from about:blank to the target URI in the test, and when the history gets updated in the newly remote browser, we hear the onLocationChange for the first document, which is about:blank.</div>
+<div><br/></div>
+<div>I THINK. Let me see if I can pick this apart.</div>
+<div><br/></div>
+<div>Jesus, this is so complicated. :/</div>
+<div><br/></div>
+<div>This is what causes restoreTab to be called:</div>
+<div><br/></div>
+<div>restoreTab called with stack: restoreTab@resource:///modules/sessionstore/SessionStore.jsm:2527:56
+<div>ssi_setTabState@resource:///modules/sessionstore/SessionStore.jsm:1608:5</div>
+<div>ss_restoreTabAndLoad@resource:///modules/sessionstore/SessionStore.jsm:209:1</div>
+<div>LoadInOtherProcess@chrome://browser/content/browser.js:10311:5</div>
+<div>_loadURIWithFlags@chrome://browser/content/browser.js:10280:7</div>
+<div>loadURIWithFlags@chrome://browser/content/tabbrowser.xml:5479:13</div>
+<div>loadURIWithFlags@chrome://browser/content/tabbrowser.xml:2910:20</div>
+<div>openLinkIn@chrome://browser/content/utilityOverlay.js:324:5</div>
+<div>loadURI@chrome://browser/content/browser.js:11505:5</div>
+<div>gBrowserInit._delayedStartup@chrome://browser/content/browser.js:10615:1</div>
+</div>
+<div><br/></div>
+<div>Window opens… we want to open test URL… about:blank gets loaded. </div>
+<div><br/></div>
+<div>Can we make it so that if we're calling restoreTab or _restoreTabAndLoad or whatever, that if the tab only had about:blank in it, that we don't send yet another onLocationChange when we "restore" that tab as remote.</div>
+<div><br/></div>
+<div>Huh. This appears to be a problem in general when changing remoteness - we _always_ fire an about:blank onLocationChange. I exposed this bug, but I don't think it's my bug. I think I'm just going to disable the test and see what Mossop thinks about this problem.</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=567120fe01d9">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=567120fe01d9</a><br/></div>
+<div><br/></div>
+<div>Almost there...</div>
+<div><br/></div>
+<div>Bug 1079617 - Intermittent browser_test_new_window_from_content.js | This test exceeded the timeout threshold. It should be rewritten or split up.</div>
+<div><br/></div>
+<div>It looks like at least one of my add_tasks runs too long before completing. I need to fix that.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1eb5fceacee2">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1eb5fceacee2</a></div>
+<div><br/></div>
+<div>Huh. So now we're crashing in browser_test_new_window_from_content.js. *sigh*. Time to punt.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7fa311659a36">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7fa311659a36</a><br/></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4e3eee363e50">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4e3eee363e50</a></div>
+<div><br/></div>
+<div>This is maddening. Now I have a new test failing - one I didn't have back with try push at  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=567120fe01d9">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=567120fe01d9</a>. I'm at a loss to explain it. :(</div>
+<div><br/></div>
+<div>As usual, the first step is to try to reproduce it locally.</div>
+<div><br/></div>
+<div>17:30:19     INFO -  1182 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_394759_behavior.js | There were 3 popup windows to repoen - Got 0, expected 3
+<div>17:30:19     INFO -  Stack trace:</div>
+<div>17:30:19     INFO -  chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>17:30:19     INFO -  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:openWindowRec:25</div>
+<div>17:30:19     INFO -  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:test/openWindowRec/onTestURLLoaded/&lt;:45</div>
+<div>17:30:19     INFO -  chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:881</div>
+<div>17:30:19     INFO -  null:null:0</div>
+<div>17:30:19     INFO -  1183 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_394759_behavior.js | There were 0 normal windows to repoen - Got 3, expected 0</div>
+<div>17:30:19     INFO -  Stack trace:</div>
+<div>17:30:19     INFO -  chrome://mochikit/content/browser-test.js:test_is:851</div>
+<div>17:30:19     INFO -  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:openWindowRec:27</div>
+<div>17:30:19     INFO -  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:test/openWindowRec/onTestURLLoaded/&lt;:45</div>
+</div>
+<div>17:30:19     INFO -  chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:881</div>
+<div><br/></div>
+<div>Yes, I can reproduce.</div>
+<div><br/></div>
+<div>In both cases the ss.getClosedWindowData() string just contains "[]", which is wrong. </div>
+<div><br/></div>
+<div>When I run without --e10s, ss.getClosedWindowData() looks more like this:</div>
+<div><br/></div>
+<div>[{"tabs":[{"entries":[{"url":"http://example.com/?window=0","title":"mochitest index /","ID":33,"docshellID":48,"docIdentifier":33,"persist":true}],"lastAccessed":1422240163515,"hidden":false,"attributes":{},"image":null,"index":1}],"selected":1,"_closedTabs":[],"width":1229,"height":771,"screenX":63,"screenY":44,"sizemode":"normal","title":"mochitest index /","closedAt":1422240163516},{"tabs":[{"entries":[{"url":"http://example.com/?window=1","title":"mochitest index /","ID":30,"docshellID":44,"docIdentifier":30,"persist":true}],"lastAccessed":1422240162981,"hidden":false,"attributes":{},"image":null,"index":1}],"selected":1,"_closedTabs":[],"width":1229,"height":771,"screenX":63,"screenY":44,"sizemode":"normal","title":"mochitest index /","closedAt":1422240162982},{"tabs":[{"entries":[{"url":"http://example.com/?window=2","title":"mochitest index /","ID":27,"docshellID":40,"docIdentifier":27,"persist":true}],"lastAccessed":1422240162332,"hidden":false,"attributes":{},"image":null,"index":1}],"selected":1,"_closedTabs":[],"width":1229,"height":771,"screenX":63,"screenY":44,"sizemode":"normal","title":"mochitest index /","closedAt":1422240162332}]</div>
+<div><br/></div>
+<div>(at least in the "expected 3 normal windows" test).</div>
+<div><br/></div>
+<div>Looks like they're never getting added to _closedWindows. Adding happens in onClosed at:</div>
+<div><br/></div>
+<div>this._closedWindows.unshift(winData);</div>
+<div><br/></div>
+<div>And we're not adding them because hasSaveableTabs is false, since I guess no tabs in the newly created windows fit the description of "worthy of saving".</div>
+<div><br/></div>
+<div>Huh. And this is because when we call RedirectLoad for a new window, the history only contains an about:blank entry. What the hell?</div>
+<div><br/></div>
+<div>So apparently, this is fine - according to Mossop, when the history is blasted down to the newly-remote browser, it's supposed to do the load, and then replace that about:blank entry with the actual history entry.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:02 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: It should send down about:blank as the current history, plus the new URI to load (which will replace the about:blank history entry because it isn't marked to persist). Once the new URI has loaded it should just have the single history entry</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:03 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>that latter half doesn't appear to be happening. Where in SessionStore does that occur?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:05 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: Here is where we tell the child to start loading the new content: </strong><a href="http://mxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#2675" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#2675</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:05 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>loadArguments hold the new URI to load</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:06 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>Here is where the child actually starts the load: <a href="http://mxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/ContentRestore.jsm#193" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/ContentRestore.jsm#193</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:07 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>Mossop: cool. Do you know where the bit is where we swap out that about:blank entry?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:08 </span><span style="color: rgb(0, 136, 0);">JosiahOne has joined (Instantbird@<span style="text-decoration: underline; word-break: break-all;"><a href="http://moz-mho344.biz.rr.com">moz-mho344.biz.rr.com</a></span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:08 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>That's deep in docshell somewhere...</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ah, those magic words</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:09 </span><span style="color: rgb(0, 136, 0);">joy has joined (Adium@<span style="text-decoration: underline; word-break: break-all;"><a href="http://moz-m8it2e.hpl.hp.com">moz-m8it2e.hpl.hp.com</a></span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:09 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: Basically here is where the magic happens: </strong><a href="http://mxr.mozilla.org/mozilla-central/source/docshell/shistory/src/nsSHistory.cpp#419" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/docshell/shistory/src/nsSHistory.cpp#419</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>OK, cool</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>I can work with this</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: History entries can be marked to either persist or not, by default all persist except about:blank and about:newtab</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>Mossop: thanks for the pointers, I might have a few more questions soon</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>bug 1077738 added storing the persist flag in sessionstore</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:10 </span><span style="color: rgb(0, 136, 68);">(firebot) </span><a href="https://bugzil.la/1077738" style="word-break: break-all;">https://bugzil.la/1077738</a> — FIXED, <a href="mailto:dtownsend@mozilla.com">dtownsend@mozilla.com</a> — Session restored about:newtab pages are retained in session history</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">12:11 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>It's possible you might be hitting an edge case where that isn't working right</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">12:11 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>possibly, yes</div>
+</div>
+<div><br/></div>
+<div>Hypothesis:</div>
+<div><br/></div>
+<div>In a newly created window, when the content process loads the URI and sends out the load event, the content process DocShell has not yet added the loaded URI to the session history.</div>
+<div><br/></div>
+<div>I will test this by running the test again, but this time, with a breakpoint on nsDocShell::AddToSessionHistory in the content process.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:07 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: it looks as if the docshell in the content process is successfully replacing the about:blank history entry, and sending it up to the parent process, which is stashing it in the TabState cache thing</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:07 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: but it looks like when it comes time to collect the window state data on window close, instead of using the tabData that we sent up, we use __SS_data, which is attached to the browser</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:07 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: which is out of date</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:08 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">___mconley: Does that test need to call TabState.flush before checking things or something?</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:09 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: let me check</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:10 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>Yeah it waits for the page to load, that doesn't necessarily mean the updated tab state has made it to the parent though so maybe it needs to wait for one of the session store events or force an update before proceeding</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:11 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: well whaddya know - test passes. \o/</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:11 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>Excellent</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:11 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(___mconley) </span>Mossop: ok, so that's an acceptable solution? Force a TabState flush for the selected browser in the test before closing the window?</div>
+</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:13 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: If instead of calling flush you just delay for say 500ms, does it still pass? That would verify that the state will get passed up automatically and not just because you force it</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:13 </span><span style="color: rgb(68, 136, 255);">(Mossop) </span>Not valid for a test but maybe a good manual sanity check</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:14 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>testing</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:15 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>Mossop: yeah, that was the dealio - waiting before closing the window also caused things to pass. \o./</div>
+</div>
+<div><br/></div>
+<div>AWESOME. IT WORKS. THANK FUCKING GOD.</div>
+<div><br/></div>
+<div>Time for another try push.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d0c5af8ead50">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d0c5af8ead50</a></div>
+<div><br/></div>
+<div>GAHHHHHH - still fails in some ways. FULL OF RAGE</div>
+<div><br/></div>
+<div>At least it seems to be limited to Linux though. Baby steps.</div>
+<div><br/></div>
+<div>Maybe wait for the SS_TabRestored event instead?</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b865d2ac734a">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b865d2ac734a</a></div>
+<div><br/></div>
+<div>GREEN. ALL GREEN. CRIPES. ~\o/~</div>
+<div><br/></div>
+<div>Ok, pushed up for review.</div>
+<div><br/></div>
+<div>Have review feedback! Also, the test was just wholesale disabled for Linux, due to bug 1126311. With that patch, and a fix for Browser:LoadURI firing before _delayedStartup on Linux, repushed to try:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88fc7f949252">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88fc7f949252</a></div>
+<div><br/></div>
+<div>Awwwwwww yeah - full green.</div>
+<div><br/></div>
+<div>I've altered my last fix there so that if Browser:LoadURI comes in before _delayedStartup, that we queue up an observer for delayed startup in that window, and cause redirection to happen immediately after. Noice.</div>
+<div><br/></div>
+<div>Another try push for good measure</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=8ef629ecac84">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=8ef629ecac84</a></div>
+<div><br/></div>
+<div>ONLY ONE REVIEW TO GO. WOOOOOOOOO</div>
+<div><br/></div>
+<div>Rebase and yet another one more try push for good measure:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=06b84f9f9925">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=06b84f9f9925</a></div>
+<div><br/></div>
+<div>MOTHERFUCKER. I was backed out because of Mn-e10s failures. :((((</div>
+<div><br/></div>
+<div>Failure logs: <a href="https://treeherder.mozilla.org/logviewer.html#?job_id=1891839&amp;repo=fx-team">https://treeherder.mozilla.org/logviewer.html#?job_id=1891839&amp;repo=fx-team</a></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=fx-team&amp;revision=38c6689adcbb">Treeherder.</a></div>
+<div><br/></div>
+<div>Failing tests:</div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-ERROR | test_accessibility.py TestAccessibility.test_click_raises_element_not_accessible | TimeoutException: TimeoutException: Connection timed out</div>
+<div>TEST-UNEXPECTED-ERROR | test_with_using_context.py TestSetContext.test_exception_raised_while_in_with_block_is_propagated | TimeoutException: TimeoutException: Connection timed out</div>
+<div><br/></div>
+<div>Those errors seemed to show up for the patch that makes it so that the initial browser is non-remote. I think I need to train the Marionette server to check whether or not we're an e10s window, and only pass the frameloader back when the TabRemotenessChanged event has fired.</div>
+<div><br/></div>
+<div>This is all kinds of bullshit. :(</div>
+<div><br/></div>
+<div>The whole "switch initial browser" to remote thing seems to be burning me wrt automation and tests. I wonder if we're firing the "load" on a browser twice - once when it attempts to load a document and gets redirected to load in another process, and again when it loads the page in the other process. Is that true?</div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_423132.js | A promise chain failed to handle a rejection: - at chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_423132.js:61 - TypeError: cookie2 is undefined</div>
+<div><br/></div>
+<div><b>GOOD</b></div>
+<div>2 INFO TEST-START | browser/components/sessionstore/test/browser_423132.js</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>Adding ss-testLoadEvent message listener</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>Saw ss-test:loadEvent!</div>
+<div>7 INFO TEST-PASS | browser/components/sessionstore/test/browser_423132.js | expected one cookie</div>
+<div>8 INFO TEST-PASS | browser/components/sessionstore/test/browser_423132.js | cookie name successfully restored</div>
+<div>9 INFO TEST-PASS | browser/components/sessionstore/test/browser_423132.js | cookie value successfully restored</div>
+<div>10 INFO TEST-PASS | browser/components/sessionstore/test/browser_423132.js | cookie path successfully restored</div>
+<div><br/></div>
+<div><br/></div>
+<div><b>BAD</b></div>
+<div>2 INFO TEST-START | browser/components/sessionstore/test/browser_423132.js</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>Adding ss-testLoadEvent message listener</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>FIRING ss-test:loadEvent!</div>
+<div>Saw ss-test:loadEvent!</div>
+<div>7 INFO TEST-PASS | browser/components/sessionstore/test/browser_423132.js | expected one cookie</div>
+<div><br/></div>
+<div>The problem actually appears to be that the cookie hasn't been set properly in the state by the time we try to gather it. What the hell?</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c2b2fc1ba6e9">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c2b2fc1ba6e9</a></div>
+<div><br/></div>
+<div>The good news is that this solves the Marionette bug. The bad news is that while I fixed the failure in browser_423132.js, I caused a bunch of other tests to break. FUCK.</div>
+<div><br/></div>
+<div>So, maybe don't modify promiseBrowserLoaded. Just special-case browser_423132.js like a chump.</div>
+<div><br/></div>
+<div>After promiseBrowserLoaded, then add event listener for SSTabRestored with promiseTabRestored.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cabc56e82d19">Try build</a></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=tryrevision=b11b51878ac4">https://treeherder.mozilla.org/#/jobs?repo=tryrevision=b11b51878ac4</a></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c2b2fc1ba6e9">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c2b2fc1ba6e9</a></div>
+<div><br/></div>
+<div>OK, got the reviews I needed. Let's push to try again for good measure...</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=518329112cde">Here we go</a></div>
+<div><br/></div>
+<div>LANDED AND MERGED. Thank god.</div>
+<div><b><br/></b></div>
+<div><b>TODO</b></div>
+<div><input checked="true" type="checkbox"/>Address smaug's review feedback</div>
+<div><input checked="true" type="checkbox"/>File a bug to alter the alert dialog that tells Linux users that they can't open e10s windows because of OMTC being disabled. Make it so that there is no alert dialog if we have browser.remote.tabs.autostart.1 enabled. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1126311">bug 1126311</a></div>
+<div><input checked="true" type="checkbox"/>File a bug about about:blank onLocationChange being fired for every transition to remote browsers, and reactivate browser_bug880101.js - filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1126316">bug 1126316</a></div>
+<div><input checked="true" type="checkbox"/>Why is privateWindow commented out in the test?</div>
+<div><input checked="true" type="checkbox"/>Address Mossop's review comments</div>
+<div><br/></div>
+</body></html>
