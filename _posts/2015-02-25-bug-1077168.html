@@ -1,0 +1,555 @@
+---
+layout: post
+title:  "Bug 1077168 - Installing an app on marketplace fails with e10s"
+date:   2015-02-25
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1077168">
+ Bug 1077168 - Installing an app on marketplace fails with e10s
+</a>
+<div>
+ <img height="304" src="assets/1077168-4ECD3506-A168-4B11-8BAD-81A5FEB7DEA5.png" width="814"/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, what makes this thing happen? Let's follow the string. I'll look for "Do you want to install".
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's here:
+ <a href="https://hg.mozilla.org/mozilla-central/file/35df417b93a7/browser/locales/en-US/chrome/browser/browser.properties#l447">
+  https://hg.mozilla.org/mozilla-central/file/35df417b93a7/browser/locales/en-US/chrome/browser/browser.properties#l447
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ With string key webapps.requestInstall
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And that's referenced in WebappManager:
+ <a href="https://hg.mozilla.org/mozilla-central/file/35df417b93a7/browser/modules/WebappManager.jsm">
+  https://hg.mozilla.org/mozilla-central/file/35df417b93a7/browser/modules/WebappManager.jsm
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And the doInstall function is kicked off by an webapps-ask-install observer notification which doesn't seem to be being received by the parent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I think this is pretty straight forward. It looks like I just need to listen for the webapps-ask-install notification in content.js, and send a message up to the parent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Webapps.js seems to be the machinery that sends notifications that the browser cares about.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think this can probably be fixed in the same way that DOM Fullscreen was fixed for e10s.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We put the observer for the WebApps notifications in content.js (reminder that this script runs in the parent process normally, and in the content process with e10s).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Have the observer notification send a message back up to the browser chrome with the information about the webapp being installed. Show the UI. Send a message back down when things are approved. Bobs your uncle.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, to review, the plan is:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Webapps.js notices us in the content clicking on the install link. Fires notifications.
+</div>
+<div>
+ content.js notices the notification, sends a message to the parent.
+</div>
+<div>
+ Parent gets the message, shows the UI.
+</div>
+<div>
+ UI then can send signals down to content.js.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It's a bit complicated, but it does keep things separated nicely, and uses a common path, e10s or not. Let's see if it works.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The notifications that content.js will need to listen for are:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ webapps-ask-install
+</div>
+<div>
+ webapps-ask-uninstall
+</div>
+<div>
+ webapps-launch
+</div>
+<div>
+ webapps-uninstall
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WebappManager is also a global singleton it seems. That makes my solution somewhat awkward, actually. Or does it?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Think...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes, it makes it awkward.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What I might do is have WebappManager be something that is initiated per window instead of process-wide.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Have it initialize per window and listen to the window message manager.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Map browser to message.target...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh. It looks like the old code uses outerWindowIDs to map the requestor to the browser window. That's not going to work multi-process, I'm afraid. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I'm in a weird situation. Let me try to describe it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When Webapps.js notices that we're clicking on a web app installation link, a bunch of machinery kicks off to do validation and preparation for the installation. We end up constructing this object that we serialize and send up through the observer service that contains the "outer window ID" of the window that purportedly the link was clicked in.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I thought this outer window ID would map to a specific content in some content.js. An outerWindowID is something that nsIDOMWindowUtils can get for us, and I thought if I added an observer in content.js, and just filtered on the outerWindowID, I could make sure only the browser in which the link was clicked would get the message.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ No such luck. For some reason, none of the content.js scripts have an outerWindowID that matches the one that the webapp is purportedly being installed from.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wut.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AH, heh, interesting. I was wrong about the observer notification not being received in the parent - it's 100% being received in the parent, but the outerWindowID is, as you'd expect, not valid. This is where the breakage is.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So this is a pickle.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We've got this outer window ID that we just can't work with in the parent process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ideas time - let's get 'em all out...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How about at the Browser:Init message, we send up the outerWindowID for the browser. Have tabbrowser hold onto a Map, mapping outerWindowIDs to browsers (remote or not).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Problem - WebappsManager doesn't know which tabbrowser to talk to. It might be better to store this mapping somewhere else? BrowserUtils.jsm?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Alternatively, enumerate navigator:browser windows, and ask each gBrowser to see if we can get the right browser back. Failing that, have WebappsManager.jsm go with Services.wm.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ felipe concurs that this is sane. But some refinements...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, this ended up working, but for some reason, it looks like WebappManager.jsm needs to subscribe to certain messages… this is so strange.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Anyhow, this appears to work now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ No dupe window ID's:
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1126042">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=1126042
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, this appears to work, though it might not be optimal.
+ <div>
+  <br/>
+ </div>
+ <div>
+  I stash the outerWindowID on both remote and non-remote &lt;xul:browser&gt;'s now, and have &lt;xul:tabbrowser&gt; manage a map from outerWindowIDs to &lt;xul:browser&gt;'s. Since the keys are integers, I can't use a WeakMap, unfortunately, so I remove them on removeTab. Hopefully there aren't places where I might leak here.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Remote &lt;xul:browser&gt;'s also don't get outerWindowIDs right away - we wait until Browser:Init is fired in the browser-child.js script, and then set the field on the browser. This means that when we open a new remote tab, we defer adding the browser to the mapping until after Browser:Init is fired.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ For the WebappManager.jsm bits, I was surprised to learn that I had to send down a message to subscribe to certain messages from the child. This was not necessary with a single process. Anyhow, adding in the RegisterForMessages
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo! Got review+ from myk and felipe! Time for a try push just to make sure everything is kosher (maybe I should have done that before requesting review…)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=93c01d071ecf">
+  Here we go.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FUUUUUU - test failures.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's the problem - I don't have support for installing webapps from iframes with e10s, and I break that support on non-e10s.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The reason for this is because we're skipping getting the outer window, and going straight for the browser, and checking to ensure that the "from" that we're installing the app from matches the browser currentURI.spec. That's fine when the root document is the one installing the app (which is what I tested), but when we have an iframe doing it, the outer window maps to the outer window of that iframe, and the URL of that iframe can vary wildly from the URL of the current browser.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Shoot.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, two problems:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  Need to be able to map the outerWindowID passed through the observer notification to a particular browser. My current patch doesn't work with iframes! How important is it to install apps from iframes?
+ </li>
+ <li>
+  Need to be able to confirm that the requesting outerWindow is still pointed at the requesting URI.
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  Ok, ideas ideas ideas...
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<ol>
+ <li>
+  <s>
+   Simple idea: don't do the URI comparison at all.
+  </s>
+  Does it provide value? Ask myk. Yes, this provides value - see
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=771294">
+   bug 771294
+  </a>
+  , which patched a security vulnerability where an app could request the installation and then immediately browse away, which would make it seem like the app install was being requested from the latter page.
+ </li>
+ <li>
+  Get the contentWindowAsCPOW of the browser, and find the frame whose outerWindowID matches the one we were passed, comparing the location.href. This is likely mighty expensive, CPOW-wise.
+ </li>
+ <li>
+  Have the content process pass up a CPOW for the outerWindow requesting the installation of the app.
+ </li>
+ <li>
+  Have the content process pass up the outerWindowID for the root docshell window, along with the outerWindowID for the window that made the request. That would solve problem (1).
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ Hm. The Open Web Apps people would rather things work equally across all apps...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so go with 4 maybe to solve problem (1). Need to solve problem (2) for the iframe case...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wouldn't click-to-play needed to have solved this problem? Or maybe SessionStore?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ OK, so I think we might have a plan forward for (2) here. It goes something like this:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now that outerWindowIDs are unique from process to process, we can take advantage of the fact that we get load notifications through nsIWebProgress.idl and we get an outerWindowID passed to us (DOMWindowID). This sort of thing gets weaved together, and we can add a listener via gBrowser.addProgressListener. browser-child.js and RemoteWebProgress.jsm then needs to be modified to send/receive the outerWindowID's for the progress events.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So what we do is, when a webapps-ask-install notification is received, we find the right browser using (1), and open the install dialog. We also add an nsIWebProgressListener to the gBrowser, waiting for onLocationChange where the WebProgress passed into that function has a DOMWindowID that matches the oid. If so, we remove the notification.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ If the notification is removed, we remove the listener.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Same with webapps-ask-uninstall. Basically, anything that shows a notification.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This sounds legit. Time to break this up into some smaller parts:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have Webapps.js pass up not just the outerWindowID for the window requesting the install/uninstall, but also the outerWindowID of the top window.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ In WebappManager.jsm, pass the top window ID to getBrowserForID
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have browser-child.js and RemoteWebProgress.jsm be modified to pass up the outerWindowID for every progress event
+</div>
+<div>
+ <s>
+  <input type="checkbox"/>
+  Add an nsIWebProgressListener to the gBrowser when opening the PopupNotification that listens for a particular outerWindowID for location changes.
+ </s>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ^-- Huh. That's not going to work because the location can change before the parent process has a chance to attach the nsIWebProgressListener.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Idea - have Webapps.js send a message up any time the location for a site that has requested install or uninstall has changed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Webapps.jsm receives that message, after having kicked off the installation or uninstallation of an app… but before it's sent the notifications. If we're in that pocket of time, ...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Right, so there are two cases to consider:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Case 1: Location changes before WebappsManager.jsm gets to respond to webapps-ask-(un)install.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Webapps.js sends async "Webapps:Install" message up, and then not long after, the location of the installing window changes, so it sends a "Webapps:LocationChange" message up along with the outerWindowID whose location is changing.
+</div>
+<div>
+ Webapps.jsm receives Webapps:Install, stashes this into a map:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ outerWindowID -&gt; {cancelled: false,
+</div>
+<div>
+ installs: num},
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And bumps the installs int. Every time one of the async jobs finishes, we find this entry, and decrement the installs until it hits zero, after which we remove the entry.
+</div>
+<div>
+ Starts maybe some XHR to install the app. Or verifies a manifest. Or does something otherwise asynchronous.
+</div>
+<div>
+ Webapps.jsm receives Webapps:LocationChange. Since outerWindowID is in the map, it flips its cancelled state to true.
+</div>
+<div>
+ Asynchronous job finishes, we check cancelled state. If cancelled, don't do install. Decrement installs until we remove entry.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Case 2: Location changes before WebappsManager.jsm gets to respond to webapps-ask-(un)install.
+</div>
+<div>
+ Use original solution?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9ea74f8d3cf6">
+  Try build.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Add the eventCallback to the PopupNotification to listen for
+ <a href="https://developer.mozilla.org/en-US/docs/Mozilla/JavaScript_code_modules/PopupNotifications.jsm#Notification_events">
+  the "removed" event
+ </a>
+ to remove that nsIWebProgressListener.
+</div>
+<div>
+ <br/>
+</div>

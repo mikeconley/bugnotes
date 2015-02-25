@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.6 (451290)"/><meta name="keywords" content="Needs export"/><meta name="author" content="mike.d.conley@gmail.com"/><meta name="created" content="2015-02-17 22:45:51 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1133077"/><meta name="updated" content="2015-02-19 15:33:29 +0000"/><title>Bug 1133077 - [e10s] window.open broken with vertical tabs add-on</title></head><body>
+<div><a href="https://github.com/darrinhenein/VerticalTabs/blob/master/VerticalTabs.xpi">https://github.com/darrinhenein/VerticalTabs/blob/master/VerticalTabs.xpi</a></div>
+<div>^-- that's the add-on</div>
+<div><br/></div>
+<div>Cloned the source of it.</div>
+<div><br/></div>
+<div>Ok, I understand what's going on. Ugh, it's a sad story.</div>
+<div><br/></div>
+<div>set_selectedPanel@chrome://global/content/bindings/tabbox.xml:671:13</div>
+<div>set_selectedIndex@chrome://global/content/bindings/tabbox.xml:399:15</div>
+<div>tabs_XBL_Constructor@chrome://global/content/bindings/tabbox.xml:263:11</div>
+<div>VerticalTabs.prototype.rearrangeXUL@resource://verticaltabs/verticaltabs.jsm:168:9</div>
+<div>VerticalTabs.prototype.init@resource://verticaltabs/verticaltabs.jsm:80:9</div>
+<div>VerticalTabs@resource://verticaltabs/verticaltabs.jsm:59:5</div>
+<div>startup/&lt;@resource://gre/modules/addons/XPIProvider.jsm -> jar:file:///Users/mikeconley/Library/Application%20Support/Firefox/Profiles/32tsfewj.e10s/extensions/verticaltabs@mozilla.com.xpi!/bootstrap.js:113:14</div>
+<div>watcher@resource://gre/modules/addons/XPIProvider.jsm -> jar:file:///Users/mikeconley/Library/Application%20Support/Firefox/Profiles/32tsfewj.e10s/extensions/verticaltabs@mozilla.com.xpi!/bootstrap.js -> jar:file:///Users/mikeconley/Library/Application%20Support/Firefox/Profiles/32tsfewj.e10s/extensions/verticaltabs@mozilla.com.xpi!/utils.js:150:9</div>
+<div>runOnce@resource://gre/modules/addons/XPIProvider.jsm -> jar:file:///Users/mikeconley/Library/Application%20Support/Firefox/Profiles/32tsfewj.e10s/extensions/verticaltabs@mozilla.com.xpi!/bootstrap.js -> jar:file:///Users/mikeconley/Library/Application%20Support/Firefox/Profiles/32tsfewj.e10s/extensions/verticaltabs@mozilla.com.xpi!/utils.js:160:7</div>
+<div><br/></div>
+<div>First thing to know is that VerticalTabs rearranges the XUL of every window that opens - including pop up windows.</div>
+<div><br/></div>
+<div>When it does this, it removes the tabbrowser-tabs element from the DOM, and injects it elsewhere, causing the binding to be re-attached.</div>
+<div><br/></div>
+<div>When the tabs binding is reattached, it re-runs the constructor, and runs this code:</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">if (this.tabbox &amp;&amp; this.tabbox.hasAttribute("selectedIndex")) {</span></div>
+<div><span style="font-family: 'Andale Mono';">  let selectedIndex = parseInt(this.tabbox.getAttribute("selectedIndex"));</span></div>
+<div><span style="font-family: 'Andale Mono';">  this.selectedIndex = selectedIndex > 0 ? selectedIndex : 0;</span></div>
+<div><span style="font-family: 'Andale Mono';">  return;</span></div>
+<div><span style="font-family: 'Andale Mono';">}</span></div>
+<div> </div>
+<div>Setting the selectedIndex also sets the selectedIndex on our special async tabbrowser-tabpanels binding. Unfortunately, our tabbrowser-tabpanels binding has a bug in it, whereby if the requested selectedIndex matches the currently selectedIndex, we still do all of the work to remove the content-type="primary" attribute from the browser tab, fire down the MozAfterRemotePaint message, wait for the message to return, and then set content-type="primary" back.</div>
+<div><br/></div>
+<div>The problem is, however, that this VerticalTabs XUL re-arrangement happens on the window load event, and once it's done running (and we're still waiting for the content process to tell us that the selected tab is ready to paint), we're left in this half-switched state where there is no browser with type="content-primary", thus, no mPrimaryContentShell, and thus, we fail the assertion, and we crash.</div>
+<div><br/></div>
+<div>I think the easy fix is to make it so that our async binding will not attempt to switch the tabs if the requested index is the same as the current index.</div>
+<div><br/></div>
+<div>Long term, this will be fixed once gw280 moves us to async tabbrowser-tabs instead of the async tabbrowser-tabpanels.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=804f18abea5d">Try push.</a></div>
+<div><br/></div>
+<div>Looks good - let's see what billm thinks.</div>
+<div><br/></div>
+<div>Hrm. He asks a damn good question:</div>
+<div><br/></div>
+<div>"I still don't quite understand everything though. If the tabs are the same, then I would expect shouldWait to be false here:</div>
+<div>http://mxr.mozilla.org/mozilla-central/source/browser/base/content/tabbrowser.xml#3405</div>
+<div>So _prepare should return a resolved promise. Consequently, _finalizeTabSwitch should run immediately and set content-primary for the new tab:</div>
+<div>http://mxr.mozilla.org/mozilla-central/source/browser/base/content/tabbrowser.xml#3494</div>
+<div>Which of these inferences is wrong?"</div>
+<div><br/></div>
+<div>None - the problem is that in finalizeTabSwitch, the toTab equals the fromTab, so in the last lines of _finalizeTabSwitch, we set the type of the tab to content-targetable, which clears out the mPrimaryContentShell.</div>
+</body></html>
