@@ -1,0 +1,119 @@
+---
+layout: post
+title:  "Bug 1088070 - Instantiate print settings from the content process instead of the parent"
+date:   2015-03-06
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1088070">
+ Bug 1088070 - Instantiate print settings from the content process instead of the parent
+</a>
+<div>
+ So this is blocking bug 1090448.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And I need to be particularly careful so that I don't accidentally re-open
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1136855">
+  this bug
+ </a>
+ .
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the thing I want to be able to do is use PPrinting to send the print settings up from the content process and save them in the parent process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Originally, I thought about providing an nsIPrintSettingsService proxy, and that might be a good idea long-term, but it kinda screws me because I use the native nsIPrintSettingsService to get the nsIPrintSettings / nsIPrintOptions that I need to do the printing on the content side. :(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, idea - have the nsPrintOptionsImpl (which implements the savePrintSettingsToPrefs stuff) detect if it's in the content process. If so, forward the call to nsPrintingProxy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's do a PoC.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes. Yes, this works. Ok, it's sloppy, but it'll work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Rename nsPrintingPromptServiceProxy to nsPrintingProxy
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Create a createInstance method on nsPrintingPromptService to get a static instance
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Use NS_SINGLETON factory thing to register nsPrintingPromptService
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have nsPrintOptionsImpl notice that we're in the content process, and call into mozilla::ipc::PrintingProxy to send the printing information over.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Figure out release of the static nsPrintingProxy
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, ClearOnShutdown looks like what I need.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a19d0d758df7">
+  Try push
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So some infra red on those Windows machines, but I feel confident. Pushing...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm. Bounced. Turns out I need to wrap the stuff in getPrintSettings with a try/catch, just like we do in printUtils.js. Otherwise, we fail out during the test. The test is kinda bullshit anyways, since print preview is inaccessible on OS X anyways, but whatever. Parity.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b5aa918d76fe">
+  Try push.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This actually positions us nicely for future work to send more stuff through PrintingProxy in the child process. Eventually, we'll probably accomplish all printing in the parent process, and just remote it all through PrintingProxy.
+</div>
+<div>
+ <br/>
+</div>

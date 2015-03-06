@@ -1,0 +1,1014 @@
+---
+layout: post
+title:  "Bug 1136855 - Print settings are not saved from print job to print job"
+date:   2015-03-06
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1136855">
+ Bug 1136855 - Print settings are not saved from print job to print job
+</a>
+<div>
+ Oh boy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh boy oh boy oh boy. I caused this one with bug
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1082575">
+  1082575
+ </a>
+ . :(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1088070#c8">
+  dw-dev noticed back on February 10th:
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "1. In printUtils.js, between lines 172 &amp; 173, need to reinstate the following code:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ if (gPrintSettingsAreGlobal &amp;&amp; gSavePrintSettings) { /* missing in Firefox 36.0a1 */ /*???*/
+</div>
+<div>
+ printEdit.psService.savePrintSettingsToPrefs(printSettings, true,
+</div>
+<div>
+ printSettings.kInitSaveAll);
+</div>
+<div>
+ printEdit.psService.savePrintSettingsToPrefs(printSettings, false,
+</div>
+<div>
+ printSettings.kInitSavePrinterName);"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The save occurs after the print is requested.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think what I'll need to do is have the child send a message back up to the parent when printing is done, and then we'll save the settings.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is so crazy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem there is that savePrintSettingsToPrefs takes the nsIPrintSettings, and that'll be a CPOW if it came from the child.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ohhhh - but in the single process case (which is what Aurora, Beta and Release have to worry about), it'll work just fine.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, potential attack plan:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  Solve the single-process case, since that's probably highest priority. Have the child send up the nsIPrintSettings after the print job is completed, and the parent can save it without difficulty.
+ </li>
+ <li>
+  Figure out a new solution for the multi-process case. With the settings initted from the child, this makes things more complicated...
+ </li>
+ <li>
+  See if there's a way to write a test for this to avoid regressing it again.
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, let's roll.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So that seems to work OK. I've put the patch up, and tested it on Linux, and it works well. Waiting for a Windows build to finish so that I can test there.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In the mean time, how to write a test?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Suppose I mock out the PrintingPromptService, and factory for nsIDeviceContextSpec...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think that'd probably be enough...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  interface nsIPrintingPromptService : nsISupports
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * This service enables embedders to implement their own Print and Progress Dialogs.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Each platform has a "base" or "basckstop" implementation of the service. The
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * service is automatically registered at start up.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Historically, platform toolkits with native dialogs have implemented them in the GFX layer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Usually they were displayed when a new DeviceContextSpec specific to that platform
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * was created.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Windows: The GFX layer no longers supports default toolkit behavior for displaying the
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * native Print Dialog.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * If an embedder implemented service returns any error code (other than NS_ERROR_ABORT)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * printing will terminate.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Returning NS_OK assumes that the PrintSettings object was correctly filled in and
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * if it does not have valid fields for printer name, etc. it may also terminate.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Defaults for platform service:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrintDialog - displays a native dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPageSetup - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showProgress - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrinterProperties - n/a
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Summary for Windows Embedders:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Stated once again: There is no "fallback" native platform support in GFX for the
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * displaying of the native print dialog. The current default implementation for Windows
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * display a native print dialog but a XUL-based progress dialog.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * If you wish to have a native progress dialog on Windows you will have to create and
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * register your own service.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Note: The Windows version Mozilla implements this service which is
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * automatically built and registered for you. You can use it as an example.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * It is located at "mozilla/embedding/components/printingui/win". That service
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * is capable of displaying a native print dialog and a XUL progress dialog.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * To fly your own dialog you may:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * 1) Implement this service to display at least the Print Dialog and a Print Progress Dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * or you may implement just one of the dialogs and pass back NS_ERROR_NOT_IMPLEMENTED
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * for any of the others.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * 2) For the Print Dialog:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * You may stub out this service by having all the methods return NS_ERROR_NOT_IMPLEMENTED.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * You can then fly you own dialog and then properly fill in the PrintSettings object
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * before calling nsIWebBrowserPrint's Print method. If you stub out this service
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * you MUST set "printSilent" to true, if you do not, Printing will terminate and an
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * error dialog will be displayed.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Mac: The GFX layer still supports default toolkit behavior for displaying the Print Dialog.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * If an embedder implemented service returns NS_ERROR_NOT_IMPLEMENTED for "showPrintDialog"
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * The toolkit will display the native print dialog.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Defaults for platform service:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Mac OS9: showPrintDialog - displays a native dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPageSetup - displays a native dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showProgress - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrinterProperties - n/a
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Mac OSX: showPrintDialog - displays a native dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPageSetup - displays a native dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showProgress - not implemented (provided by OS)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrinterProperties - n/a
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * GTK: There are no native dialog for GTK.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Defaults for platform service:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrintDialog - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPageSetup - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showProgress - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * showPrinterProperties - displays a XUL dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Show the Print Dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param parent - a DOM windows the dialog will be parented to (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param webBrowserPrint - represents the document to be printed (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printSettings - PrintSettings for print "job" (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void showPrintDialog(in nsIDOMWindow parent,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIWebBrowserPrint webBrowserPrint,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIPrintSettings printSettings);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Shows the print progress dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param parent - a DOM windows the dialog will be parented to
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param webBrowserPrint - represents the document to be printed
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printSettings - PrintSettings for print "job"
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param openDialogObserver - an observer that will be notifed when the dialog is opened
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param isForPrinting - true - for printing, false for print preview
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param webProgressListener - additional listener can be registered for progress notifications
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printProgressParams - parameter object for passing progress state
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param notifyOnOpen - this indicates that the observer will be notified when the progress
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * dialog has been opened. If false is returned it means the observer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * (usually the caller) shouldn't wait
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * For Print Preview Progress there is intermediate progress
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void showProgress(in nsIDOMWindow parent,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIWebBrowserPrint webBrowserPrint,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIPrintSettings printSettings,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIObserver openDialogObserver,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in boolean isForPrinting,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  out nsIWebProgressListener webProgressListener,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  out nsIPrintProgressParams printProgressParams,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  out boolean notifyOnOpen);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Shows the print progress dialog
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param parent - a DOM windows the dialog will be parented to (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printSettings - PrintSettings for page setup (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param aObs - An observer to know if the contents of the Print Settings
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * object has changed while the dialog is being shown.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * For example, some platforms may implement an "Apply" button (not required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void showPageSetup(in nsIDOMWindow parent,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIPrintSettings printSettings,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIObserver aObs);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Sometimes platforms need to bring up a special properties dialog for showing
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * print specific properties. Although the PrintSettings has a place to set the
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * printer name, here is is an argument to be clear as to what printer is being
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * asked to have the properties set for it. The Printer name in the PS is ignored.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  *
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param parent - a DOM windows the dialog will be parented to (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printerName - name of printer (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param printSettings - PrintSettings for page setup (required)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void showPrinterProperties(in nsIDOMWindow parent,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in wstring printerName,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  in nsIPrintSettings printSettings);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  };
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ and
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  class nsIDeviceContextSpec : public nsISupports
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  public:
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IDEVICE_CONTEXT_SPEC_IID)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /**
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * Initialize the device context spec.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param aWidget A widget a dialog can be hosted in
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param aPrintSettings Print settings for the print operation
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @param aIsPrintPreview True if creating Spec for PrintPreview
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * @return NS_OK or a suitable error code.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD Init(nsIWidget *aWidget,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  nsIPrintSettings* aPrintSettings,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  bool aIsPrintPreview) = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD GetSurfaceForPrinter(gfxASurface **nativeSurface) = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD BeginDocument(const nsAString&amp; aTitle,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  char16_t* aPrintToFileName,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  int32_t aStartPage,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  int32_t aEndPage) = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD EndDocument() = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD BeginPage() = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_IMETHOD EndPage() = 0;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  };
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ That's actually not bad - I think I can work with that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Except I can't. BAH. I can't mock out an gfxASurface**. :(((((
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So much for a test case. *sigh*
+</div>
+<div>
+ <br/>
+</div>

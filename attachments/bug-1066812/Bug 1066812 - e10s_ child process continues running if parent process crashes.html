@@ -1,0 +1,4401 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1066812 - e10s: child process continues running if parent process crashes</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1066812.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201066812%20-%20e10s_%20child%20process%20continues%20running%20if%20parent%20process%20crashes_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1066812 - e10s: child process continues running if parent process crashes</h1>
+    <p class="meta">Mar 6, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1066812">
+ Bug 1066812 - e10s: child process continues running if parent process crashes
+</a>
+<div>
+ Sounds like I need to learn how to do multi-threading with Gecko!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ NO FEAR. (Ok, actually full of fear. But let's try to be brave here)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ From bsmedberg:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "So I expect that this is peculiar to the case of the content process ilooping:
+ <div>
+  <br>
+ </div>
+ <div>
+  In ContentChild::ActorDestroy we QuickExit when the parent goes away, 
+but that method is only called on the main thread on an event.
+  <a href="http://mxr.mozilla.org/mozilla-central/source/dom/ipc/ContentChild.cpp#1557">
+   http://mxr.mozilla.org/mozilla-central/source/dom/ipc/ContentChild.cpp#1557
+  </a>
+ </div>
+ <div>
+  <br>
+ </div>
+</div>
+<div>
+ So if the main thread is ilooping or deadlocked, we won't get there. 
+Currently the MessageListener API only has callbacks on the main thread,
+ but there is MessageChannel::mAbortOnError and SetAbortOnError which 
+the plugin code uses to hard-abort. The content code could probably use 
+something similar."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sounds&nbsp;like I can use the plugin code as inspiration.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ First off, some weirdness:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ MessageChannel::AbortOnError takes a bool argument, but doesn't actually do anything with it:
+ <a href="https://hg.mozilla.org/mozilla-central/file/0c2f7434c325/ipc/glue/MessageChannel.h#l89">
+  https://hg.mozilla.org/mozilla-central/file/0c2f7434c325/ipc/glue/MessageChannel.h#l89
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Well, maybe I can clean that up while I'm at it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wow. I put it in the initialization function of ContentChild, and it 
+just kinda worked. Could it be that simple? I'm skeptical. It's never 
+that simple.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I've asked billm for review.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Bill thinks this is probably fine - I just need to test b2g. I'll push to try tonight.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bfc4ceedd767">
+  Try build
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Looking good. Review request up.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Review in! Let's land!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GRAWWARR - backed out.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WHAT THE FUCK
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUCK YOU, TESTS.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That's&nbsp;B2G ICS Emulator opt Mochitest&nbsp;(5)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 12:30:51 INFO - [Child 2022] ###!!! ABORT: Aborting on channel error.: 
+file ../../../gecko/ipc/glue/MessageChannel.cpp, line 1604
+</div>
+<div>
+ 8777 12:30:51 INFO - 668 INFO TEST-UNEXPECTED-ERROR | 
+dom/ipc/tests/test_NuwaProcessDeadlock.html | This test left crash dumps
+ behind, but we weren't expecting it to!
+</div>
+<div>
+ 8780 12:30:52 INFO - 670 INFO TEST-UNEXPECTED-FAIL | 
+dom/ipc/tests/test_NuwaProcessDeadlock.html | undefined assertion name -
+ Result logged after SimpleTest.finish()
+</div>
+<div>
+ 8793 12:30:56 INFO - 681 INFO TEST-UNEXPECTED-ERROR | 
+dom/ipc/tests/test_child_docshell.html | This test left crash dumps 
+behind, but we weren't expecting it to!
+</div>
+<div>
+ 8796 12:30:56 INFO - 683 INFO TEST-UNEXPECTED-FAIL | 
+dom/ipc/tests/test_child_docshell.html | undefined assertion name - 
+Result logged after SimpleTest.finish()
+</div>
+<div>
+ 9135 12:32:05 WARNING - PROCESS-CRASH | 
+dom/manifest/test/test_IconsProcessor_type.html | application crashed [@
+ mozalloc_abort]
+</div>
+<div>
+ 41643 12:34:47 INFO - 02-09 20:30:51.518 I/Gecko ( 2022): [Child 2022] 
+###!!! ABORT: Aborting on channel error.: file 
+../../../gecko/ipc/glue/MessageChannel.cpp, line 1604
+</div>
+<div>
+ 41644 12:34:47 INFO - 02-09 20:30:51.518 E/Gecko ( 2022): 
+mozalloc_abort: [Child 2022] ###!!! ABORT: Aborting on channel error.: 
+file ../../../gecko/ipc/glue/MessageChannel.cpp, line 1604
+</div>
+<div>
+ 42179 12:34:47 ERROR - Return code: 1
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Windows XP Debug - Mochitest bc1
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 11:17:21 INFO - 993 INFO TEST-START | browser/base/content/test/social/browser_social_status.js
+</div>
+<div>
+ 11:17:39 INFO - 996 INFO TEST-OK | browser/base/content/test/social/browser_social_window.js | took 14264ms
+</div>
+<div>
+ 11:17:39 INFO - ++DOCSHELL 14E58400 == 50 [pid = 2644] [id = 211]
+</div>
+<div>
+ 11:17:39 INFO - ++DOMWINDOW == 154 (14E5C000) [pid = 2644] [serial = 604] [outer = 00000000]
+</div>
+<div>
+ 11:17:39 INFO - ++DOMWINDOW == 155 (15004000) [pid = 2644] [serial = 605] [outer = 14E5C000]
+</div>
+<div>
+ 11:17:39 INFO - [Parent 2644] WARNING: NS_ENSURE_TRUE(mMutable) failed:
+ file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\netwerk\base\nsSimpleURI.cpp,
+ line 265
+</div>
+<div>
+ 11:17:39 INFO - [Parent 2644] WARNING: Subdocument container has no 
+frame: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\layout\base\nsDocumentViewer.cpp,
+ line 2504
+</div>
+<div>
+ 11:17:39 INFO - ++DOMWINDOW == 156 (14E66000) [pid = 2644] [serial = 606] [outer = 0F33A400]
+</div>
+<div>
+ 11:17:39 INFO - [Parent 2644] WARNING: Subdocument container has no 
+frame: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\layout\base\nsDocumentViewer.cpp,
+ line 2504
+</div>
+<div>
+ 11:17:39 INFO - ++DOMWINDOW == 157 (10C1D000) [pid = 2644] [serial = 607] [outer = 0F346C00]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 1100AC00 == 49 [pid = 2644] [id = 177]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 17FBE800 == 48 [pid = 2644] [id = 173]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 10420800 == 47 [pid = 2644] [id = 130]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 13226C00 == 46 [pid = 2644] [id = 142]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 13709400 == 45 [pid = 2644] [id = 145]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 181F3400 == 44 [pid = 2644] [id = 175]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 13704C00 == 43 [pid = 2644] [id = 8]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 1100C400 == 42 [pid = 2644] [id = 178]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 17FC0000 == 41 [pid = 2644] [id = 174]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 16E0FC00 == 40 [pid = 2644] [id = 161]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 0F550000 == 39 [pid = 2644] [id = 179]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 11004800 == 38 [pid = 2644] [id = 176]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 17DA0400 == 37 [pid = 2644] [id = 172]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 1500B800 == 36 [pid = 2644] [id = 198]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 0F338000 == 35 [pid = 2644] [id = 192]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 163A9C00 == 34 [pid = 2644] [id = 188]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 122B9400 == 33 [pid = 2644] [id = 184]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 0FBF0400 == 32 [pid = 2644] [id = 181]
+</div>
+<div>
+ 11:17:40 INFO - --DOCSHELL 0F6A4400 == 31 [pid = 2644] [id = 180]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 19561C00 == 30 [pid = 2644] [id = 208]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 19563800 == 29 [pid = 2644] [id = 209]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 17B15800 == 28 [pid = 2644] [id = 204]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 17B2A800 == 27 [pid = 2644] [id = 205]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 1639C000 == 26 [pid = 2644] [id = 200]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 1639E000 == 25 [pid = 2644] [id = 201]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 0E27E800 == 24 [pid = 2644] [id = 196]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 0F54C800 == 23 [pid = 2644] [id = 190]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 0FABB800 == 22 [pid = 2644] [id = 191]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 0D73F400 == 21 [pid = 2644] [id = 186]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 11B2EC00 == 20 [pid = 2644] [id = 187]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 1150E800 == 19 [pid = 2644] [id = 182]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 11572400 == 18 [pid = 2644] [id = 183]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 1C66F400 == 17 [pid = 2644] [id = 210]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 17D50C00 == 16 [pid = 2644] [id = 206]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 17B16C00 == 15 [pid = 2644] [id = 203]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 0C958400 == 14 [pid = 2644] [id = 189]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 16B45000 == 13 [pid = 2644] [id = 202]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 13442000 == 12 [pid = 2644] [id = 195]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 1327A400 == 11 [pid = 2644] [id = 193]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 181EF800 == 10 [pid = 2644] [id = 207]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 16591400 == 9 [pid = 2644] [id = 185]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 11DA0000 == 8 [pid = 2644] [id = 197]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 16316C00 == 7 [pid = 2644] [id = 199]
+</div>
+<div>
+ 11:17:41 INFO - --DOCSHELL 132B8C00 == 6 [pid = 2644] [id = 194]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 156 (13282000) [pid = 2644] [serial = 
+379] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 155 (0FBEF000) [pid = 2644] [serial = 
+400] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 154 (10420C00) [pid = 2644] [serial = 
+401] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 153 (15D57000) [pid = 2644] [serial = 
+448] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 152 (14E5E800) [pid = 2644] [serial = 423] [outer = 00000000] [url = http://example.com/]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 151 (16707400) [pid = 2644] [serial = 439] [outer = 00000000] [url = http://example.com/]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 150 (15645000) [pid = 2644] [serial = 444] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 149 (16E15000) [pid = 2644] [serial = 451] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 148 (16B4A000) [pid = 2644] [serial = 
+456] [outer = 00000000] [url = 
+https://test2.example.com/browser/browser/base/content/test/social/social_activate.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 147 (0D73A400) [pid = 2644] [serial = 
+459] [outer = 00000000] [url = 
+https://test1.example.com/browser/browser/base/content/test/social/social_activate.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 146 (1630F800) [pid = 2644] [serial = 513] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 145 (15D5C400) [pid = 2644] [serial = 486] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 144 (16442000) [pid = 2644] [serial = 438] [outer = 00000000] [url = about:privatebrowsing]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 143 (16B41000) [pid = 2644] [serial = 442] [outer = 00000000] [url = about:privatebrowsing]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 142 (1539C800) [pid = 2644] [serial = 
+466] [outer = 00000000] [url = 
+about:socialerror?mode=tryAgainOnly&amp;url=https%3A%2F%2Ftest1.example.com%2Fbrowser%2Fbrowser%2Fbase%2Fcontent%2Ftest%2Fsocial%2Fsocial_panel.html&amp;origin=https%3A%2F%2Ftest1.example.com]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 141 (1769D800) [pid = 2644] [serial = 
+464] [outer = 00000000] [url = 
+https://test1.example.com/browser/browser/base/content/test/social/social_panel.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 140 (17B37C00) [pid = 2644] [serial = 
+491] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 139 (181F5800) [pid = 2644] [serial = 516] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 138 (17654800) [pid = 2644] [serial = 
+498] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 137 (137E2400) [pid = 2644] [serial = 
+507] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 136 (17B28800) [pid = 2644] [serial = 477] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 135 (1718BC00) [pid = 2644] [serial = 479] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 134 (17B0C000) [pid = 2644] [serial = 502] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 133 (1704FC00) [pid = 2644] [serial = 470] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 132 (15398C00) [pid = 2644] [serial = 528] [outer = 11518400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 131 (0EEF2400) [pid = 2644] [serial = 539] [outer = 11B2E400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 130 (0FAB7400) [pid = 2644] [serial = 549] [outer = 0F552400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 129 (11512400) [pid = 2644] [serial = 550] [outer = 0FAC1400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 128 (16E97000) [pid = 2644] [serial = 573] [outer = 1639D800] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 127 (17B12400) [pid = 2644] [serial = 577] [outer = 1639E400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 126 (17656C00) [pid = 2644] [serial = 499] [outer = 17FBF800] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 125 (17B31000) [pid = 2644] [serial = 510] [outer = 1100BC00] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 124 (17DA9C00) [pid = 2644] [serial = 585] [outer = 17B18C00] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 123 (1D314800) [pid = 2644] [serial = 601] [outer = 17B2B400] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 122 (1D286400) [pid = 2644] [serial = 594] [outer = 19563000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 121 (0E42E000) [pid = 2644] [serial = 519] [outer = 0F346C00] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 120 (15629400) [pid = 2644] [serial = 562] [outer = 11D9F800] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 119 (11D9F800) [pid = 2644] [serial = 558] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 118 (19563000) [pid = 2644] [serial = 590] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 117 (17B18C00) [pid = 2644] [serial = 580] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 116 (1100BC00) [pid = 2644] [serial = 505] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 115 (17FBF800) [pid = 2644] [serial = 494] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 114 (1639D800) [pid = 2644] [serial = 568] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 113 (0FAC1400) [pid = 2644] [serial = 546] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 112 (0F552400) [pid = 2644] [serial = 545] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 111 (11B2E400) [pid = 2644] [serial = 535] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:41 INFO - --DOMWINDOW == 110 (11518400) [pid = 2644] [serial = 524] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - [Parent 2644] WARNING: Subdocument container has no 
+frame: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\layout\base\nsDocumentViewer.cpp,
+ line 2504
+</div>
+<div>
+ 11:17:42 INFO - ++DOMWINDOW == 111 (0C6B2400) [pid = 2644] [serial = 608] [outer = 0F33A400]
+</div>
+<div>
+ 11:17:42 INFO - [Parent 2644] WARNING: Subdocument container has no 
+frame: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\layout\base\nsDocumentViewer.cpp,
+ line 2504
+</div>
+<div>
+ 11:17:42 INFO - ++DOMWINDOW == 112 (0C92B000) [pid = 2644] [serial = 609] [outer = 0F346C00]
+</div>
+<div>
+ 11:17:42 INFO - [Parent 2644] WARNING: NS_ENSURE_TRUE(currentInner) 
+failed: file 
+c:/builds/moz2_slave/fx-team-w32-d-0000000000000000/build/src/dom/base/nsGlobalWindow.cpp,
+ line 8886
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 111 (1955C000) [pid = 2644] [serial = 589] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 110 (15626800) [pid = 2644] [serial = 425] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 109 (17B17800) [pid = 2644] [serial = 579] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 108 (16704400) [pid = 2644] [serial = 534] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 107 (12173800) [pid = 2644] [serial = 
+418] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 106 (122B9800) [pid = 2644] [serial = 
+460] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 105 (1769F800) [pid = 2644] [serial = 
+487] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 104 (0F550400) [pid = 2644] [serial = 508] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 103 (17FC0400) [pid = 2644] [serial = 495] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 102 (181F3800) [pid = 2644] [serial = 496] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 101 (1704CC00) [pid = 2644] [serial = 
+452] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 100 (132C0400) [pid = 2644] [serial = 
+445] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 99 (0F6A4800) [pid = 2644] [serial = 
+520] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 98 (13280C00) [pid = 2644] [serial = 
+552] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 97 (132C3C00) [pid = 2644] [serial = 
+554] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 96 (132BE400) [pid = 2644] [serial = 
+420] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 95 (10F6C000) [pid = 2644] [serial = 
+461] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 94 (176A0400) [pid = 2644] [serial = 
+488] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 93 (1100C800) [pid = 2644] [serial = 506] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 92 (17D51000) [pid = 2644] [serial = 582] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 91 (1C66F800) [pid = 2644] [serial = 592] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 90 (19563C00) [pid = 2644] [serial = 591] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 89 (0F555C00) [pid = 2644] [serial = 547] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 88 (16B45800) [pid = 2644] [serial = 571] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 87 (163AA000) [pid = 2644] [serial = 537] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 86 (11B2F000) [pid = 2644] [serial = 536] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 85 (11DECC00) [pid = 2644] [serial = 542] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 84 (0F54A400) [pid = 2644] [serial = 541] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 83 (181F0000) [pid = 2644] [serial = 
+588] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 82 (17FC1400) [pid = 2644] [serial = 587] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 81 (16593400) [pid = 2644] [serial = 
+533] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 80 (17B2B400) [pid = 2644] [serial = 581] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 79 (163A5800) [pid = 2644] [serial = 
+532] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 78 (16312400) [pid = 2644] [serial = 531] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 77 (15B41C00) [pid = 2644] [serial = 530] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 76 (1639E400) [pid = 2644] [serial = 569] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 75 (17189000) [pid = 2644] [serial = 575] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 74 (16317800) [pid = 2644] [serial = 
+566] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 73 (0FBF1800) [pid = 2644] [serial = 
+521] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 72 (13442C00) [pid = 2644] [serial = 
+555] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 71 (153A6400) [pid = 2644] [serial = 
+424] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 70 (122BEC00) [pid = 2644] [serial = 526] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 69 (11574000) [pid = 2644] [serial = 
+525] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 68 (1500BC00) [pid = 2644] [serial = 560] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 67 (12169C00) [pid = 2644] [serial = 10] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 66 (17189C00) [pid = 2644] [serial = 468] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 65 (16E16000) [pid = 2644] [serial = 467] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 64 (1562F400) [pid = 2644] [serial = 564] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 63 (16317400) [pid = 2644] [serial = 576] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 62 (17DA3C00) [pid = 2644] [serial = 
+584] [outer = 00000000] [url = 
+https://test1.example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 61 (17B17000) [pid = 2644] [serial = 
+578] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 60 (0C92CC00) [pid = 2644] [serial = 517] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 59 (1631AC00) [pid = 2644] [serial = 514] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 58 (1955B400) [pid = 2644] [serial = 512] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 57 (11004C00) [pid = 2644] [serial = 
+503] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 56 (0D73AC00) [pid = 2644] [serial = 518] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 55 (17DA8400) [pid = 2644] [serial = 515] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 54 (17659C00) [pid = 2644] [serial = 501] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 53 (17DA0800) [pid = 2644] [serial = 
+492] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 52 (1704D400) [pid = 2644] [serial = 
+453] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 51 (15FA7000) [pid = 2644] [serial = 
+447] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 50 (11006400) [pid = 2644] [serial = 
+523] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 49 (13284000) [pid = 2644] [serial = 
+553] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 48 (17651800) [pid = 2644] [serial = 598] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 47 (0CC69000) [pid = 2644] [serial = 600] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 46 (1151A000) [pid = 2644] [serial = 551] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 45 (0CC6A400) [pid = 2644] [serial = 
+557] [outer = 00000000] [url = chrome://global/content/mozilla.xhtml]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 44 (1D316800) [pid = 2644] [serial = 602] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 43 (0C95DC00) [pid = 2644] [serial = 
+543] [outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 42 (1D289000) [pid = 2644] [serial = 596] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 41 (11DEB400) [pid = 2644] [serial = 559] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 40 (17D9F800) [pid = 2644] [serial = 597] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 39 (15B3DC00) [pid = 2644] [serial = 22] [outer = 00000000] [url = about:newtab]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 38 (1562BC00) [pid = 2644] [serial = 563] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 37 (15D59400) [pid = 2644] [serial = 565] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 36 (1643D400) [pid = 2644] [serial = 
+570] [outer = 00000000] [url = 
+https://example.com/browser/browser/base/content/test/social/social_sidebar.html]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 35 (17DA1000) [pid = 2644] [serial = 599] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 34 (17FC3000) [pid = 2644] [serial = 603] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 33 (153A0000) [pid = 2644] [serial = 561] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 32 (13705400) [pid = 2644] [serial = 18] [outer = 00000000] [url = about:newtab]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 31 (19559C00) [pid = 2644] [serial = 511] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 30 (17D9C400) [pid = 2644] [serial = 583] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 29 (17FBD000) [pid = 2644] [serial = 586] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 28 (1C674000) [pid = 2644] [serial = 593] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 27 (1D287400) [pid = 2644] [serial = 595] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 26 (17652800) [pid = 2644] [serial = 538] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 25 (0F348000) [pid = 2644] [serial = 540] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 24 (10FA8C00) [pid = 2644] [serial = 548] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 23 (16E89C00) [pid = 2644] [serial = 572] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 22 (17052C00) [pid = 2644] [serial = 574] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 21 (10F6C800) [pid = 2644] [serial = 522] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 20 (17DA7400) [pid = 2644] [serial = 493] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 19 (11005400) [pid = 2644] [serial = 504] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 18 (0CCCA800) [pid = 2644] [serial = 544] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 17 (13702C00) [pid = 2644] [serial = 556] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 16 (16318000) [pid = 2644] [serial = 567] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 15 (15004400) [pid = 2644] [serial = 527] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:42 INFO - --DOMWINDOW == 14 (153A3C00) [pid = 2644] [serial = 529] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:43 INFO - --DOMWINDOW == 13 (14E66000) [pid = 2644] [serial = 606] [outer = 0F33A400] [url = about:blank]
+</div>
+<div>
+ 11:17:43 INFO - --DOMWINDOW == 12 (10C1D000) [pid = 2644] [serial = 607] [outer = 0F346C00] [url = about:blank]
+</div>
+<div>
+ 11:17:44 INFO - ###!!! [Parent][OnMaybeDequeueOne] Error: Channel closing: too late to send/recv, messages will be lost
+</div>
+<div>
+ 11:17:44 INFO - [Parent 2644] WARNING: getting z level of unregistered 
+window: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpfe\appshell\nsWindowMediator.cpp,
+ line 591
+</div>
+<div>
+ 11:17:44 INFO - [Parent 2644] WARNING: getting z level of unregistered 
+window: file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpfe\appshell\nsWindowMediator.cpp,
+ line 591
+</div>
+<div>
+ 11:17:44 INFO - --DOCSHELL 13439400 == 5 [pid = 2644] [id = 6]
+</div>
+<div>
+ 11:17:44 INFO - --DOCSHELL 0E4A2C00 == 4 [pid = 2644] [id = 1]
+</div>
+<div>
+ 11:17:45 INFO - --DOCSHELL 0F332000 == 3 [pid = 2644] [id = 3]
+</div>
+<div>
+ 11:17:45 INFO - --DOCSHELL 14E58400 == 2 [pid = 2644] [id = 211]
+</div>
+<div>
+ 11:17:45 INFO - --DOCSHELL 0F343400 == 1 [pid = 2644] [id = 4]
+</div>
+<div>
+ 11:17:45 INFO - --DOCSHELL 0F672800 == 0 [pid = 2644] [id = 2]
+</div>
+<div>
+ 11:17:45 INFO - --DOMWINDOW == 11 (0C6B2400) [pid = 2644] [serial = 608] [outer = 0F33A400] [url = about:blank]
+</div>
+<div>
+ 11:17:45 INFO - --DOMWINDOW == 10 (0C92B000) [pid = 2644] [serial = 609] [outer = 0F346C00] [url = about:blank]
+</div>
+<div>
+ 11:17:45 INFO - ###!!! [Parent][OnMaybeDequeueOne] Error: Channel closing: too late to send/recv, messages will be lost
+</div>
+<div>
+ 11:17:46 INFO - ###!!! [Parent][OnMaybeDequeueOne] Error: Channel closing: too late to send/recv, messages will be lost
+</div>
+<div>
+ 11:17:46 INFO - ###!!! [Parent][OnMaybeDequeueOne] Error: Channel closing: too late to send/recv, messages will be lost
+</div>
+<div>
+ 11:17:46 INFO - ###!!! [Parent][OnMaybeDequeueOne] Error: Channel closing: too late to send/recv, messages will be lost
+</div>
+<div>
+ 11:17:46 INFO - --DOMWINDOW == 9 (0F33A400) [pid = 2644] [serial = 6] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:46 INFO - --DOMWINDOW == 8 (0F346C00) [pid = 2644] [serial = 7] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 7 (0F69D400) [pid = 2644] [serial = 4] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 6 (1343A000) [pid = 2644] [serial = 15] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 5 (0F69CC00) [pid = 2644] [serial = 3] 
+[outer = 00000000] [url = chrome://browser/content/browser.xul]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 4 (13439800) [pid = 2644] [serial = 14] 
+[outer = 00000000] [url = chrome://mochikit/content/browser-harness.xul]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 3 (14E5C000) [pid = 2644] [serial = 604] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 2 (15004000) [pid = 2644] [serial = 605] [outer = 00000000] [url = about:blank]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 1 (0F6A1800) [pid = 2644] [serial = 5] 
+[outer = 00000000] [url = resource://gre-resources/hiddenWindow.html]
+</div>
+<div>
+ 11:17:47 INFO - --DOMWINDOW == 0 (0E4A3400) [pid = 2644] [serial = 1] 
+[outer = 00000000] [url = resource://gre-resources/hiddenWindow.html]
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - [Parent 2644] WARNING: '!mMainThread', file 
+c:\builds\moz2_slave\fx-team-w32-d-0000000000000000\build\src\xpcom\threads\nsThreadManager.cpp,
+ line 404
+</div>
+<div>
+ 11:17:47 INFO - nsStringStats
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mAllocCount: 522483
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mReallocCount: 40250
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mFreeCount: 522483
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mShareCount: 1115015
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mAdoptCount: 33523
+</div>
+<div>
+ 11:17:47 INFO - =&gt; mAdoptFreeCount: 33523
+</div>
+<div>
+ 11:17:47 INFO - =&gt; Process ID: 2644, Thread ID: 2876
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  11:17:47 INFO - TEST-INFO | Main app process: exit status 0
+ </span>
+</div>
+<div>
+ 11:17:47 INFO - runtests.py | Application ran for: 0:01:28.451000
+</div>
+<div>
+ 11:17:47 INFO - zombiecheck | Reading PID log: c:\docume~1\cltbld~1.t-x\locals~1\temp\tmpgwcn0tpidlog
+</div>
+<div>
+ 11:17:56 INFO - mozcrash Saved minidump as C:\slave\test\build\blobber_upload_dir\9c4aca3c-1ca0-44e8-a5ab-ebacf071801f.dmp
+</div>
+<div>
+ 11:17:56 INFO - mozcrash Saved app info as C:\slave\test\build\blobber_upload_dir\9c4aca3c-1ca0-44e8-a5ab-ebacf071801f.extra
+</div>
+<div>
+ 11:17:56 WARNING - PROCESS-CRASH | Main app process exited normally | application crashed [@ ntdll.dll + 0x120e]
+</div>
+<div>
+ 11:17:56 INFO - Crash dump filename: 
+c:\docume~1\cltbld~1.t-x\locals~1\temp\tmpjbs8fa.mozrunner\minidumps\9c4aca3c-1ca0-44e8-a5ab-ebacf071801f.dmp
+</div>
+<div>
+ 11:17:56 INFO - Operating system: Windows NT
+</div>
+<div>
+ 11:17:56 INFO - 5.1.2600 Service Pack 3
+</div>
+<div>
+ 11:17:56 INFO - CPU: x86
+</div>
+<div>
+ 11:17:56 INFO - GenuineIntel family 6 model 30 stepping 5
+</div>
+<div>
+ 11:17:56 INFO - 8 CPUs
+</div>
+<div>
+ 11:17:56 INFO - Crash reason: EXCEPTION_BREAKPOINT
+</div>
+<div>
+ 11:17:56 INFO - Crash address: 0x7c90120e
+</div>
+<div>
+ 11:17:56 INFO - Assertion: Unknown assertion type 0x00000000
+</div>
+<div>
+ 11:17:56 INFO - Thread 1 (crashed)
+</div>
+<div>
+ 11:17:56 INFO - 0 ntdll.dll + 0x120e
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x7c90120e esp = 0x0660f924 ebp = 0x0660fd5c ebx = 0x00000001
+</div>
+<div>
+ 11:17:56 INFO - esi = 0x00000000 edi = 0x009642b5 eax = 0x00000002 ecx = 0x00970ad9
+</div>
+<div>
+ 11:17:56 INFO - edx = 0x00a30ea0 efl = 0x00000202
+</div>
+<div>
+ 11:17:56 INFO - Found by: given as instruction pointer in context
+</div>
+<div>
+ 11:17:56 INFO - 1 
+xul.dll!mozilla::ipc::MessageChannel::OnChannelErrorFromLink() 
+[MessageChannel.cpp:ec092b22f40d : 1604 + 0x17]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0106a4d2 esp = 0x0660fd64 ebp = 0x0660fdac
+</div>
+<div>
+ 11:17:56 INFO - Found by: previous frame's frame pointer
+</div>
+<div>
+ 11:17:56 INFO - 2 xul.dll!mozilla::ipc::ProcessLink::OnChannelError() [MessageLink.cpp:ec092b22f40d : 405 + 0x7]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0106a457 esp = 0x0660fd84 ebp = 0x0660fdac
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info with scanning
+</div>
+<div>
+ 11:17:56 INFO - 3 
+xul.dll!IPC::Channel::ChannelImpl::OnIOCompleted(base::MessagePumpForIO::IOContext
+ *,unsigned long,unsigned long) [ipc_channel_win.cc:ec092b22f40d : 447 +
+ 0x7]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x010341f9 esp = 0x0660fd94 ebp = 0x0660fdac
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 4 
+xul.dll!base::MessagePumpForIO::WaitForIOCompletion(unsigned 
+long,base::MessagePumpForIO::IOHandler *) 
+[message_pump_win.cc:ec092b22f40d : 499 + 0xb]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102eec5 esp = 0x0660fdb4 ebp = 0x0660fde4
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 5 xul.dll!base::MessagePumpForIO::WaitForWork() [message_pump_win.cc:ec092b22f40d : 478 + 0x9]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102ef33 esp = 0x0660fdec ebp = 0x0660fe08
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 6 xul.dll!base::MessagePumpForIO::DoRunLoop() [message_pump_win.cc:ec092b22f40d : 463 + 0x6]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102e5ec esp = 0x0660fe10 ebp = 0x0660fe34
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 7 
+xul.dll!base::MessagePumpWin::RunWithDispatcher(base::MessagePump::Delegate
+ *,base::MessagePumpWin::Dispatcher *) [message_pump_win.cc:ec092b22f40d
+ : 54 + 0x4]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102ed29 esp = 0x0660fe1c ebp = 0x0660fe34
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 8 xul.dll!base::MessagePumpWin::Run(base::MessagePump::Delegate *) [message_pump_win.h:ec092b22f40d : 78 + 0xc]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102ece9 esp = 0x0660fe3c ebp = 0x0660fe44
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 9 xul.dll!MessageLoop::RunInternal() [message_loop.cc:ec092b22f40d : 233 + 0xe]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x01040935 esp = 0x0660fe4c ebp = 0x0660fe64
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 10 xul.dll!MessageLoop::RunHandler() [message_loop.cc:ec092b22f40d : 226 + 0x4]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x010408ed esp = 0x0660fe6c ebp = 0x0660fe98
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 11 xul.dll!MessageLoop::Run() [message_loop.cc:ec092b22f40d : 200 + 0x6]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x01040666 esp = 0x0660fea0 ebp = 0x0660feb8
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 12 xul.dll!base::Thread::ThreadMain() [thread.cc:ec092b22f40d : 170 + 0xa]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x01051fa3 esp = 0x0660fec0 ebp = 0x0660ffac
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 13 xul.dll!`anonymous namespace'::ThreadFunc(void *) [platform_thread_win.cc:ec092b22f40d : 26 + 0x7]
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x0102fb35 esp = 0x0660ffb4 ebp = 0x0660ffb4
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ 11:17:56 INFO - 14 kernel32.dll + 0xb712
+</div>
+<div>
+ 11:17:56 INFO - eip = 0x7c80b713 esp = 0x0660ffbc ebp = 0x0660ffec
+</div>
+<div>
+ 11:17:56 INFO - Found by: call frame info
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem seems to be the case where the child process seem to keep spinning after the parent process dies.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ mccr8 says:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "There's some way to indicate that you are intentionally crashing, 
+which keeps the test harness from freaking out.&nbsp;Probably 
+mozilla::NoteIntentionalCrash()."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ billm says:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "In theory, all of these problems are bugs. It would be nice to 
+understand why they happen. Since these appear to be hard to reproduce, 
+it will be difficult.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The parent is supposed to wait for all its children to die before it 
+shuts down. If the children take too long, the parent is supposed to 
+kill them. Either way, the child should never find itself in a state 
+where the parent is dead.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I'll try to take a look at the code a bit tomorrow. If I don't find anything, then maybe we can think about workarounds."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So it'd be good if I could figure out where the parent process tries to kill the children and see how that works.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ ContentParent::ShutdownProcess looks like it might be the spot.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, ContentParent::ActorDestroy has this stuff:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // Destroy any processes created by this ContentParent
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  nsTArray&lt;ContentParentId&gt; childIDArray =
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  cpm-&gt;GetAllChildProcessById(this-&gt;ChildID());
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  for(uint32_t i = 0; i &lt; childIDArray.Length(); i++) {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  ContentParent* cp = cpm-&gt;GetContentProcessById(childIDArray[i]);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  MessageLoop::current()-&gt;PostTask(
+ </span>
+ <span style="font-family: 'Andale Mono';">
+  FROM_HERE,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NewRunnableMethod(cp, &amp;ContentParent::ShutDownProcess,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  CLOSE_CHANNEL));
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  cpm-&gt;RemoveContentProcess(this-&gt;ChildID());
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks to me like this ContentParent can create other ContentParents,
+ and this uses a Runnable to call ShutDownProcess on each one, to take 
+them all down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So I actually think my original patch is right - if the parent suddenly
+ goes away unexpectedly, have the child processes take themselves out.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem seems to be that there are cases where it looks like the 
+Parent isn't doing a good enough job to take down the Children on a 
+proper&nbsp;shutdown.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Right, so it's important to recall that my bug was to fix the former 
+case. The latter case is, it seems, is where I'm falling down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So it might be worth trying to instrument the clean take-down codepaths
+ to see if there's ever&nbsp;a path where the child process isn't 
+correctly killed&nbsp;by the parent.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, where do I instrument, and what platforms do I test on try?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Let's do Windows XP Debug on mochitest-bc1.
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ In terms of instrumenting, I'm going to going old school, and just add some printf statements at a few key places:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ The place&nbsp;in MessageChannel that does the abort
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ The place in ContentParent::ActorDestroy that queues the destruction of all children
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ ContentParent::ShutDownProcess
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ ContentChild::RecvShutdown
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ The else case&nbsp;in ContentParent::ShutDownProcess that elses the point where we call StartForceKillTimer
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ ContentParent::ForceKillTimerCallback
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Various places in ContentParent::KillHard
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OK,&nbsp;let's do it!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=55ea3576e164">
+  Try build.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh. No failures yet...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, got one. Interesting - it doesn't look like the MessageChannel abort actually happened here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Conclusion - the Windows XP Debug&nbsp;crash was an intermittent orange that I don't think I introduced.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wait, no, that's wrong. The stack I'm seeing:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 16:27:19 INFO - 1 
+xul.dll!mozilla::ipc::MessageChannel::OnChannelErrorFromLink() 
+[MessageChannel.cpp:55ea3576e164 : 1605 + 0x19]
+</div>
+<div>
+ 16:27:19 INFO - eip = 0x0106cdea esp = 0x0662fd64 ebp = 0x0662fdac
+</div>
+<div>
+ 16:27:19 INFO - Found by: previous frame's frame pointer
+</div>
+<div>
+ 16:27:19 INFO - 2 xul.dll!mozilla::ipc::ProcessLink::OnChannelError() [MessageLink.cpp:55ea3576e164 : 405 + 0x7]
+</div>
+<div>
+ 16:27:19 INFO - eip = 0x0106cd62 esp = 0x0662fd84 ebp = 0x0662fdac
+</div>
+<div>
+ 16:27:19 INFO - Found by: call frame info with scanning
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OnChannelErrorFromLink is being called, and it's causing the abort on 
+line 1605, which is the one right after my print statement.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we
+ <b>
+  are
+ </b>
+ killing self in the child process, but my logging (I guess) didn't get 
+printed in time. The stdout buffer probably didn't get flushed before 
+the whole thing got taken down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The child process does send that ShutdownFinished message though… something must be preventing it from total shutdown though.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, I've instrumented the whole shutdown of the child process more closely.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Theory:
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ Child process is reporting that it has finished shutdown, so the parent
+ forgets about it and doesn't put it on the chopping block. 
+ContentParent gets ActorDestroy called on it, which sends a message down
+ to&nbsp;the child to also destroy, but the child doesn't hear it in 
+time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Parent process shuts down, child looks for parent. Gone. Self destruct.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This seems to be a rare case. I wonder if it's as simple as setting 
+AbortOnError to false before sending the&nbsp;ShutdownFinished message?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let's try that - for both Windows XP Debug and&nbsp;B2G ICS Emulator opt.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Wait wait wait wait
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ That's wallpapering over the fact that the parent doesn't seem to know 
+about the child process in&nbsp;ContentParent::ActorDestroy - that's 
+code which is supposed to do the killing / cleanup for us. 
+And&nbsp;childIDArray.Length() is just zero. Why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I can totally reproduce that on my OS X machine - when I exit, before 
+the childID is removed, we attempt to queue shutdown on it,&nbsp;but 
+there's no children with that ID. What the hell?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font: 11.0px Menlo">
+  nsTArray&lt;ContentParentId&gt;
+  <br>
+  ContentProcessManager::GetAllChildProcessById(
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  const
+ </span>
+ <span style="font: 11.0px Menlo">
+  ContentParentId&amp; aParentCpId)
+  <br>
+  {
+  <br>
+  MOZ_ASSERT(NS_IsMainThread());
+  <br>
+  <br>
+  nsTArray&lt;ContentParentId&gt; cpIdArray;
+  <br>
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  auto
+ </span>
+ <span style="font: 11.0px Menlo">
+  iter = mContentParentMap.find(aParentCpId);
+  <br>
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  if
+ </span>
+ <span style="font: 11.0px Menlo">
+  (NS_WARN_IF(iter == mContentParentMap.end())) {
+  <br>
+  ASSERT_UNLESS_FUZZING();
+  <br>
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  return
+ </span>
+ <span style="font: 11.0px Menlo">
+  Move(cpIdArray);
+  <br>
+  }
+  <br>
+  <br>
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  for
+ </span>
+ <span style="font: 11.0px Menlo">
+  (
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  auto
+ </span>
+ <span style="font: 11.0px Menlo">
+  cpIter = iter-&gt;second.mChildrenCpId.begin();
+  <br>
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   cpIter != iter-&gt;second.mChildrenCpId.end();
+  </span>
+  <br>
+  ++cpIter) {
+  <br>
+  cpIdArray.AppendElement(*cpIter);
+  <br>
+  }
+  <br>
+  <br>
+ </span>
+ <span style="font: 11.0px Menlo; color: #bb2ca2">
+  return
+ </span>
+ <span style="font-style: normal; font-variant: normal; font-weight: normal;">
+  <span style="font-size: 11px;">
+   <span style="font-family: Menlo;">
+    Move(cpIdArray);
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ I think… I think this code is wrong. The part I've highlighted… is 
+going to straight-up exit if there's only one item in the mChildrenCpId 
+iterator...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wait, this is all wrong. mChildrenCpId is something that B2G uses for 
+grandchild processes. Christ, I've been going down another&nbsp;blind 
+alley.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So billm thinks that my idea of calling SetAbortOnError with false 
+during shutdown is a good idea - probably in ContentChild::ActorDestroy,
+ since this is when the communications channel has definitely broken 
+down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Pushing that to try to see what it thinks:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ac9964c3be33">
+  Try build.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6b577a1c1261">
+  Another one that removes instrumenting so that B2G Emulator will build.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  WaitWAIT WAIT WAIT
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ What the fuck? How come my patch is causing a crash on
+ <b>
+  non-e10s
+ </b>
+ Windows XP Debug? Is it because of that little fiddly bit I added that 
+makes it possible for AbortOnError to be set to false? What happens if I
+ revert that?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=969ebb899f05">
+  Try push...
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0a58afdd9c45">
+  And a try push for Win XP Debug.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What the fuck. What the actual fuck.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, theory - we have some tests that run in non-e10s Mochitest runs 
+that open remote browsers, and therefore, start content processes. If 
+that theory is true though, how come I didn't see any of my logging 
+stuff in the stdout?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What am I going to do about this?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AHHHHHHH - the SANDBOX. The sandbox prevents the child process from putting anything through stdout. FOR FUCKS SAKE.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And when I disable the sandbox, the output gets intermingled with the 
+output from the parent process, like a friggin' meat grinder. It's a 
+mess.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gonna need to talk to jimm or bobowen about this.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, there's a buildtime pref to disable the sandbox. Maybe that's all I need. We'll see.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d77eaa917d61">
+  Try build.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AH HAH. Here we go now.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - 965 INFO TEST-START | browser/base/content/test/social/browser_addons.js
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOCSHELL 10CEEC00 == 14 [pid = 2396] [id = 14]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 41 (10CF1400) [pid = 2396] [serial = 41] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 42 (13782400) [pid = 2396] [serial = 42] [outer = 10CF1400]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ### XPCOM_MEM_BLOAT_LOG defined -- logging bloat/leaks
+ to 
+c:\docume~1\cltbld~1.t-x\locals~1\temp\tmpmgvouq.mozrunner\runtests_leaks_tab_pid1148.log
+
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [1148] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOCSHELL 10CE5000 == 15 [pid = 2396] [id = 15]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 43 (10CE5800) [pid = 2396] [serial = 43] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: '!compMgr', file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/xpcom/glue/nsComponentManagerUtils.cpp,
+ line 63
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(svc) failed: file
+ 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\ipc\nsIContentChild.cpp,
+ line 31
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: Error constructing actor 
+PJavaScriptChild: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\obj-firefox\ipc\ipdl\PContentChild.cpp,
+ line 985
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 44 (173D3400) [pid = 2396] [serial = 44] [outer = 10CE5800]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOCSHELL 15B52000 == 16 [pid = 2396] [id = 16]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 45 (15B52400) [pid = 2396] [serial = 45] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: preserving unexpected JS escape 
+sequence: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\modules\libpref\prefread.cpp,
+ line 393
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 46 (15B56000) [pid = 2396] [serial = 46] [outer = 15B52400]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ### XPCOM_MEM_BLOAT_LOG defined -- logging bloat/leaks
+ to 
+c:\docume~1\cltbld~1.t-x\locals~1\temp\tmpmgvouq.mozrunner\runtests_leaks_tab_pid2332.log
+
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [2332] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_TRUE(mMutable) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\netwerk\base\nsSimpleURI.cpp,
+ line 265
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: '!compMgr', file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/xpcom/glue/nsComponentManagerUtils.cpp,
+ line 63
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: NS_ENSURE_TRUE(svc) failed: file
+ 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\ipc\nsIContentChild.cpp,
+ line 31
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: Error constructing actor 
+PJavaScriptChild: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\obj-firefox\ipc\ipdl\PContentChild.cpp,
+ line 985
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: preserving unexpected JS escape 
+sequence: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\modules\libpref\prefread.cpp,
+ line 393
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 47 (15B59000) [pid = 2396] [serial = 47] [outer = 15B52400]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: 1 sort operation has occurred 
+for the SQL statement '0xf2f3530'. See 
+https://developer.mozilla.org/En/Storage/Warnings details.: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\storage\src\mozStoragePrivateHelpers.cpp,
+ line 114
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - SystemMessageCache: init
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_SUCCESS(rv, rv) 
+failed with result 0x80004005: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\workers\ServiceWorkerManager.cpp,
+ line 2369
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_SUCCESS(rv, false) 
+failed with result 0x80004005: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\netwerk\protocol\http\HttpBaseChannel.cpp,
+ line 1952
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_TRUE(aURI) failed: 
+file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/netwerk/dns/nsEffectiveTLDService.cpp,
+ line 158
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_SUCCESS(rv, rv) 
+failed with result 0x80070057: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\ThirdPartyUtil.cpp,
+ line 353
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - SystemMessageCache: init
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - JavaScript strict warning: 
+resource://gre/modules/Webapps.jsm, line 1210: ReferenceError: reference
+ to undefined property msg.app
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://test1.example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://test1.example.org:8000/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://sub1.test1.example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_priv.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_cert.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_cert.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_inst.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_priv.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://acertified.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://aprivileged.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://127.0.0.1:8888/sample.manifest
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://127.0.0.1:8888/sample.manifest
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: nsWindow::GetNativeData not 
+implemented for this type: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\widget\PuppetWidget.cpp,
+ line 915
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOCSHELL 082C9400 == 1 [pid = 1148] [id = 1]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 1 (082C9800) [pid = 1148] [serial = 1] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(domDoc &amp;&amp;
+ target) failed: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/dom/base/nsContentUtils.cpp,
+ line 3595
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 1148] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed
+ with result 0x80070057: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/dom/base/nsContentUtils.cpp,
+ line 3650
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://test1.example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://test1.example.org:8000/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://sub1.test1.example.org/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_priv.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_cert.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_cert.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_inst.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://example.com/manifest_csp_priv.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://acertified.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages https://aprivileged.com/manifest.webapp
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://127.0.0.1:8888/sample.manifest
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: getAdditionalLanguages http://127.0.0.1:8888/sample.manifest
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - -*-*- Langpacks: Languages found: ({langs:{}})
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: nsWindow::GetNativeData not 
+implemented for this type: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\widget\PuppetWidget.cpp,
+ line 915
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOCSHELL 082C9400 == 1 [pid = 2332] [id = 1]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - ++DOMWINDOW == 1 (082C9800) [pid = 2332] [serial = 1] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: NS_ENSURE_TRUE(domDoc &amp;&amp;
+ target) failed: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/dom/base/nsContentUtils.cpp,
+ line 3595
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Child 2332] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed
+ with result 0x80070057: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/dom/base/nsContentUtils.cpp,
+ line 3650
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:30 INFO - [Parent 2396] WARNING: NS_ENSURE_SUCCESS(rv, 
+BadImage(newImage)) failed with result 0x80004005: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\image\src\ImageFactory.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOCSHELL 17C96400 == 17 [pid = 2396] [id = 17]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 48 (17C97000) [pid = 2396] [serial = 48] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: NS_ENSURE_TRUE(mMutable) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\netwerk\base\nsSimpleURI.cpp,
+ line 265
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 49 (0C85C800) [pid = 2396] [serial = 49] [outer = 17C97000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 2 (086F6800) [pid = 1148] [serial = 2] [outer = 082C9800]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(domWindow) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 86
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 2 (082DCC00) [pid = 2332] [serial = 2] [outer = 082C9800]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: No docshells for remote 
+frames!: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\base\nsFrameLoader.cpp,
+ line 513
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Last remote tab destroyed - calling ContentParent::ShutDownProcess.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: Could not get disk information 
+from DiskSpaceWatcher: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\storage\DOMStorageIPC.cpp,
+ line 319
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOCSHELL 17C9C400 == 18 [pid = 2396] [id = 18]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 50 (17C9C800) [pid = 2396] [serial = 50] [outer = 00000000]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 2332] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 2332] WARNING: NS_ENSURE_TRUE(domWindow) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 86
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 51 (17F7CC00) [pid = 2396] [serial = 51] [outer = 17C9C800]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ### XPCOM_MEM_BLOAT_LOG defined -- logging bloat/leaks
+ to 
+c:\docume~1\cltbld~1.t-x\locals~1\temp\tmpmgvouq.mozrunner\runtests_leaks_tab_pid3772.log
+
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [3772] WARNING: XPCOM objects created/destroyed from 
+static ctor/dtor: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\base\nsTraceRefcnt.cpp,
+ line 139
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: NS_ENSURE_TRUE(mMutable) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\netwerk\base\nsSimpleURI.cpp,
+ line 265
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: ContentParent::ShutDownProcess called with method 0
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: We were supposed to SEND_SHUTDOWN_MESSAGE...
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Calling StartForceKillTimer
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   19:44:31 INFO - mconley: ContentChild rece
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - ived shutdown message from parent.
+  </span>
+ </span>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  [Parent 2396] WARNING: Could not get disk information from 
+DiskSpaceWatcher: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\storage\DOMStorageIPC.cpp,
+ line 319
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Sending finished shutdown message from child to parent.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Last remote tab destroyed - calling ContentParent::ShutDownProcess.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   ^-- Why do we call this yet again?
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 3772] WARNING: '!compMgr', file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/xpcom/glue/nsComponentManagerUtils.cpp,
+ line 63
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 3772] WARNING: NS_ENSURE_TRUE(svc) failed: file
+ 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\dom\ipc\nsIContentChild.cpp,
+ line 31
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 3772] WARNING: Error constructing actor 
+PJavaScriptChild: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\obj-firefox\ipc\ipdl\PContentChild.cpp,
+ line 985
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Parent received finished shutdown message from child.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: ContentParent::ShutDownProcess called with method 1
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: We used a different method, so no calling StartForceKillTimer
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: RemoveObserver() called for 
+unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: RemoveObserver() called for 
+unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: RemoveObserver() called for 
+unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: RemoveObserver() called for 
+unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley:C
+ </span>
+ <span style="font-family: 'Andale Mono';">
+  ontentChild::ActorDestroy called for reason 3
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley:ContentParent::ActorDestroy entered.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentChild::ActorDestroy canceling sFirstIdleTask
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentChild::ActorDestroy clearing mAlertObservers
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentChild::ActorDestroy clearing mIdleObservers
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentChild::ActorDestroy unregistering console listeners
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentChild::ActorDestroy calling XRE_ShutdownChildProcess
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: Entering XRE_ShutdownChildProcess
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: Calling MessageLoop::current()-&gt;Quit()
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::current()-&gt;Quit() exited
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: ContentParent::ShutDownProcess called with method 1
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: We used a different method, so no calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mcoreceived - calling Quitnley: Queue on ping uump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: Queuing up destruction of all subprocesses created by this ContentParent.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received - calling Quit on pump.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageLoop::DoIdleWork saw quit received -
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - calling Quit on pu
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentParemp.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - nt::ShutDownProcess called with method 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: We were supposed to SEND_SHUTDOWN_MESSAGE...
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: Calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: ContentChild received shutdown message from parent.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   19:44:31 INFO - mconley: Sending finished shutdown message from child to parent
+  </span>
+  .
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  ^-- these again?
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  Oh snap - there are MULTIPLE CHILDREN.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(inBrowser) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 82
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ++DOMWINDOW == 52 (17F7B800) [pid = 2396] [serial = 52] [outer = 17C9C800]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - --DOCSHELL 082C9400 == 0 [pid = 1148] [id = 1]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 3772] WARNING: preserving unexpected JS escape 
+sequence: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\modules\libpref\prefread.cpp,
+ line 393
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: Parent received finished shutdown message from child.
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: ContentParent::ShutDownProcess called with method 1
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - mconley: We used a different method, so no calling StartForceKillTimer
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(domWindow) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 86
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: NS_ENSURE_TRUE(inBrowser) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 82
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - --DOMWINDOW == 1 (082C9800) [pid = 1148] [serial = 1] [outer = 00000000] [url = about:blank]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - --DOMWINDOW == 0 (086F6800) [pid = 1148] [serial = 2] [outer = 00000000] [url = about:blank]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Child 1148] WARNING: Exiting child process early!: 
+file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\build\XPCOMInit.cpp,
+ line 976
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - nsStringStats
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAllocCount: 10641
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mReallocCount: 299
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mFreeCount: 7136 -- LEAKED 3505 !!!
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mShareCount: 7003
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAdoptCount: 464
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAdoptFreeCount: 463 -- LEAKED 1 !!!
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   19:44:31 INFO - =&gt; Process ID: 1148, Thread ID: 1812
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: MessageChannel::OnCh[Parent 2396] WARNING: 
+RemoveObserver() called for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - annel[Parent 2396] WARNING: RemoveObserver() called 
+for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ErrorFromLin[Parent 2396] WARNING: RemoveObserver() 
+called for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - k is caus[Parent 2396] WARNING: RemoveObserver() 
+called for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - ing NS_RUNTIMEABORT
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentP
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   [Child 2332] ###!!! ABORT: Aborting on channel error.: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\ipc\glue\MessageChannel.cpp,
+ line 1585
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - arent::ActorDestroy entered.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: ContentParent::ShutDownProcess called with method 1
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: We used a different method, so no calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - mconley: Queueing up destruction of all subprocesses created by this ContentParent.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - [Parent 2396] WARNING: 1 sort operation has occurred 
+for the SQL statement '0xf2f3530'. See 
+https://developer.mozilla.org/En/Storage/Warnings details.: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\storage\src\mozStoragePrivateHelpers.cpp,
+ line 114
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - nsStringStats
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAllocCount: 10599
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mReallocCount: 299
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mFreeCount: 6251 -- LEAKED 4348 !!!
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mShareCount: 7002
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAdoptCount: 464
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; mAdoptFreeCount: 462 -- LEAKED 2 !!!
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  19:44:31 INFO - =&gt; Process ID: 2332, Thread ID: 2168
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: Arial;">
+  Ok, so I've actually got some info here. Nice. Now what I need to do 
+is disentangle it - there's a bunch of processes opening and functioning
+ at the time of the crash, and I need to disambiguate. I'll put in child
+ IDs into each message, since the parent assigns an id to each child and
+ informs the child - that&nbsp;way, I can get logging for each 
+individual ContentParent and ContentChild and tell them apart.
+ </span>
+</div>
+<div>
+ <span style="font-family: Arial;">
+  <br>
+ </span>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=163c74a95682">
+  <span style="font-family: Arial;">
+   Another try build...
+  </span>
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]ContentParent::ShutDownProcess called with method 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]We were supposed to SEND_SHUTDOWN_MESSAGE...
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]Calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [1548 - 2]ContentChild received shutdown message from parent.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [1548 - 2]Sending finished shutdown message from child to parent.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - ++DOMWINDOW == 52 (17E5C400) [pid = 2660] [serial = 52] [outer = 17E49C00]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: NS_ENSURE_TRUE(inBrowser) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 82
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - --DOCSHELL 08323C00 == 0 [pid = 1336] [id = 1]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 3464] WARNING: preserving unexpected JS escape 
+sequence: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\modules\libpref\prefread.cpp,
+ line 393
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]Parent received finished shutdown message from child.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]ContentParent::ShutDownProcess called with method 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]We used a different method, so no calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: NS_ENSURE_TRUE(mDocShell) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsWebBrowser.cpp,
+ line 332
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: NS_ENSURE_TRUE(domWindow) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 86
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: NS_ENSURE_TRUE(inBrowser) 
+failed: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\embedding\browser\nsDocShellTreeOwner.cpp,
+ line 82
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - --DOMWINDOW == 1 (08324400) [pid = 1336] [serial = 1] [outer = 00000000] [url = about:blank]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - --DOMWINDOW == 0 (083CE000) [pid = 1336] [serial = 2] [outer = 00000000] [url = about:blank]
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: OH SNAP - killing the content process early.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Child 1336] WARNING: Exiting child process early!: 
+file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\xpcom\build\XPCOMInit.cpp,
+ line 982
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - nsStringStats
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mAllocCount: 10650
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mReallocCount: 299
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mFreeCount: 7144 -- LEAKED 3506 !!!
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mShareCount: 7007
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mAdoptCount: 466
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; mAdoptFreeCount: 465 -- LEAKED 1 !!!
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - =&gt; Process ID: 1336, Thread ID: 2528
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: MessageChannel::OnC[Parent 2660] WARNING: 
+RemoveObserver() called for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - hannel[Parent 2660] WARNING: RemoveObserver() called 
+for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - Error[Parent 2660] WARNING: RemoveObserver() called 
+for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - FromL[Parent 2660] WARNING: RemoveObserver() called 
+for unregistered observer: file 
+c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/hal/Hal.cpp,
+ line 205
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - ink is causing NS_RUNTIM
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mcoEABORT
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - nley: [2][Child 1548] ###!!! ABORT: Aborting on 
+channel error.: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\ipc\glue\MessageChannel.cpp,
+ line 1585
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - ContentParent::ActorDestroy entered.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]ContentParent::ShutDownProcess called with method 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]We used a different method, so no calling StartForceKillTimer
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - mconley: [2]Queueing up destruction of all subprocesses created by this ContentParent.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  06:09:52 INFO - [Parent 2660] WARNING: 1 sort operation has occurred 
+for the SQL statement '0xf19e1f0'. See 
+https://developer.mozilla.org/En/Storage/Warnings details.: file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\storage\src\mozStoragePrivateHelpers.cpp,
+ line 114
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2178afda60f4">
+  And yet another one...
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But this time, it'll dump the stack out to stdout.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1f56bec89603">
+  And&nbsp;well, why not. Here's another one.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, so it looks as if the parent stops communications… starts to enter 
+the&nbsp;ActorDestroy, but in that pocket of time, the child process 
+must try to communicate, and gets shut down.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e109d3caf32b">
+  Here's another one, with some IPC logging.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, too much logging. I burst through the log size limit before my failure was hit. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Plan - write quick and dirty patch to start IPC logging at a particular point during runtime. All tests seem to fail around
+ <b>
+  browser/base/content/test/social/browser_addons.js
+ </b>
+ so I'll call a function to start logging there.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=71ebdde5b02c">
+  Here… we are.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Log of IPC traffic:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960261985000][2456-&gt;260][PContentChild] Sending Msg_PNeckoConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262125000][2456-&gt;260][PContentChild] Sending Msg_GetXPCOMProcessAttributes([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456&lt;-260][PContentChild] Received reply Reply_GetXPCOMProcessAttributes([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456-&gt;260][PContentChild] Sending Msg_PHalConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456-&gt;260][PHalChild] Sending Msg_EnableSystemTimezoneChangeNotifications([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456-&gt;260][PHalChild] Sending Msg_EnableWakeLockNotifications([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456-&gt;676][PCompositorChild] Sending Msg_GetTileSize([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262141000][2456&lt;-676][PCompositorChild] Received reply Reply_GetTileSize([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PCrashReporterChild] Sending Msg_AppendAppNotes([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262156000][2456-&gt;260][PContentChild] Sending Msg_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262172000][2456&lt;-260][PContentChild] Received reply Reply_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262172000][2456-&gt;260][PContentChild] Sending Msg_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262203000][2456&lt;-260][PContentChild] Received reply Reply_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262203000][2456-&gt;260][PContentChild] Sending Msg_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262219000][2456&lt;-260][PContentChild] Received reply Reply_GetGraphicsFeatureStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262219000][2456&lt;-260][PContentChild] Received Msg_RegisterChrome([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262234000][2456&lt;-260][PContentChild] Received Msg_AppInfo([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262234000][2456&lt;-260][PContentChild] Received Msg_LoadAndRegisterSheet([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262234000][2456&lt;-260][PContentChild] Received Msg_LoadAndRegisterSheet([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262234000][2456&lt;-260][PContentChild] Received Msg_PBrowserConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262250000][2456-&gt;260][PContentChild] Sending Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262250000][2456-&gt;260][PContentChild] Sending Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262250000][2456-&gt;260][PContentChild] Sending Msg_SyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262281000][2456&lt;-260][PContentChild] Received reply Reply_SyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456&lt;-260][PBrowserChild] Received Msg_PRenderFrameConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456&lt;-260][PBrowserChild] Received Msg_Show([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456-&gt;260][PBrowserChild] Sending Msg_NotifyIMEFocus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456&lt;-260][PBrowserChild] Received reply Reply_NotifyIMEFocus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456-&gt;676][PCompositorChild] Sending Msg_PLayerTransactionConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262296000][2456&lt;-676][PCompositorChild]
+ Received reply Reply_PLayerTransactionConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262312000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262328000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262328000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262343000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262359000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262406000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262406000][2456&lt;-260][PBrowserChild] Received Msg_LoadURL([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262406000][2456-&gt;260][PContentChild] Sending Msg_ReadPermissions([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262483000][2456&lt;-260][PContentChild] Received reply Reply_ReadPermissions([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262499000][2456-&gt;260][PContentChild] Sending Msg_PScreenManagerConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262561000][2456&lt;-260][PContentChild] Received reply Reply_PScreenManagerConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262577000][2456-&gt;260][PContentChild] Sending Msg_PStorageConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262592000][2456-&gt;260][PBrowserChild] Sending Msg_SetStatus([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262592000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262592000][2456&lt;-260][PBrowserChild] Received Msg_LoadRemoteScript([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PNeckoChild] Sending Msg_PHttpChannelConstructor([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PBrowserChild] Received Msg_Destroy([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PHttpChannelChild] Sending Msg_Cancel([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;676][PLayerTransactionChild] Sending Msg_Shutdown([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PRenderFrameChild] Sending Msg___delete__([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PContentChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PContentChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-260][PContentChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456&lt;-676][PLayerTransactionChild] Received Msg___delete__([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PCrashReporterChild] Sending Msg_AnnotateCrashReport([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PCrashReporterChild] Sending Msg_AppendAppNotes([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PCrashReporterChild] Sending Msg_AppendAppNotes([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PContentChild] Sending Msg_ScriptError([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PContentChild] Sending Msg_ScriptError([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PBrowserChild] Sending Msg___delete__([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262608000][2456-&gt;260][PContentChild] Sending Msg_FirstIdle([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262686000][2456&lt;-260][PContentChild] Received Msg_AsyncMessage([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262686000][2456&lt;-260][PStorageChild] Received Msg_ScopesHavingData([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262733000][2456&lt;-260][PContentChild] Received Msg_Shutdown([TODO])
+</div>
+<div>
+ 06:17:42 INFO - [time:1424960262733000][2456-&gt;260][PContentChild] Sending Msg_FinishShutdown([TODO])
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  06:17:42 INFO - [time:1424960262888000][2456&lt;-260][PHttpChannelChild] Received Msg_OnStartRequest([TODO])
+ </span>
+</div>
+<div>
+ 06:17:42 INFO - [Child 2456] ###!!! ABORT: Aborting on channel error.: 
+file 
+c:\builds\moz2_slave\try-w32-d-00000000000000000000\build\src\ipc\glue\MessageChannel.cpp,
+ line 1585
+</div>
+<div>
+ 06:17:42 INFO - essageChannel::SynchronouslyClose
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fa08115cf09c">
+  Hypothesis testing push.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ billm has suggested putting the SetAbortOnError(false) in RecvShutdown 
+in the child, which is actually a great idea, seeing as how I see 
+RecvShutdown in the log being successfully consumed by the child before 
+the abort.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Perhaps that'll fix the ICS failure as well:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7a0ea19e1f1b">
+  Try build
+ </a>
+ (for Windows XP Debug)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=703e701d7e2b">
+  And another try build, since the logging I put in broke ICS.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Holy smokes, that may have fixed everything. Why didn't I think of this sooner?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Patch up for review.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Landed!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AND BOUNCED. FUCK.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, billm sez:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "I just remembered that we don't send the Shutdown message for Nuwa processes on b2g.
+</div>
+<div>
+ http://mxr.mozilla.org/mozilla-central/source/dom/ipc/ContentParent.cpp#1553
+</div>
+<div>
+ Maybe we should not set AbortOnError if IsNuwaProcess()."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Easy enough. I need to do a full spectrum try run this time.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=31262da84c84">
+  Try run. FINGERS CROSSED.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Oh hell yeah! Green, and I got a RyanVM blessing! Let's land this puppy (again).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ Make sure to try with gaia python integration tests (Gaia UI tests)
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Make SetAbortOnError's argument actually do something.
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
