@@ -1,0 +1,495 @@
+---
+layout: post
+title:  "Bug 1090439 - PPrinting calls from child to parent via ShowProgress and ShowPrintDialog should not be sync"
+date:   2015-03-28
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1090439">
+ Bug 1090439 - PPrinting calls from child to parent via ShowProgress and ShowPrintDialog should not be sync
+</a>
+<div>
+ When the content process requests that the dialog be open, we want a message to go up to the parent to actually open the dialog, but the message should be async instead of sync.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The child should then spin a nested event loop and wait for a message from the parent with the return value of having opened the printing dialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Make the call to SendShowPrintDialog be async instead of sync (altering PPrinting.ipdl)
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Alter nsPrintingPromptServiceProxy so that it doesn't expect return values from SendShowPrintDialog.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ After the message goes to the parent to open the dialog, spin a nested event loop
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ while(something) {
+</div>
+<div>
+ NS_ProcessNextEvent(nullptr, true);
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Add an async message from the parent to signal when the dialog has been closed and pass the return value
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I was crashing here at first, but that's because I wasn't using the right method signature on my RecvPrintDialogResult - I needed to use const nsresult&amp;, and not straight up nsresult.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I have confirmed that I service the message and handle that message properly while in the nested event loop. Huzzah!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have the proxy notice that the async message from the parent has been sent and exit the nested event loop.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ The handler for that message in the child should then stash those values within the proxy instance and when the event loop exits, these values should be returned to the original caller.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Mystery:
+ </b>
+</div>
+<div>
+ From where did we fire NS_ERROR_NOT_AVAILABLE when attempting to print again after having entered the nested event loop in the child?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The error is coming from nsDocumentViewer::Print, right here:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ // if we are printing another URL, then exit
+</div>
+<div>
+ // the reason we check here is because this method can be called while
+</div>
+<div>
+ // another is still in here (the printing dialog is a good example).
+</div>
+<div>
+ // the only time we can print more than one job at a time is the regression tests
+</div>
+<div>
+ if (GetIsPrinting()) {
+</div>
+<div>
+ // Let the user know we are not ready to print.
+</div>
+<div>
+ rv = NS_ERROR_NOT_AVAILABLE;
+</div>
+<div>
+ nsPrintEngine::ShowPrintErrorDialog(rv);
+</div>
+<div>
+ return rv;
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh. So it looks like if the print engine is already in the midst of printing, we don't allow it again.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks like in the non-e10s case, we have different mPrintEngines per nsDocumentViewer. So a new print engine is constructed, which isn't already attempting to print, it seems. Do we share nsDocumentViewer's when in e10s mode?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, heh - I must have been doing something wrong before. I can totally open dialogs in both windows now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ¯\_(ツ)_/¯
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, this is interesting… it looks like if I have multiple windows with printing dialogs open, I cannot dismiss older dialogs (either with OK or Cancel/Close) until the younger ones have been cleared. Then, the events are serviced.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's for Linux/GTK, anyway. Not so on Windows.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Hypothesis:
+ </b>
+ on Windows (where I can have two printing dialogs, and close the first before the second), I think that my current code is flawed such that if I initiate a print job from the first window/dialog, that I'll actually end up printing the document in the second window. I have a potential solution for this, but I'd like to prove that it's correct.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Test:
+ </b>
+</div>
+<div>
+ Open Window A, and Window B. Load distinctive documents in each.
+</div>
+<div>
+ Open print dialog in A.
+</div>
+<div>
+ Open print dialog in B.
+</div>
+<div>
+ Initiate print job in A.
+</div>
+<div>
+ See if the printed document is actually the one loaded in B.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Weird - crashing on Linux again because of Duplex.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks like when the print dialog is closed, the duplex is set to some error value inside it. What? Weird… we're getting a different GtkPrintSettings back from the dialog. Is this true without my patch here?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Testing...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Yes, this appears to be a problem here. :/
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ jimm wants me to investigate the possibility of altering the ShowPrintDialog interface so that the nsPrintEngine doesn't need the results from the print dialog right away - essentially, making the dialog call asynchronous, and avoiding the spin of the nested event loop. Let's look into that now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What are the possibilities here? Where do we enter the whole enchilada?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This happens inside nsPrintEngine::DoCommonPrint:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (!printSilently) {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  nsCOMPtr&lt;nsIPrintingPromptService&gt; printPromptService(do_GetService(kPrintingPromptService));
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (printPromptService) {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  nsIDOMWindow *domWin = mDocument-&gt;GetWindow();
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  NS_ENSURE_TRUE(domWin, NS_ERROR_FAILURE);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // Platforms not implementing a given dialog for the service may
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // return NS_ERROR_NOT_IMPLEMENTED or an error code.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  //
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // NS_ERROR_NOT_IMPLEMENTED indicates they want default behavior
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // Any other error code means we must bail out
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  //
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  nsCOMPtr&lt;nsIWebBrowserPrint&gt; wbp(do_QueryInterface(mDocViewerPrint));
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  rv = printPromptService-&gt;ShowPrintDialog(domWin, wbp,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  mPrt-&gt;mPrintSettings);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  //
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // ShowPrintDialog triggers an event loop which means we can't assume
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // that the state of this-&gt;{anything} matches the state we've checked
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  // above. Including that a given {thing} is non null.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (!mPrt) {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  return NS_ERROR_FAILURE;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So this code assumes we're going to be spinning an event loop. It's designed to operate that way.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Well shoot, now here's the thing:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In the single-process case, we have to block - the dialogs spin their event loops and block us. We'd need to branch in the multi-process case, like:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Notice that we're multi-process, call the parent to show the print progress dialog, and then have the child stash some state. When the parent responds with values, we need to re-enter nsPrintEngine and pick up that state from where we left off. Eww..
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, talked to jimm about this. I think we're going to punt on the idea of not spinning an event loop.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I'm going to use a LinkedList instead of an Array, since we're likely only ever going to have one item that gets added and then removed, and we just need to compare prompt IDs. An Array would mean appending, and crawling up the indexes, and I …. think that means wasted memory?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Bah. Whatever. A LinkedList it is.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I don't think we need to make opening the print progress dialog async - we're not blocked on user input or the lifetime of the window; we're blocked on the opening of the window itself. It's possible that we want to spin an event loop in the child for that small pocket of time, but I really don't think it's a big deal at this point.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm - a comment from smaug that I never really paid enough attention to:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "Couldn't you create a PrintDialog protocol, and then in __delete__ continue. While you're waiting __delete__ you'd call NS_ProcessNextEvent"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's think about that for a second, because maybe that simplifies my code somewhat (it might eliminate my need for the LinkedList, for example).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Suppose I had a PrintDialog protocol, and when I send the async message up to the parent, I have a PrintDialogChild get instantiated and passed up (which becomes the PrintDialogParent in the parent process). When the parent process gets past the dialog, maybe the result comes down through the PrintDialogParent to the PrintDialogChild, which holds onto the information and then gets _delete_ called on it...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Then we somehow need to keep the child end of things alive even after _delete_ is called on it, so that the spinning event loop knows to exit and retrieve the info.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so I think it could be done, but I don't actually think it's a better solution right now. It actually sounds a little more complicated.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Well. Maybe I'm wrong. Let's try smaug's way. Maybe it'll be neater and cleaner. Let's just try it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the tradeoff seems to be that I have to do less manual mapping between "results" and nested event loops. The IPC infrastructure takes care of that. I seem to gain more files though - but they're pretty simple. I think I prefer smaug's approach. Gonna fold it in.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=92fea00bfbc7">
+  Try push.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=937de50f2688">
+  Another try push
+ </a>
+ because I'm a fool and had a nonsense fragment in the trychooser message commit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Landed!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TODO:
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Investigate potentiality for race conditions with multiple dialog windows closing, multiple nested event loops and settings / results being dispatched to the wrong caller.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to find a different solution than spinning an event loop in the child process.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1140929">
+  Filed this bug.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-size: 48px;">
+  <br/>
+ </span>
+</div>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.7 (451372)"/><meta name="keywords" content="M5, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-03-06 20:13:08 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1094170"/><meta name="updated" content="2015-03-08 19:00:28 +0000"/><title>Bug 1094170 - (e10s) Error 400 on "Why was this page blocked"</title></head><body>
+<div>I actually thing this is totally related to <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1094172">bug 1094172</a>.</div>
+<div><br/></div>
+<div>We load the about:neterror pages in the parent process it seems. And if the alleged attack page is in the content process that means we redirect to the parent, which…ahhhhhhh...</div>
+<div><br/></div>
+<div>so about:blocked is special, because it's one of those internal docshell pages that don't update the browser urlbar and stuff. We're losing those powers when we redirect to the parent.</div>
+<div><br/></div>
+<div>I don't think there's anything that prevents the about:blocked page from running in the content process. That seems to fix both this and bug 1094172.</div>
+<div><br/></div>
+<div>Let's see what Mossop thinks.</div>
+<div><br/></div>
+<div>HE DIGS IT. BUT THE TREE IS CLOSED. FUCK. Well, I can at least push to try.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ddb8aa10e50b">Try push.</a></div>
+<div><br/></div>
+</body></html>

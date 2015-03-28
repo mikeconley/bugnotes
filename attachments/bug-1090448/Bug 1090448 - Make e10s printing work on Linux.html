@@ -1,0 +1,3196 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1090448 - Make e10s printing work on Linux</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1090448.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201090448%20-%20Make%20e10s%20printing%20work%20on%20Linux_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1090448 - Make e10s printing work on Linux</h1>
+    <p class="meta">Mar 28, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1090448">
+ Bug 1090448 - Make e10s printing work on Linux
+</a>
+<div>
+ Tricky - it looks like there's a native GTK dialog (orchestrated by 
+nsPrintDialogGTK.cpp), and a fallback XUL printer dialog if we can't get
+ a handle on the native stuff.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let's do the native dialog first.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  The native dialog case
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, like before, the native dialog imports some settings from an 
+nsIPrintSettings (likely casting them to an nsPrintSettingsGTK), and 
+then spins a modal event loop before exporting new settings.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The things the dialog seems to want to get from the nsIPrintSettings… 
+yeah, it casts it to an nsPrintSettingsGTK, and then extracts the 
+GtkPrintSettings* from it. Also the GtkPageSetup.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Then gets a "shrink to fit" bool, "print background colours" bool, "print background images" bool.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ With those last three bools, it sets dialog checkboxes to various 
+states based on their value. Then it sets the other settings with the 
+GtkPrintSettings* and the same goes for the GtkPageSetup*.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So… what is a GtkPrintSettings, and can I serialize it?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="http://developer.gimp.org/api/2.0/gtk/GtkPrintSettings.html#gtk-print-settings-foreach">
+  http://developer.gimp.org/api/2.0/gtk/GtkPrintSettings.html#gtk-print-settings-foreach
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This looks useful - I can iterate each key-value pair...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh… here's a snippet of code
+ <a href="https://searchcode.com/codesearch/view/22457400/">
+  I found from here
+ </a>
+ :
+</div>
+<div>
+ <br>
+</div>
+<div>
+ gtk_print_settings_foreach (settings,&nbsp;print_settings_add_to_key_file, key_file);
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ static void
+ <div>
+  print_settings_add_to_key_file (const gchar *key,
+ </div>
+ <div>
+  const gchar *value,
+ </div>
+ <div>
+  gpointer&nbsp;&nbsp;&nbsp;&nbsp; data)
+ </div>
+ <div>
+  {
+ </div>
+ <div>
+  GKeyFile *key_file = data;
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  g_key_file_set_value (key_file, PRINT_SETTINGS_NAME, key, value);
+ </div>
+</div>
+<div>
+ }
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So… so I think every key and value can be serialized to a string this way? Okay….
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Pretty sure we can serialize the GtkPrinter* by just getting the name 
+and sending it over. I'm pretty sure constructing a GtkPrinter with 
+gtk_printer_new on the child side with that name will work.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  OVER TWO MONTHS PASS
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ Aaaaaand we're back. This is an M5 bug now, and just&nbsp;hit the top of my stack. So let's get back to it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What I'd like, ideally, is parity with our current e10s printing support for Windows and OS X. At the very least, anyhow.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, let's get a game&nbsp;plan together here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The child process asks for the print settings dialog. Ugh, it looks 
+like the child is blocked while we wait&nbsp;for the settings to come 
+back down. Not great. That's
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1090439">
+  bug&nbsp;1090439.
+ </a>
+ Let's not worry about that just this second.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we synchronously ask the parent for information&nbsp;in nsPrintingPromptServiceProxy::ShowPrintDialog.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Parent receives it in PrintingParent::RecvShowPrintDialog. Gets the 
+nsIPrintOptions service, and creates a new nsIPrintSettings. Deserialize
+ the default settings that came up from the child. Then we show the 
+dialog, which blocks until it&nbsp;returns some value.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Then we serialize the settings we got back from the dialog into a PrintData again, and send them down to&nbsp;the child.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Initial work that needs to be studied is
+ <a href="https://bugzilla.mozilla.org/attachment.cgi?id=8512719&amp;action=diff">
+  bug 1082579
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/embedding/components/printingui/ipc/PrintingParent.cpp#68">
+  https://dxr.mozilla.org/mozilla-central/source/embedding/components/printingui/ipc/PrintingParent.cpp#68
+ </a>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintOptionsGTK.cpp">
+  https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintOptionsGTK.cpp
+ </a>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/windows/nsPrintOptionsWin.cpp">
+  https://dxr.mozilla.org/mozilla-central/source/widget/windows/nsPrintOptionsWin.cpp
+ </a>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintSettingsGTK.cpp">
+  https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintSettingsGTK.cpp
+ </a>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsDeviceContextSpecG.cpp">
+  https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsDeviceContextSpecG.cpp
+ </a>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintDialogGTK.cpp#126">
+  https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintDialogGTK.cpp#126
+ </a>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintDialogGTK.h">
+  https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsPrintDialogGTK.h
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Is it good enough to just serialize the name of the printer, and find it on the content side?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Are the&nbsp;gtk-print-settings easily serializable? Settable?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What _exactly_ is it that GTK needs from the front-end that we don't already serialize?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Interestingly, nsPrintDialogGTK already seems to have the ability to 
+"export" and "import" GTK-specific settings from "NS" (Netscape?) print 
+settings structures. This code is oooooooooold.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "&nbsp;&nbsp;&nbsp; /* Code to copy between GTK and NS print settings structures.
+ <div>
+  * In the following,
+ </div>
+ <div>
+  *&nbsp;&nbsp; "Import" means to copy from NS to GTK
+ </div>
+ <div>
+  *&nbsp;&nbsp; "Export" means to copy from GTK to NS
+ </div>
+</div>
+<div>
+ */
+</div>
+<div>
+ "
+</div>
+<div>
+ <br>
+</div>
+<div>
+ from:
+ <a href="https://hg.mozilla.org/mozilla-central/file/29b05d283b00/widget/gtk/nsPrintDialogGTK.cpp#l144">
+  https://hg.mozilla.org/mozilla-central/file/29b05d283b00/widget/gtk/nsPrintDialogGTK.cpp#l144
+ </a>
+ for ImportSettings, ExportSettings.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://hg.mozilla.org/mozilla-central/file/29b05d283b00/widget/gtk/nsPrintDialogGTK.cpp#l421">
+  So let's see what Export does.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Also, let's just see "what happens" when I try to print on Linux right now. A crash? Let's find out.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Yep. A crash. I guess that's not so surprising. Probably something in 
+RecvShowPrintDialog. Wait, no&nbsp;that's wrong - we successfully exit 
+from the parent process. The problem is in the content process after we 
+return to it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ #0&nbsp; __strlen_sse2_bsf () at ../sysdeps/i386/i686/multiarch/strlen-sse2-bsf.S:50
+ <div>
+  #1&nbsp; 0xafdc3da8 in nsCharTraits&lt;char&gt;::length (aStr=0x0) at 
+/media/Projects/mozilla/mozilla-central/xpcom/string/nsCharTraits.h:498
+ </div>
+ <div>
+  #2&nbsp; 0xafdc4d01 in nsDependentCString::nsDependentCString 
+(this=0xbff36584, aData=0x0) at 
+/media/Projects/mozilla/mozilla-central/xpcom/string/nsTDependentString.h:54
+
+ </div>
+ <div>
+  #3&nbsp; 0xb269bb9c in nsDeviceContextSpecGTK::GetSurfaceForPrinter 
+(this=0xa5bf0000, aSurface=0xa989c838) at 
+/media/Projects/mozilla/mozilla-central/widget/gtk/nsDeviceContextSpecG.cpp:177
+
+ </div>
+ <div>
+  #4&nbsp; 0xb0c37fad in nsDeviceContext::InitForPrinting 
+(this=0xa989c800, aDevice=0xa5bf0000) at 
+/media/Projects/mozilla/mozilla-central/gfx/src/nsDeviceContext.cpp:491
+ </div>
+ <div>
+  #5&nbsp; 0xb2cbc9e8 in nsPrintEngine::DoCommonPrint (this=0xa5967a10, 
+aIsPrintPreview=false, aPrintSettings=0x0, aWebProgressListener=0x0, 
+aDoc=0xa5a331f4)
+ </div>
+ <div>
+  at /media/Projects/mozilla/mozilla-central/layout/printing/nsPrintEngine.cpp:663
+ </div>
+ <div>
+  #6&nbsp; 0xb2cbb5d9 in nsPrintEngine::CommonPrint (this=0xa5967a10, 
+aIsPrintPreview=false, aPrintSettings=0x0, aWebProgressListener=0x0, 
+aDoc=0xa5a331f4)
+ </div>
+ <div>
+  at /media/Projects/mozilla/mozilla-central/layout/printing/nsPrintEngine.cpp:419
+ </div>
+</div>
+<div>
+ #7&nbsp; 0xb2cbcf22 in nsPrintEngine::Print (this=0xa5967a10, 
+aPrintSettings=0x0, aWebProgressListener=0x0) at 
+/media/Projects/mozilla/mozilla-central/layout/printing/nsPrintEngine.cpp:781
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here's the incriminating line in nsDeviceContextSpecG.cpp:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  } else if (nsDependentCString(fmtGTK).EqualsIgnoreCase("pdf")) {
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ fmtGTK is probably nullptr. It's set earlier in that same method here:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ const gchar* fmtGTK = gtk_print_settings_get(mGtkPrintSettings, GTK_PRINT_SETTINGS_OUTPUT_FILE_FORMAT);
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Right, so we've not properly serialized/deserialized&nbsp;that value.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, I've added the serialize / deserialize functions to 
+nsPrintOptionsGTK. I think this is where most of the work is going to 
+be.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Serialization is, I think, going to be easy, but verbose. I just need 
+to grab everything inside the GtkPrintSettings that&nbsp;is relevant, 
+stuff it into the PrintData. No biggie.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Deserialization… how will that work. When I deserialize in 
+PrintingParent, I have a newly created nsIPrintSettingsGTK that I pass 
+in. When I deserialize in the nsPrintingPromptServiceProxy, I actually 
+pass in the old nsIPrintSettingsGTK that we'd sent up, and have it be 
+overwritten.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The nsPrintingPromptServiceProxy is fine. But is there anything I need 
+to do to initialize a newly created nsIPrintSettingsGTK in the parent 
+before I deserialize? Let's check...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, on construction of an&nbsp;nsPrintSettingsGTK, we 
+instantiate&nbsp;mPrintSettings, so that's good… ok, and someone later 
+on, I guess, sets mGTKPrinter via SetGtkPrinter. So I need to do that 
+too, I guess...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There are a bunch of reimplementations of getters and settings in 
+nsPrintSettingsGTK that&nbsp;do reading and writing from the 
+GtkPrintSettings - so I might be getting a bunch of serialization for 
+free already.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Yeah, lots are freebies! Nice.&nbsp;The ones I&nbsp;don't seem to get 
+for free, I've added to the list of things to serialize / deserialize.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There's also, I believe, straight-up accessing the mPrintSettings, so 
+there might be even more to serialize / deserialize… let's look at where
+ the mPrintSettings get accessed.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh. So we&nbsp;do have direct access to the mGtkPrintSettings object, 
+and fiddling there, but really, I can't trust that Gecko is telling me 
+everything&nbsp;that's being used here by the user. Really, I kinda need
+ to serialize every damn thing that's not already done&nbsp;by 
+nsPrintSettingsImpl. *sigh*. Ok, what are those things.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I'll list what I can hold inside an GtkPrintSettings, and strike out 
+the things that we got for free because nsIPrintSettings wrapped the 
+getters / setters and our nsPrintOptions serialization 
+already&nbsp;works with them...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_printer ()
+ </s>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_printer ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GtkPageOrientation&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_orientation ()
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_orientation ()
+ <br>
+</div>
+<div>
+ Remark: It looks like this is being set in a GtkPageSetup thing, but I might as well send it over as well.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   GtkPaperSize *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_paper_size ()
+  </span>
+ </div>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_paper_size ()
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  Remark: Crap - GtkPaperSize is a complicated object that I'll need to 
+serialize. :( (Actually - it turns out that it's not so bad!&nbsp;- read
+ below!)
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  gdouble&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_paper_width ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_paper_width ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ gdouble&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_paper_height ()
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_paper_height ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   gboolean&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_use_color ()
+  </s>
+ </div>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_use_color ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ gboolean&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_collate ()
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_collate ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   gboolean&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_reverse ()
+  </s>
+ </div>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_reverse ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  GtkPrintDuplex&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_duplex ()
+ </s>
+</div>
+<div>
+ <s>
+  void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_duplex ()
+ </s>
+</div>
+<div>
+ <s>
+  <br>
+ </s>
+</div>
+<div>
+ <div>
+  GtkPrintQuality&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_quality ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_quality ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   gint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_n_copies ()
+  </s>
+ </div>
+</div>
+<div>
+ <s>
+  void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_n_copies ()
+ </s>
+</div>
+<div>
+ <s>
+  <br>
+ </s>
+</div>
+<div>
+ <div>
+  gint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_number_up ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_number_up ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  GtkNumberUpLayout&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_number_up_layout ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_number_up_layout ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   gint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_resolution ()
+  </s>
+ </div>
+</div>
+<div>
+ <s>
+  void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_resolution ()
+ </s>
+</div>
+<div>
+ <s>
+  <br>
+ </s>
+</div>
+<div>
+ <div>
+  void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_resolution_xy ()
+ </div>
+ <div>
+  gint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_resolution_x ()
+ </div>
+</div>
+<div>
+ gint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_resolution_y ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  gdouble&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_printer_lpi ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_printer_lpi ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   gdouble&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_scale ()
+  </s>
+ </div>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_scale ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  GtkPrintPages&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_print_pages ()
+ </s>
+</div>
+<div>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_print_pages ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  GtkPageRange *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_page_ranges ()
+ </s>
+</div>
+<div>
+ <div>
+  <s>
+   void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_page_ranges ()
+  </s>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GtkPageSet&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_page_set ()
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_page_set ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_default_source ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_default_source ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_media_type ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_media_type ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_dither ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_dither ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_finishings ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_finishings ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  const gchar *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_get_output_bin ()
+ </div>
+</div>
+<div>
+ void&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gtk_print_settings_set_output_bin ()
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What… what is the relationship between&nbsp;GtkPageSetup and GtkPaperSize?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GtkPaperSize seems to be something you can get from GtkPageSetup… and 
+you can set a GtkPaperSize on it too with gtk_page_setup_set_paper_size.
+ And then there's gtk_page_setup_set_paper_size_and_default_margins. 
+Ahhhhh - a&nbsp;GtkPaperSize represents the default paper sizes that 
+exist within the system. So I think I can just serialize the name, and 
+send it over. Right? YES - I can get the name of the GtkPaperSize, and 
+then when I instantiate one, I can pass in that name, and it'll assume 
+the right values. Good! OH! And Paper Name is already being serialized 
+and sent over by nsPrintSettingsImpl! \o/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, when deserializing, I think I just need to create a 
+custom&nbsp;GtkPaperSize with the name I was passed, and then set that 
+on the GtkPageSetup.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I can use&nbsp;SetGtkPageSetup to save the GtkPageSetup, which contains the GtkPaperSize information, to the GtkPrintSettings.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Last piece of the puzzle, I think. What the hell is a GtkPrintBackend?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I… I don't think it matters. Instead of instantiating the GtkPrinter, 
+I'll enumerate one until I find the one the user specified.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Roadblock
+ </b>
+ :
+</div>
+<div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Apparently, when deserializing the PrintSettings on the parent side 
+(the first time, just passing up the default values), we&nbsp;fail an 
+assertion for SetDuplex:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <a href="https://hg.mozilla.org/mozilla-central/file/7c87286ce969/widget/gtk/nsPrintSettingsGTK.cpp#l770">
+   https://hg.mozilla.org/mozilla-central/file/7c87286ce969/widget/gtk/nsPrintSettingsGTK.cpp#l770
+  </a>
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  <div>
+   MOZ_ASSERT(aDuplex &gt;= GTK_PRINT_DUPLEX_SIMPLEX &amp;&amp;
+  </div>
+  <div>
+   aDuplex &lt;= GTK_PRINT_DUPLEX_VERTICAL,
+  </div>
+ </div>
+ <div>
+  "value is out of bounds for GtkPrintDuplex enum");
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  So somehow we're getting an invalid duplex passed up from the child. 
+Maybe we have a bad default there, and we're just passing in random 
+memory. Let's&nbsp;see...
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ok, on parent side, according to gdb, duplex is:
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  $4 = (int32_t &amp;) @0xbfa86068: -1376538432
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Yeah, that doesn't sound right.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  GTK_PRINT_DUPLEX_SIMPLEX is belongs to an enum with only 3 values. So we're wayyyyy out of range here.
+ </div>
+ <div>
+  <br>
+ </div>
+ <div>
+  Ah, so the problem was on&nbsp;the child side. The GtkPrintSettings, 
+on initialization, doesn't have a duplex value set, so GetDuplex returns
+ NS_ERROR_FAILURE. NS_ERROR_FAILURE maps to&nbsp;-1376538432 as a signed
+ int, and we dumbly were serializing that into the duplex field in the 
+PrintData.
+ </div>
+ <div>
+  <br>
+ </div>
+</div>
+<div>
+ So, new TODO: I need to make nsPrintOptionsImpl smartly serialize 
+things that might not exist. That means coming up with some sane 
+defaults.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ No. Wait. That's too complicated. Wayyyyy to complicated. The far 
+simpler solution is just to have nsPrintSettingsGTK default to having 
+duplex set to&nbsp;GTK_PRINT_DUPLEX_SIMPLEX (which apparently means "no 
+duplex").&nbsp;Yeah, jeebus, that's way better.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wooo - just by serializing the GTKPrinter, I got something out:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201090448%20-%20Make%20e10s%20printing%20work%20on%20Linux_files/1090448-6C305A00-201C-4E41-AA4B-04C66EA695B0.png" height="989" width="768">
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But.. I'm crashing on shutdown. I'm crashing because I'm failing an assertion:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ #0&nbsp; 0xb770f424 in __kernel_vsyscall ()
+ <div>
+  #1&nbsp; 0xb7485366 in nanosleep () at ../sysdeps/unix/syscall-template.S:81
+ </div>
+ <div>
+  #2&nbsp; 0xb748510d in __sleep (seconds=0) at ../sysdeps/unix/sysv/linux/sleep.c:137
+ </div>
+ <div>
+  #3&nbsp; 0xb2a307d0 in ah_crap_handler (signum=6) at /media/Projects/mozilla/mozilla-central/toolkit/xre/nsSigHandlers.cpp:101
+ </div>
+ <div>
+  #4&nbsp; 0xb2a14034 in nsProfileLock::FatalSignalHandler (signo=6, 
+info=0xbff5808c, context=0xbff5810c) at 
+/media/Projects/mozilla/mozilla-central/profile/dirserviceprovider/nsProfileLock.cpp:190
+
+ </div>
+ <div>
+  #5&nbsp; &lt;signal handler called&gt;
+ </div>
+ <div>
+  #6&nbsp; 0xb770f424 in __kernel_vsyscall ()
+ </div>
+ <div>
+  #7&nbsp; 0xb73fd827 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+ </div>
+ <div>
+  #8&nbsp; 0xb7400c53 in __GI_abort () at abort.c:89
+ </div>
+ <div>
+  #9&nbsp; 0xb73f6977 in __assert_fail_base (fmt=0xb7534b94 "%s%s%s:%u: 
+%s%sAssertion `%s' failed.\n%n", assertion=assertion@entry=0xae4d437f 
+"hash_table-&gt;live_entries == 0",
+ </div>
+ <div>
+  file=file@entry=0xae4d42e0 
+"/build/buildd/cairo-1.13.0~20140204/src/cairo-hash.c", 
+line=line@entry=217, function=function@entry=0xae4d44b0 
+"_cairo_hash_table_destroy") at assert.c:92
+ </div>
+ <div>
+  #10 0xb73f6a27 in __GI___assert_fail (assertion=0xae4d437f 
+"hash_table-&gt;live_entries == 0", file=0xae4d42e0 
+"/build/buildd/cairo-1.13.0~20140204/src/cairo-hash.c", line=217, 
+function=0xae4d44b0 "_cairo_hash_table_destroy")
+ </div>
+ <div>
+  at assert.c:101
+ </div>
+ <div>
+  #11 0xae41de6e in ?? () from /usr/lib/i386-linux-gnu/libcairo.so.2
+ </div>
+ <div>
+  #12 0xae471a03 in ?? () from /usr/lib/i386-linux-gnu/libcairo.so.2
+ </div>
+ <div>
+  #13 0xae414a4d in cairo_debug_reset_static_data () from /usr/lib/i386-linux-gnu/libcairo.so.2
+ </div>
+ <div>
+  #14 0xb2a242b5 in MOZ_gdk_display_close (display=0xb71d10a0) at 
+/media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:2804
+ </div>
+ <div>
+  #15 0xb2a285fa in XREMain::XRE_main (this=0xbff5884c, argc=4, 
+argv=0xbff59b84, aAppData=0xbff589bc) at 
+/media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4310
+ </div>
+ <div>
+  #16 0xb2a286d9 in XRE_main (argc=4, argv=0xbff59b84, 
+aAppData=0xbff589bc, aFlags=0) at 
+/media/Projects/mozilla/mozilla-central/toolkit/xre/nsAppRunner.cpp:4456
+ </div>
+ <div>
+  #17 0x0804bcdf in do_main (argc=4, argv=0xbff59b84, 
+xreDirectory=0xb715f480) at 
+/media/Projects/mozilla/mozilla-central/browser/app/nsBrowserApp.cpp:294
+ </div>
+</div>
+<div>
+ #18 0x0804c18b in main (argc=4, argv=0xbff59b84) at /media/Projects/mozilla/mozilla-central/browser/app/nsBrowserApp.cpp:667
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Note that this is happening in the parent process. I'm going to guess 
+that this is likely our mGtkPrinter being leaked? I think so. I don't 
+even need to initiate a print to cause this crash. I just need to 
+open&nbsp;the dialog - which causes the deserialization on the parent 
+side which refs the new printer.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OH - I might need to unref the old printer!&nbsp;… wait, that's not the
+ case - nsPrintSettingsGTK::SetGtkPrinter automatically unrefs the old 
+printer before swapping in the new one.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let me get rid of the mGTKPrinter bits anyways to see if that helps.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, it doesn't. I'm leaking somewhere else. Let's work it backwards...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Facts:
+</div>
+<ol>
+ <li>
+  The leak is happening in the parent process
+ </li>
+ <li>
+  The leak doesn't require me to initiate a print job in order to occur - I just need to open a printing dialog
+ </li>
+ <li>
+  The leak detection occurs in cairo_debug_reset_static_data, of all 
+places.&nbsp;That makes me think it's some gtk_ foo not being free'd.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ I'm going to try to use valgrind to narrow things down. Going to be 
+slow as ass, but it seems like the best solution as opposed to guessing.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://developer.mozilla.org/en-US/docs/Mozilla/Testing/Valgrind">
+  This document
+ </a>
+ tells me that I need to add some stuff to my .mozconfig 
+(--disable-jemalloc and --enable-valgrind), so I'm waiting for that to 
+build. In the meantime,
+</div>
+<div>
+ <br>
+</div>
+<div>
+ ==20134== Thread 1:
+ <div>
+  ==20134== Conditional jump or move depends on uninitialised value(s)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; at 0x8E4B088: Pickle::WriteBool(bool) (pickle.h:103)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x8E4B14C: 
+IPC::ParamTraitsFundamental&lt;bool&gt;::Write(IPC::Message*, bool 
+const&amp;) (ipc_message_utils.h:138)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93C7B1F: void 
+IPC::WriteParam&lt;bool&gt;(IPC::Message*, bool const&amp;) 
+(ipc_message_utils.h:115)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93CC5C1: void 
+mozilla::embedding::PPrintingParent::Write&lt;bool&gt;(bool const&amp;, 
+IPC::Message*) (PPrintingParent.h:255)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93C4657: 
+mozilla::embedding::PPrintingParent::Write(mozilla::embedding::PrintData
+ const&amp;, IPC::Message*) (PPrintingParent.cpp:585)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93C3B13: 
+mozilla::embedding::PPrintingParent::OnMessageReceived(IPC::Message 
+const&amp;, IPC::Message*&amp;) (PPrintingParent.cpp:349)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x96324CD: 
+mozilla::dom::PContentParent::OnMessageReceived(IPC::Message const&amp;,
+ IPC::Message*&amp;) (PContentParent.cpp:4874)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92C5B08: 
+mozilla::ipc::MessageChannel::DispatchSyncMessage(IPC::Message 
+const&amp;) (MessageChannel.cpp:1197)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92C588B: 
+mozilla::ipc::MessageChannel::DispatchMessage(IPC::Message const&amp;) 
+(MessageChannel.cpp:1154)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92C57CF: mozilla::ipc::MessageChannel::OnMaybeDequeueOne() (MessageChannel.cpp:1142)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92D7B0B: void 
+DispatchToMethod&lt;mozilla::ipc::MessageChannel, bool 
+(mozilla::ipc::MessageChannel::*)()&gt;(mozilla::ipc::MessageChannel*, 
+bool (mozilla::ipc::MessageChannel::*)(), Tuple0 const&amp;) 
+(tuple.h:383)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92D777A: 
+RunnableMethod&lt;mozilla::ipc::MessageChannel, bool 
+(mozilla::ipc::MessageChannel::*)(), Tuple0&gt;::Run() (task.h:310)
+ </div>
+ <div>
+  ==20134==
+ </div>
+ <div>
+  ==20134== Thread 4 Gecko_IOThread:
+ </div>
+ <div>
+  ==20134== Syscall param sendmsg(msg.msg_iov[0]) points to uninitialised byte(s)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; at 0x4066328: sendmsg (socket.S:98)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x926B823: IPC::Channel::ChannelImpl::ProcessOutgoingMessages() (
+  <a href="http://ipc_channel_posix.cc:719/">
+   ipc_channel_posix.cc:719
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x926BAB8: IPC::Channel::ChannelImpl::Send(IPC::Message*) (
+  <a href="http://ipc_channel_posix.cc:792/">
+   ipc_channel_posix.cc:792
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x926C1E8: IPC::Channel::Send(IPC::Message*) (
+  <a href="http://ipc_channel_posix.cc:997/">
+   ipc_channel_posix.cc:997
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92D78E1: void 
+DispatchToMethod&lt;IPC::Channel, bool (IPC::Channel::*)(IPC::Message*),
+ IPC::Message*&gt;(IPC::Channel*, bool (IPC::Channel::*)(IPC::Message*),
+ Tuple1&lt;IPC::Message*&gt; const&amp;) (tuple.h:393)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92D7342: 
+RunnableMethod&lt;IPC::Channel, bool (IPC::Channel::*)(IPC::Message*), 
+Tuple1&lt;IPC::Message*&gt; &gt;::Run() (task.h:310)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x9279F74: MessageLoop::RunTask(Task*) (
+  <a href="http://message_loop.cc:361/">
+   message_loop.cc:361
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x9279FDA: MessageLoop::DeferOrRunPendingTask(MessageLoop::PendingTask const&amp;) (
+  <a href="http://message_loop.cc:369/">
+   message_loop.cc:369
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x927A36E: MessageLoop::DoWork() (
+  <a href="http://message_loop.cc:447/">
+   message_loop.cc:447
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x9259B9B: base::MessagePumpLibevent::Run(base::MessagePump::Delegate*) (
+  <a href="http://message_pump_libevent.cc:311/">
+   message_pump_libevent.cc:311
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x9279A58: MessageLoop::RunInternal() (
+  <a href="http://message_loop.cc:233/">
+   message_loop.cc:233
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92799E6: MessageLoop::RunHandler() (
+  <a href="http://message_loop.cc:226/">
+   message_loop.cc:226
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp; Address 0x17e4ba54 is 44 bytes inside a block of size 1,024 alloc'd
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; at 0x402C324: realloc (in /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x927C9A3: Pickle::Resize(unsigned int) (
+  <a href="http://pickle.cc:635/">
+   pickle.cc:635
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x927C31B: Pickle::BeginWrite(unsigned int, unsigned int) (
+  <a href="http://pickle.cc:513/">
+   pickle.cc:513
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x927C599: Pickle::WriteBytes(void const*, int, unsigned int) (
+  <a href="http://pickle.cc:558/">
+   pickle.cc:558
+  </a>
+  )
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x8E4B129: Pickle::WriteUInt64(unsigned long long) (pickle.h:139)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x8E4B0F2: Pickle::WriteSize(unsigned int) (pickle.h:127)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x8E4B18A: 
+IPC::ParamTraitsLibC&lt;unsigned int&gt;::Write(IPC::Message*, unsigned 
+int const&amp;) (ipc_message_utils.h:344)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92F8422: void 
+IPC::WriteParam&lt;unsigned int&gt;(IPC::Message*, unsigned int 
+const&amp;) (ipc_message_utils.h:115)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x92F8AA9: 
+IPC::ParamTraits&lt;nsAString_internal&gt;::Write(IPC::Message*, 
+nsAString_internal const&amp;) (IPCMessageUtils.h:337)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93C7C25: void 
+IPC::WriteParam&lt;nsString&gt;(IPC::Message*, nsString const&amp;) 
+(ipc_message_utils.h:115)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93CC697: void 
+mozilla::embedding::PPrintingParent::Write&lt;nsString&gt;(nsString 
+const&amp;, IPC::Message*) (PPrintingParent.h:255)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x93C4BE2: 
+mozilla::embedding::PPrintingParent::Write(mozilla::embedding::PrintData
+ const&amp;, IPC::Message*) (PPrintingParent.cpp:628)
+ </div>
+ <div>
+  ==20134==
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ ==20134== 3,575 (896 direct, 2,679 indirect) bytes in 8 blocks are definitely lost in loss record 20,610 of 21,200
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; at 0x4DA6BB1: g_type_create_instance (in /usr/lib/i386-linux-gnu/libgobject-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4D898FD: ??? (in /usr/lib/i386-linux-gnu/libgobject-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4D8BD96: g_object_new_valist (in /usr/lib/i386-linux-gnu/libgobject-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4D8BFEF: g_object_new (in /usr/lib/i386-linux-gnu/libgobject-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x245E642B: gtk_printer_cups_new (in 
+/usr/lib/i386-linux-gnu/gtk-2.0/2.10.0/printbackends/libprintbackend-cups.so)
+
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x245E34B8: ??? (in 
+/usr/lib/i386-linux-gnu/gtk-2.0/2.10.0/printbackends/libprintbackend-cups.so)
+
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x245E4BD2: ??? (in 
+/usr/lib/i386-linux-gnu/gtk-2.0/2.10.0/printbackends/libprintbackend-cups.so)
+
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x245E3846: ??? (in 
+/usr/lib/i386-linux-gnu/gtk-2.0/2.10.0/printbackends/libprintbackend-cups.so)
+
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4E100A6: g_main_context_dispatch (in /lib/i386-linux-gnu/libglib-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4E10467: ??? (in /lib/i386-linux-gnu/libglib-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0x4E10527: g_main_context_iteration (in /lib/i386-linux-gnu/libglib-2.0.so.0.4000.0)
+ </div>
+ <div>
+  ==20134==&nbsp;&nbsp;&nbsp; by 0xB62DCF7: nsAppShell::ProcessNextNativeEvent(bool) (nsAppShell.cpp:156)
+ </div>
+</div>
+<div>
+ ==20134==
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This looks like it's been around for a while!
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1129557">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=1129557
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I'm tried to bisect and haven't found a good state - I went back to around Firefox 4.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, decision:
+ <b>
+  ignore the leak. It's not my bag, baby.
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OK, attack plan:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ <s>
+  Rename&nbsp;nsPrintOptionsImpl::SerializeToPrintSettings to 
+nsPrintOptionsImpl::SerializeCommon&nbsp;and take default value struct.
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  Make nsPrintOptionsWin and nsPrintOptionsGTK use 
+nsPrintOptionsImpl::SerializeCommon, each passing in a&nbsp;struct of 
+defaults.
+ </s>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Serialize GtkPaperSize stuff
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Deserialize it&nbsp;and generate custom GtkPaperSize with the same dimensions, names, etc.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Serialize GtkPageSetup stuff
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ When deserializing, create a new GtkPrintSettings, and set the GtkPageSetup on it with SetGtkPageSetup
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Serialize all GtkPrintSettings stuff
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Deserialize all of the GtkPrintSettings stuff
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Deserialize the GtkPrinter by enumerating the printers until I find one with the same name
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Stuff all that shit into the nsPrintSettingsGtk
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  GtkPaperSize
+ </b>
+ (via&nbsp;gtk_paper_size_new_custom)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_paper_size_get_name (const gchar *) -&nbsp;this is already serialized as paperName
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_paper_size_set_name (gchar *)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_paper_size_get_display_name (gchar *)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_paper_size_set_display_name (gchar *)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Things to serialize / deserialize:
+ </b>
+</div>
+<div>
+ <s>
+  <input checked="checked" type="checkbox">
+ </s>
+ GtkPaperSize
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GtkPageSetup
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GtkPrinter (already being sent over by nsPrintSettingsImpl, but needs deserialization!)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ InitUnwriteableMargin? "Re-initialize mUnwriteableMargin with values 
+from mPageSetup.&nbsp;Should be called whenever mPageSetup is 
+initialized or overwritten.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GtkPrintSettings (see below)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  GtkPrintSettings to make sure we&nbsp;transfer:
+ </b>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_orientation (enum GtkPageOrientation)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_orientation (enum GtkPageOrientation)
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  gtk_print_settings_get_paper_width (gdouble)
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  gtk_print_settings_set_paper_width (gdouble)
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  gtk_print_settings_get_paper_height (gdouble)
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  gtk_print_settings_set_paper_height (gdouble)
+ </s>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_collate (gboolean)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_collate (gboolean)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_quality (enum GtkPrintQuality)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_quality (enum GtkPrintQuality)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_number_up (gint)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_number_up (gint)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_number_up_layout (enum GtkNumberUpLayout)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_number_up_layout (enum GtkNumberUpLayout)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_resolution_xy (gint)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_resolution_x (gint)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_resolution_y (gint)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_printer_lpi (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_printer_lpi (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_page_set (enum GtkPageSet)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_page_set (enum GtkPageSet)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_default_source (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_default_source (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_media_type (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_media_type (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_dither (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_dither (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_finishings (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_finishings (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_get_output_bin (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_print_settings_set_output_bin (const gchar * )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GTK_PRINT_SETTINGS_OUTPUT_FILE_FORMAT
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GTK_PRINT_SETTINGS_OUTPUT_URI
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GTK_PRINT_SETTINGS_PAPER_FORMAT (set by GtkPaperSize&nbsp;via&nbsp;gtk_print_settings_set_paper_size)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GTK_PRINT_SETTINGS_PAPER_WIDTH (set by GtkPaperSize&nbsp;via&nbsp;gtk_print_settings_set_paper_size)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ GTK_PRINT_SETTINGS_PAPER_HEIGHT (set by GtkPaperSize&nbsp;via&nbsp;gtk_print_settings_set_paper_size)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  GtkPageSetup to&nbsp;make sure we transfer:
+ </b>
+</div>
+<div>
+ <b>
+  <input checked="checked" type="checkbox">
+ </b>
+ gtk_page_setup_set_paper_size_and_default_margins (GtkPaperSize) (this 
+needs to be constructed first with the right GtkPaperSize name!)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_get_orientation (enum GtkPageOrientation)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_set_orientation&nbsp;(enum GtkPageOrientation)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_get_top_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_set_top_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_get_bottom_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_set_bottom_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_get_left_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_set_left_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_get_right_margin (gdouble)
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ gtk_page_setup_set_right_margin (gdouble)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Feedback from karlt:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I wonder why all these details need to be accessed on both the content and
+</div>
+<div>
+ browser sides. Could there be a cross-process object that is opaque on the
+</div>
+<div>
+ content side? Is there only a subset of this info that is needed by layout?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I don't have good ideas on how to deal with finding the GtkPrinter
+</div>
+<div>
+ synchronously. If it needs to pass between processes then perhaps determining
+</div>
+<div>
+ the GtkPrinter can be delayed until printing, which is already an async
+</div>
+<div>
+ process, I assume.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GtkPrintSettings is basically a hash table of strings keyed by strings. All
+</div>
+<div>
+ the accessor methods just convert between string and the particular format.
+</div>
+<div>
+ The keys aren't necessarily limited to the strings with GTK_PRINT_SETTINGS\_\*
+</div>
+<div>
+ defines. "The predefined keys try to use shared values as much as possible so
+</div>
+<div>
+ that moving such a document between systems still works", but I suspect
+</div>
+<div>
+ special printer backends might use other values. However, strings are
+</div>
+<div>
+ reasonably easy to serialize anyway, I assume, so, if this needs to be passed
+</div>
+<div>
+ between processes, then I suspect it would be simpler to use
+</div>
+<div>
+ gtk_print_settings_foreach() and gtk_print_settings_set(), with an array of
+</div>
+<div>
+ pairs of strings in PrintData.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I haven't yet looked at how GtkPageSetup and GtkPaperSize are used. I wonder
+</div>
+<div>
+ why the GtkPaperSize doesn't come from gtk_print_settings_get_paper_size().
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I think we need to do whatever is necessary to avoid running arbitrary 
+events in DeserializeToPrintSettings(). Nested event loops are evil. 
+They unroll only in FILO order, and they surprise callers who don't 
+expect the world to change while they weren't watching.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Is it necessary to pass the printer between content and browser 
+processes? Is it the printer selection or the printing that happens in 
+the content process? Could they both happen in the browser process?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Replace custom GTK things in PPrinting.ipdl's PrintData with an array of string pairs.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, create a struct with key and value nsCStrings, and then have PrintData hold onto an array of those structs.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Serialize GtkPrintSettings back and forth by iterating the keys / values.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Find a way of getting at the GtkPrinter without enumerating them
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Grawrrr, &nbsp;GtkPrintBackend is woefully documented. But I think I can make this work...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I can emulate enumerate_printers, like this:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gtk_enumerate_printers (GtkPrinterFunc func,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gpointer data,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GDestroyNotify destroy,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gboolean wait)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  PrinterList *printer_list;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GList *node, *next;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GtkPrintBackend *backend;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  printer_list = g_new0 (PrinterList, 1);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  printer_list-&gt;func = func;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  printer_list-&gt;data = data;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  printer_list-&gt;destroy = destroy;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (g_module_supported ())
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   printer_list-&gt;backends = gtk_print_backend_load_modules ();
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   if (printer_list-&gt;backends == NULL)
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   {
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   free_printer_list (printer_list);
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   return;
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   for (node = printer_list-&gt;backends; node != NULL; node = next)
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   {
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   next = node-&gt;next;
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   backend = GTK_PRINT_BACKEND (node-&gt;data);
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   if (list_printers_init (printer_list, backend))
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   return;
+  </span>
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  <span style="font-family: 'Andale Mono';">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (wait &amp;&amp; printer_list-&gt;backends)
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  printer_list-&gt;loop = g_main_loop_new (NULL, FALSE);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GDK_THREADS_LEAVE ();
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  g_main_loop_run (printer_list-&gt;loop);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GDK_THREADS_ENTER ();
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  Then don't forget to g_list_free(printer_list-&gt;backends);!
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Evernote screwed up the formatting, but you get it. Basically&nbsp;I 
+create a backend list, iterate that list, and for each backend, I can 
+use gtk_print_backend_find_printer.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ As soon as I find one that matches, I bail out. Easy… peasy… I think. *sigh*, why didn't GTK just supply this.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Graaarwwrwaeraera fuck.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The gtk_print_backend stuff isn't accessible. It's all private. I can't use this stuff! :(((((
+</div>
+<div>
+ <br>
+</div>
+<div>
+ karlt suggests looking into whether or not we can delay printer 
+assignment until the very end of printing, when things are already 
+asynchronous. I'll look&nbsp;into that next.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So here I am again,&nbsp;ass deep in nsPrintEngine.cpp.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:04
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: ping, if you're awake
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:05
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   hi mconley
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:05
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: hi!
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:05
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  so I'm waist deep into GTK printing stuff
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:05
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  and it's a pretty sad story
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:06
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: I was just looking at your suggestion for waiting until we've 
+kicked off the print job in order to enumerate the printers 
+asynchronously
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:06
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  so as to not spin yet another event loop
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:07
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  it looks as if nsDeviceContextSpecG constructs a GtkPrintJob right at 
+the start of the printing work, in 
+nsDeviceContextSpecGTK::BeginDocument, and needs that in order to send 
+the job to the printer
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:07
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  hmm
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:07
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  I'm wondering if you have any suggestions on how best to break this up to make the enumeration asynchrounous
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:07
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  or
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:08
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   karlt
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   looks for GtkPrintJob docs
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:08
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  failing that, if you had any ideas on how else I could query for the 
+printers - perhaps by accessing the GtkPrintBackend stuff (although from
+ what I can tell, that's mostly private)
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:10
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  yes, i looked at the print backend stuff too, and it seemed to be out of reach, on first impressions at least
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:10
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  mucking about in that private stuff is also probably not a great idea. :/
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:16
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: so the print dialog runs in the parent process, then the 
+content process uses info from the dialog to draw and send to the 
+printer?
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:16
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: yep
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:16
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  the content process has no ability to open windows
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:16
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  which is why it asks the parent to do it
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:17
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  however, the backend has not yet been rejigged to actually kick off the printing in the parent.
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:17
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  though that's a long-term goal
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:17
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  ok, print dialog in the parent makes sense, and i understand you want something for now in the content process
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:17
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   nods
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:18
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: mPrintJob in&nbsp;&nbsp;nsDeviceContextSpecGTK seems to be 
+unused until EndDocument(), which does the gtk_print_job_send()
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:19
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: ah, yes. I suppose in EndDocument, we can try to grab the 
+printer... if that errors out, it's a bit of a shame to do all of that 
+processing only to die there
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:19
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  but yes, that's one point where we could do the query for printers
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:21
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: currently BeginDocument only errors out if 
+!GTK_IS_PRINTER(mGtkPrinter); i'm thinking that if we got a GtkPrinter 
+in the parent process from the print dialog, and so have its name, we 
+can reasonably expect to find that in the content process
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:21
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  true
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:21
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: hrm - mGtkPrinter is also needed here:
+  <a href="https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsDeviceContextSpecG.cpp#161" style="word-break: break-all;">
+   https://dxr.mozilla.org/mozilla-central/source/widget/gtk/nsDeviceContextSpecG.cpp#161
+  </a>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:22
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  oh, i see
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:22
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   heycam|away is now known as heycam
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:23
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: could we get that info in the parent?
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:24
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   ferjm has left IRC (Quit: Textual IRC Client:
+   <span style="text-decoration: underline; word-break: break-all;">
+    <a href="http://www.textualapp.com/">
+     www.textualapp.com
+    </a>
+   </span>
+   )
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:26
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  and store it in the nsPrintSettingsGTK?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:30
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   thinks
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:30
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  for the multi-process case, yes, that works
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:30
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: it sounds like we might have some single-process and multi-process branching in here now though. :/
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:32
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: i think we could use the same code for supports pdf etc, and branch on mGtkPrinter when creating the print job
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:33
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  if you can spawn an event to find the printer, then that event can run
+ the event loop knowing that there is nothing on the stack that will be 
+disrupted by other events that run
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:34
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  nested event loops still only unroll in filo order, but the code can 
+be written so that the effects of that are only a deeper stack
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:34
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   milan has left IRC (Connection closed)
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:35
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   milan has joined (milan@
+   <span style="text-decoration: underline; word-break: break-all;">
+    moz-i5m.05u.207.66.IP
+   </span>
+   )
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:37
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   thinks
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:37
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   dbaron has joined (dbaron@
+   <span style="text-decoration: underline; word-break: break-all;">
+    moz-m26.8gt.193.116.IP
+   </span>
+   )
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:37
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   ChanServ has changed mode: +qo dbaron dbaron
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:41
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: ok, I understand the first bit to re-use the accepts-pdf stuff 
+in the print settings object for single and multi-process - that makes 
+sense
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:42
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: when we branch in BeginDocument, we'll start looking for a printer - we'll call enumerate_printers but not block?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:42
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  if that's the case, what happens if EndDocument gets called before we're done enumerating the printers?
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:43
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  nsPrintDialogWidgetGTK::ExportSettings() might be the place to set the output format to ps or pdf according to the printer
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:43
+  </span>
+  <span style="color: rgb(0, 136, 0);">
+   mattwoodrow|away is now known as mattwoodrow
+  </span>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:44
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+   mconley: the simplest is probably to move gtk_print_job_new out of BeginDocument, probably for both single and multiprocess
+  </strong>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:44
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  so instead
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:45
+  </span>
+  <span style="color: rgb(136, 136, 0);">
+   (karlt)
+  </span>
+  EndDocument spawns the event to find a printer and then call print_job_send
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <span style="color: rgb(0, 68, 136);">
+   15:46
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  ah
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+  <span style="color: rgb(0, 68, 136);">
+   15:47
+  </span>
+  <span style="color: rgb(255, 0, 255); font-weight: bold;">
+   (mconley)
+  </span>
+  karlt: ok, yes, I think I can work with that. Thanks!
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok… I think this&nbsp;will work. In sum:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Make it so that nsDeviceContextSpecG does not need to know about the 
+GtkPrinter until&nbsp;EndDocument is called, at which time it 
+asynchronously queries for the right printer, and sends the job off.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This will mean ripping out some old stuff that reads the mGTKPrinter 
+from the nsIPrintSettings, and instead sending that information
+ <i>
+  through
+ </i>
+ nsPrintSettingsGTK instead.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Add SupportsPDF getter and setter to nsPrintSettingsGTK
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Set the SupportsPDF setter in&nbsp;nsPrintDialogWidgetGTK::ExportSettings
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ In the Serialization/Deserialization methods, get and set SupportsPDF
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Change the code in&nbsp;nsDeviceContextSpecGTK::GetSurfaceForPrinter to use SupportsPDF&nbsp;instead of mGtkPrinter.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Make nsDeviceContextSpecGTK::EndDocument asynchronously fetch the printer if one doesn't already exist
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Move the creation of the GtkPrintJob out of BeginDocument to EndDocument
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="file:///Users/mikeconley/Projects/gtk2-html-2.24.25/GtkPrintJob.html#GtkPrintJobCompleteFunc">
+  file:///Users/mikeconley/Projects/gtk2-html-2.24.25/GtkPrintJob.html#GtkPrintJobCompleteFunc
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  void
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  (*GtkPrintJobCompleteFunc) (GtkPrintJob *print_job,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gpointer user_data,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GError *error);
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="file:///Users/mikeconley/Projects/gtk2-html-2.24.25/GtkPrinter.html#GtkPrinterFunc">
+  file:///Users/mikeconley/Projects/gtk2-html-2.24.25/GtkPrinter.html#GtkPrinterFunc
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gboolean
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  (*GtkPrinterFunc) (GtkPrinter *printer,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gpointer data);
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ static void job_complete we'll do&nbsp;the same thing.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ printer_enumerator
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ In nsPrintOptionsGTK.h remove PPrinting.h, and forwards declare the PrintData struct instead
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Either remove the using namespace in nsPrintOptionsGTK.cpp, or actually make use of it when referring to PrintData
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Try calling SetGtkPrintSettings after deserialization, in 
+DeserializeToPrintSettings, and remove the SetDuplex inside the 
+nsPrintSettingsGTK Initializer
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Get&nbsp;SerializeGTKPrintSettingsToPrintData out of the nsPrintSettingsGTK header
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Remove unused gtkPageSetup and gtkPaperSize from deserialization method
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ In DeserializeToPrintSettings, instead of re-using the GtkPrintSettings, destroy it and create a new one.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Why isn't the printer name getting sent down to the content process properly?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem was that&nbsp;the printer name was getting wiped out, since
+ we rely on the mGtkPrintSettings inside nsIPrintSettings to hold on to 
+the printer name.&nbsp;After deserializing a bunch of stuff in 
+nsPrintOptionsGTK::DeserializeToPrintSettings, I was chucking out the 
+GtkPrintSettings inside nsIPrintSettings and replacing it with one that 
+just had the GTK-specific settings set on it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The solution was to create the new GtkPrintSettings and set it on the 
+nsIPrintSettings _before_ attempting to deserialize the PrintData from 
+the parent. That way, we can properly get the printer name and 
+enumerate/find the target printer.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ In nsDeviceContextSpecGTK, make the printer enumerator and start print job methods private or protected. Probably private.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Remove acceptsPDF bool from PrintData, and have nsPrintDialogGTK set 
+the output format instead. So basically, stash this value in the output 
+format.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Move the printer enumerator in&nbsp;nsDeviceContextSpecGTK into a runnable
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Replace nsCOMPtr&lt;nsIPrintSettings&gt; mPrintSettings with 
+nsCOMPtr&lt;nsPrintSettingsGTK&gt; mPrintSettings in 
+nsDeviceContextSpecGTK
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ "NS_ConvertUTF16toUTF8 is a class holding an extra copy of the string, 
+so please use mTitle.Truncate() and AppendUTF16toUTF8(aTitle, mTitle)"
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Rename KeyValue to&nbsp;CStringKeyValue?
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Address dw-dev's feedback from bug 1088070
+</div>
+<div>
+ <br>
+</div>
+<div>
+ EndDocument() is called from the nsPrintData destructor, so I don't think we
+</div>
+<div>
+ can assume that this is a safe place to run the event loop. Instead dispatch
+</div>
+<div>
+ an event that will call gtk_enumerate_printers(). There could be issues with
+</div>
+<div>
+ asynchronicity if GetSurfaceForPrinter() calls are repeated after
+</div>
+<div>
+ EndDocument(),
+ <b>
+  so either assert this doesn't happen, or pass mSpoolFile
+ </b>
+</div>
+<div>
+ <b>
+  to the event.
+ </b>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Do the above… maybe ask karlt what he means here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ <s>
+  Figure out better naming inside nsDeviceContextSpecGTK? mPrintSettingsGTK vs mGtkPrintSettings is crazy confusing.
+ </s>
+ No longer needed since I just have the one mPrintSettings now.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Flesh out comment in nsDeviceContextSpecGTK::EndDocument clearing up what the hell is going on
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  TODO
+ </b>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Stow GTK-specific print settings inside PrintData in PPrinting.ipdl
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Set print.enable_e10s_testing flag to true for Linux
+</div>
+<div>
+ <input type="checkbox">
+ <s>
+  Handle the XUL dialog case
+ </s>
+ (this appears to be mostly unused code…)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Yes! r+ from karlt!
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=dfb74246900d">
+  Now a try push for safety...
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Amusement
+ </b>
+</div>
+<div>
+ <a href="https://twitter.com/snorp/status/562999621484838914">
+  https://twitter.com/snorp/status/562999621484838914
+ </a>
+</div>
+<div>
+ <a href="https://gist.github.com/eed3si9n/3920236">
+  https://gist.github.com/eed3si9n/3920236
+ </a>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
