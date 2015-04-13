@@ -1,0 +1,805 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.8 (451398)"/><meta name="keywords" content="M6, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-03-08 19:17:32 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1110887"/><meta name="updated" content="2015-04-10 15:18:11 +0000"/><title>Bug 1110887 - With e10s, plugin crash submit UI is broken</title></head><body>
+<div>While I'm waiting for a fresh build to compile, let's inspect what might be doing on here.</div>
+<div><br/></div>
+<div>The place I should probably be looking at is PluginContent.jsm's pluginInstanceCrashed method. This method is what handles the PluginCrashed event.</div>
+<div><br/></div>
+<div>Hrm - so killing the plugin-container from the Activity Monitor is no good. That doesn't send a crash report.</div>
+<div><br/></div>
+<div>Using kill -ABRT [procid] on OS X should do the trick, according to ted.</div>
+<div><br/></div>
+<div>So it looks as if the pluginDumpID is the empty string. So we have no crash report for the plugin - or at least, we're not passing up the crash ID.</div>
+<div><br/></div>
+<div>So I don't think this was caused by <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=899347">bug 899347</a>, but probably by the plugin process refactoring that billm and jimm did for e10s.</div>
+<div><br/></div>
+<div>Let's see if I can dig down to the place where we fire the PluginCrashed event and see if I can find out why we don't have a pluginDumpID...</div>
+<div><br/></div>
+<div>Where do we connect the crash with a pluginDumpID? I feel like I should know that already… but I can't find a reference to pluginDumpID anywhere in my notes. Boooo...</div>
+<div><br/></div>
+<div>Ok, dxr it is.</div>
+<div><br/></div>
+<div>Hrm. Killing with kill -ABRT [procid] doesn't apparently give us a plugin dump ID. :(</div>
+<div><br/></div>
+<div>OH FOR FUCKS SAKE. I've gotta set MOZ_CRASHREPORTER=1 for debug builds! BURNED BY THAT AGAIN. KJSBDFKJSHDFL:KJSDL:RUEOP*)#%OIULJDS:KFSDF</div>
+<div><br/></div>
+<div>Ok, I'm able to get the dump created in the single process case, which is what I expected.</div>
+<div><br/></div>
+<div><span style="font-style: normal; font-variant: normal; font-weight: normal; font-family: Menlo;"><span style="font-size: 11px;">PluginModuleChromeParent::ProcessFirstMinidump</span> <span style="font-family: Arial;">seems to be the place that I want to set a breakpoint in the content process. In the single process case, this is where we get the mPluginDumpID.</span></span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Plugin crashes. Both parent and child see ActorDestroy. Parent gets the crash dump information.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Ok, so that's the problem - only the parent has the crash dump information.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">16:57 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: that sounds about right. I'm just wondering if we can get away with the content process never needing the dump ID and just accessing chrome to submit it.</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">16:58 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: I think the only reason that the content process needs that information is so that it can tell the parent process which report to submit</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">16:58 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: ok, that's what I was wondering</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">16:58 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: does it ask it to submit using the content script somehow?</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">16:58 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>yes</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">16:59 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: <a href="https://dxr.mozilla.org/mozilla-central/source/browser/modules/PluginContent.jsm#531" style="word-break: break-all;">https://dxr.mozilla.org/mozilla-central/source/browser/modules/PluginContent.jsm#531</a></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">16:59 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: ok, cool. that should work fine with sandboxing. I guess it should be fine to pass down the dump ID.</strong></div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:00 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: alright - I'll see if I can hook that up</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:00 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>jimm / billm: thanks</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:01 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: well, it might not be easy :-). still thinking.</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:01 </span><span style="color: rgb(255, 0, 255);">(jimm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: hey, sorry, getting side tracked here in a meeting</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:01 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>no worries</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:07 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: I wonder if we should move this stuff out of PluginModuleParent and into PluginModuleChromeParent's ActorDestroy: <a href="https://dxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#1330" style="word-break: break-all;">https://dxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#1330</a></div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: well, we somehow need to notify the child too so that it can put up its UI</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>and then in PluginModuleChromeParent::NotifyPluginCrashed, if there's a PluginModuleContentParent, somehow send a message to it here?:</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span><a href="https://dxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#1384" style="word-break: break-all;">https://dxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#1384</a></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>right</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: it's sending the message that's tricky</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>naive question - is the PluginModuleChromeParent aware of the PluginModuleContentParent?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>judging by your answer, I suspect not</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: no :-)</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:08 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ah hah</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>shoot</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: the PluginModuleContentParent lives in the content process</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>right</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: it links to a PluginModuleChild in the plugin process</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>yep</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>so it's a triangle without a connection between two points.</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(0, 136, 136);">(billm) </span>but there's no link between a PluginModuleChromeParent and a PluginModuleContentParent</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:09 </span><span style="color: rgb(0, 136, 136);">(billm) </span>I think we can do some sort of ID scheme on the PluginModuleChromeParent to make it work</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:10 </span><span style="color: rgb(0, 136, 136);">(billm) </span>and when the PluginModuleContentParent sees a crash, it would send a sync message to ContentParent asking for the crash dump ID for its ID</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:11 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>hmmmm</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:11 </span><span style="color: rgb(0, 136, 136);">(billm) </span>basically, I think we have to have PluginModuleContentParent::ActorDestroy send a message to the ContentParent on a crash to get the dump ID</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:11 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>and that ID would be... the unique ID for the plugin I guess?</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:12 </span><span style="color: rgb(0, 136, 136);">(billm) </span>well, it's a bit tricky. plugins already have an ID, but the ID persists across crashes, which we sort of don't want here</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:12 </span><span style="color: rgb(0, 136, 136);">(billm) </span>the situation I'm worried about is if a plugin crashes twice in quick succession.</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:12 </span><span style="color: rgb(0, 136, 136);">(billm) </span>the plugin will have the same mID in both cases, so we need a new ID that gets regenerated each time it crashes</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:12 </span><span style="color: rgb(0, 136, 136);">(billm) </span>otherwise we'll submit the same crash dump for both</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:13 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>I see</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:13 </span><span style="color: rgb(0, 136, 136);">(billm) </span>although admittedly that's not such a huge deal...</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:13 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>have the PluginModuleChild message back a guid to both parents?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:14 </span><span style="color: rgb(0, 136, 136);">(billm) </span>we can make the ID in the parent process, since it runs code to generate each PluginModuleContentParent</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:14 </span><span style="color: rgb(0, 136, 136);">(billm) </span>let me find it</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:15 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: so when the child wants a new PluginModuleContentParent, it asks for it here: </strong><a href="http://mxr.mozilla.org/mozilla-central/source/dom/ipc/ContentParent.cpp#983" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/dom/ipc/ContentParent.cpp#983</a><strong style="color: rgb(255, 0, 255); font-weight: bold;"> (via ContentParent)</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:15 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: although with async plugin initialization it's a bit different</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:15 </span><span style="color: rgb(0, 136, 136);">(billm) </span>that goes here: <a href="http://mxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#94" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#94</a></div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:16 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: somehow the ID would be generated in there</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:16 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>this is pretty intense stuff</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:17 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>alright</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:17 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>let me see if I can sum up the plan</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:19 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>somewhere in <a href="http://mxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#94" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/dom/plugins/ipc/PluginModuleParent.cpp#94</a>, I generate a unique ID for plugin instantiation that is shared between PluginModuleContentParent and PluginModuleChromeParent. When the plugin crashes, have the PluginModuleContentParent react to ActorDestroy by sending a sync message the ContentParent asking for browser and plugin dump IDs</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:19 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: somehow the ContentParent is going to need to know which PluginModuleChromeParent to talk to to get those</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>but let's pretend that's not too hard</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>ContentParent sends that information back down, the PluginModuleContentParent passes those dump IDs along to the mPlugin instance it's holding on to</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>and everything should just kinda work</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:21 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I think we could just have a static hashtable somewhere that maps an ID to a dump ID. the PluginModuleChromeParent could stash the dump ID there when the crash happens.</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:21 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: then the message handler in ContentParent to return the dump ID could look there</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: is ContentParent the right location for that hashtable?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>er</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>static hashtable you said</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: probably a static member of PluginModuleChromeParent</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>I see, ok</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I'm a little worried about races</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: the XPCOM guidelines for hashtables tells me that I should use a hashtable for small quantities of data... does that no longer hold?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>er</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>should _not_ use</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: hopefully PMChromeParent::ActorDestroy always happens before we get the sync message from the child asking for the dump ID</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: what does it say to use instead?</strong></div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I guess you could use an array</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: <a href="https://developer.mozilla.org/en-US/docs/Detailed_XPCOM_hashtable_guide" style="word-break: break-all;">https://developer.mozilla.org/en-US/docs/Detailed_XPCOM_hashtable_guide</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>dunno if this document is still relevant</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span><a href="https://developer.mozilla.org/en-US/docs/Detailed_XPCOM_hashtable_guide#When_Should_I_Use_a_Hashtable.3F" style="word-break: break-all;">https://developer.mozilla.org/en-US/docs/Detailed_XPCOM_hashtable_guide#When_Should_I_Use_a_Hashtable.3F</a>, specifically</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I dunno. it's true that it won't be efficient, but there's only one per process, so it's not a big deal</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(0, 136, 136);">(billm) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: you can use an array too</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: ok, I think I'm starting to wrap my head around this</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>let me scribble a patch out and we'll fun it up the flagpole and see if anybody salutes</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>er,</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>run. Run it up the flagpole.</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(0, 136, 136);">(billm) </span>:-)</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>billm: thanks!</div>
+</div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Plan of record:</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Somewhere inside where we set up the bridge with PluginModuleChromeParent and PluginModuleContentParent, create a unique identifier (I'll call it ID) for the plugin run. When the plugin crashes, have the PluginModuleContentParent::ActorDestroy send a synchronous message to the ContentParent asking for the dump information associated with the ID.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Here's where we might get a bit race-y.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">When the PluginModuleChromeParent::ActorDestroy gets called, have it stash the browser and plugin dump ID information in a mapping somewhere.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">_Hopefully_ we can guarantee that PluginModuleChromeParent::ActorDestroy gets called first. If that's the case, then the ContentParent can get the browser and plugin dump IDs from the mapping, and send those down to the child. The child can then pass those along to the plugin to dispatch the PluginCrashed event, and the in-content plugin crash UI should just work (it'll just send the dump IDs back up to the parent, and the parent will do the submitting work).</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">So what is the potentiality of races here? Are billm's worries valid?</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Let's test. I'll add breakpoints to both PluginModuleChromeParent::ActorDestroy and PluginModuleContentParent::ActorDestroy and see if I consistently hit the first breakpoint first.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">No - that's not a good test. Because there's the message that the ContentParent needs to respond to for getting the dump IDs back.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">So what I really need to do is have two breakpoints, both in the parent process.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">One at ActorDestroy, and one at the handler for a message from the ActorDestroy in the child process.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;"><span style="font-family: Arial;"><input checked="true" type="checkbox"/><s>Build confidence that we won't race between ActorDestroy message from plugin and get dump IDs message from content.</s> <b>Yeah right - see bsmedberg's comment below.</b></span></span></div>
+<div><input type="checkbox"/><s><a href="http://hg.mozilla.org/mozilla-central/file/c42e7e3bb0a0/dom/plugins/ipc/PluginModuleParent.cpp#l96">When we set up the bridge in the parent process</a>, have a plugin run ID be assigned to it. Somehow pass this to content.</s></div>
+<div><s><br/></s></div>
+<div><s>We need this ID because the PluginModuleChromeParent doesn't have direct access to PluginModuleContentParent. There's no mapping between the two of them that I know of.</s></div>
+<div><s><br/></s></div>
+<div><s>How… how do I get that ID down to PluginModuleContentParent?</s></div>
+<div><br/></div>
+<div><s><input type="checkbox"/>Create some kind of mapping in the parent process from plugin run IDs to browser dump IDs and plugin dump IDs</s></div>
+<div><s><input type="checkbox"/>Hook up RecvGetPluginCrashDumpsIDs to grab and return the items from the mapping (and probably remove the items from the mapping)</s></div>
+<div><s><input type="checkbox"/>See if we can activate some plugin crash tests for e10s?</s></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div>
+<div><s><span style="font-family: Arial;">Questions:</span></s></div>
+</div>
+<ol>
+<li><s><font face="Arial">In the mapping… what happens if the plugin and browser dump IDs are never claimed? Do they just stick around forever? Or is there some kind of expiry?</font></s></li>
+</ol>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><b><span style="font-family: Arial;">HOLD THE PHONE.</span></b></div>
+<div><b><span style="font-family: Arial;"><br/></span></b></div>
+<div><span style="font-family: Arial;">From bsmedberg:</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">"I'm concerned about this plan. I feel like the content process should not have access to the crash ID, and the presentation changes necessary for crash submission in the Firefox UI should be driven by the chrome process.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Discussing how frequent a race might occur seems odd; if we're going to rely on a certain event ordering, we should be able to prove that it will be delivered this way. The order that processes receive pipe error notifications from the OS seems inherently racy. I don't see how you can reason about this ordering given the setup here to build a reliable system."</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Yikes.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">I guess it hadn't occurred to me that broken pipe errors from the OS were causing the IPC library to call the ActorDestroy methods - though it does make the most sense. And we really can't rely on the ordering there from the OS, can we?</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">It sounds like what bsmedberg wants me to investigate is whether or not I can alter the in-content crash reporting UI for plugins such that it doesn't need to rely on the browser / plugin  dump IDs in order to function properly.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Let's investigate that.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><font face="Arial">We'll need some way of mapping the message from a remote browser to a set of plugin / browser dump IDs being held in the parent… does the parent actually get a chance to store that stuff at the chrome JS level? Like, I know the PluginModuleChromeParent hears about it via ActorDestroy, and it parses the minidumps and stuff, but does</font></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Idea - create some unique plugin run ID. When plugin crashes, parent process needs to hear about it, collect dump IDs, and then all windows get told about the crash, passing in the plugin run ID. Every instance of that plugin with a matching plugin run ID gets the crashed plugin UI shown. Once a crash report is submitted, all windows hear about it again, and the crash UI is updated so that multiple reports are not submitted.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Before I continue - I want to know - are there other Gecko apps that make use of the dump IDs in PluginCrashed? Maybe I can just chop them out.</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Doesn't actually look like it does. Very interesting!</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">bsmedberg likes the plan. I think we've got a plan!</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;">Ok, let's throw down a plan:</span></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+<div><span style="font-family: Arial;"><input checked="true" type="checkbox"/>Create some kind of run identifier for every time a new process for a plugin is opened, and somehow make it possible to ask a plugin for that information via some QI magic. Maybe send this down through PluginModuleChromeParent::NP_Initialize? Make sure to do this for both the synchronous and asynchronous case.</span></div>
+<div><br/></div>
+<div>PluginModuleParent::GetSettings is where PluginSettings are populated. Here's where we could pack a static integer that gets bumped.</div>
+<div><br/></div>
+<div>Maybe instead of creating a new run ID, we just use the proc ID?</div>
+<div><br/></div>
+<div>So some cases to think about:</div>
+<div><br/></div>
+<div>OOP plugins disabled. This is actually straight-up not supported in e10s, and even in non-e10s, we don't have to worry about this because if the plugin crashes, it brings down the whole browser. So we can discard this case - this one is hopeless.</div>
+<div><br/></div>
+<div>OOP plugins enabled, e10s disabled. In this case, we have this arrangement:</div>
+<div><br/></div>
+<div><img src="Bug%201110887%20-%20With%20e10s,%20plugin%20crash%20submit%20UI%20is%20broken.resources/906AF7DF-2372-4A2F-8D30-5CE03E0C64ED.png" height="546" width="447"/></div>
+<div><br/></div>
+<div>In the e10s case, we have this arrangement:</div>
+<div><br/></div>
+<div><img src="Bug%201110887%20-%20With%20e10s,%20plugin%20crash%20submit%20UI%20is%20broken.resources/D5C4D2A3-5F78-4FEF-B4B0-335D5C83F795.png" height="685" width="1139"/><br/></div>
+<div><br/></div>
+<div>Handyman's idea is to have the process ID be the run ID. Now, I can do that, except that it exposes something pretty systems-level to JS. I want to see if I can avoid that, so let me put that on the backburner for a sec.</div>
+<div><br/></div>
+<div>So PluginModuleChromeParent… when it calls CallNP_Initialize, PluginModuleChild is going to hear about it...</div>
+<div><br/></div>
+<div>Well, here's the thing. The Plugin(Module|Instance)Child don't really need to know the run ID. It's really only the parents that need to know. Maybe the PluginInstanceParent needs to bea ble to communicate with the PluginModuleContentParent… can it do that?</div>
+<div><br/></div>
+<div>Yeah, it can totally do that.</div>
+<div><br/></div>
+<div>So I think the trick is somehow to have both the PluginModuleChromeParent and PluginModuleContentParent on the same page as to what the run ID is.</div>
+<div><br/></div>
+<div>And I mean, handyman's right - that could be the process ID.</div>
+<div><br/></div>
+<div>But I am kinda reluctant (maybe needlessly so) to expose something so low-level to the chrome level.</div>
+<div><br/></div>
+<div>
+<div>Note that the plugin ID is _almost_ what we want, except that it persists from run to run. :/ The plugin ID is associated with a tag, that exists outside of the lifetime of a plugin run. In other words, if we were to crash, and re-instantiate a plugin of the same type, it'd share IDs.</div>
+<div><br/></div>
+<div>So I need something more than that - something that probably exists outside of nsPluginTag's, but rather in PluginInstanceParent's - or, more likely, PluginModule(Chrome|Content)Parent's.</div>
+</div>
+<div><br/></div>
+<div>So I've got a lead here. It looks like there is already some kind of association made between plugin IDs and process IDs - it seems to go like this:</div>
+<div><br/></div>
+<div>PluginModuleChromeParent will call sendAssociatePluginId if there exists an mContentParent (so only in the e10s case, I guess). That goes through ContentParent.</div>
+<div>ContentChild receives the call in RecvAssociatePluginId, and calls a static method - plugins::PluginModuleContentParent::AssociatePluginId, passing in the plugin ID and the process ID. That calls into PluginModuleMapping::AssociateWithProcessId...</div>
+<div><br/></div>
+<div>A PluginModuleMapping is an element inside a circularly linked list. Huh.</div>
+<div><br/></div>
+<div>What is the lifetime of a PluginModuleMapping? According to the class definition:</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">/**</span></div>
+<div><span style="font-family: 'Andale Mono';">* Objects of this class remain linked until either an error occurs in the</span></div>
+<div><span style="font-family: 'Andale Mono';">* plugin initialization sequence, or until</span></div>
+<div><span style="font-family: 'Andale Mono';">* PluginModuleContentParent::OnLoadPluginResult has completed executing.</span></div>
+<div><span style="font-family: 'Andale Mono';">*/</span></div>
+<div><span style="font-family: 'Andale Mono';">class PluginModuleMapping : public PRCList</span></div>
+<div><br/></div>
+<div>So maybe it gets destroyed once we're up and running. Is that true?</div>
+<div><br/></div>
+<div>I can find out by putting a breakpoint in the destructor, and then trying to load a plugin.</div>
+<div><br/></div>
+<div>Yeah, it goes away after the load has finished. So that mapping is not useful for me right now.</div>
+<div><br/></div>
+<div>But that's OK! Like, if I just pass the run ID along with this AssociateWithProcessId, then the PluginModuleContentParent instance can hold onto it? Maybe?</div>
+<div><br/></div>
+<div>And then I can extract it and hold onto it in PluginModuleContentParent::Initialize after the Resolve?</div>
+<div><br/></div>
+<div>ehsan's idea:</div>
+<div>In the child when you receive a notification that the plugin has crashed, put up the crash UI immediately. The crash UI may or may not contain crash report UI. By the time you receive the crash report information that the plugin has crashed, you put up the crash report UI. Otherwise you just wait on that bit, and the message handler for the thing that tells the child that some plugin has crashed needs to have a list of plugins of that type that has crashed. If you receive the notification from the parent, and we don't have the UI, we hold on to the data and wait until we show the PluginCrashed notification and then chuck it. Otherwise, just show the plugin crash report UI and never hold onto that.</div>
+<div><br/></div>
+<div>Let me try to reformulate this.</div>
+<div><br/></div>
+<div>Two cases:</div>
+<div><br/></div>
+<div>ActorDestroy is called in PluginModuleChromeParent first. PluginModuleContentParent has not heard about it yet. We know the type of the plugin that has crashed, and we process minidumps if we can. We then fire an observer notification, sending out the name of the plugin that has crashed, and the dump ID information.</div>
+<div><br/></div>
+<div>Browser front-end sees the notification, and immediately tells all remote browsers "plugin with type X has crashed". Sends a message down to the content processes.</div>
+<div><br/></div>
+<div>I suppose it's possible that the content process, at this point, does not know that the plugin with type X has died. PluginContent.jsm hears those messages, and checks an internal WeakSet to see if there are any &lt;object>'s with that pluginID that have reported PluginCrashed. If not, hold on to the information.</div>
+<div><br/></div>
+<div>Eventually, we should see PluginCrashed events come up from the DOM for each &lt;object> </div>
+<div><br/></div>
+<div>Q: In this scenario, how long should the PluginCrashed instances hold on to the crash info before getting rid of it? :/ It wouldn't know unless there was some process wide observer notification saying, "I fired all PluginCrashed events", so we could drop the data.</div>
+<div><br/></div>
+<div>OK, talked to billm. He feels like run ID is just safer. It's bulletproof. Yes, pid might work 99.9999999% of the time, but run ID will work 100% of the time. So let's do it.</div>
+<div><br/></div>
+<div>Slight alteration though - instead of extracting the PluginModuleChromeParent and setting run ID in it in PluginModuleContentParent::Initialize, just instantiate the PluginModuleContentParent right away when we create the mapping, and set the run ID on it there. Maybe pass it into the constructor.</div>
+<div><br/></div>
+<div>Huh… so I might have gotten the ordering wrong. It looks as if the bridging occurs _after_ the connection has been set up in the parent process to the plugin process - it's not simultaneous. Good to know.</div>
+<div><br/></div>
+<div>Ah, so the AssociatePlugin stuff never gets called for the synchronous plugin loading case. :/ I have to find a different solution there...</div>
+<div><br/></div>
+<div>This AssociatePlugin stuff might be all useless. Hrm...</div>
+<div><br/></div>
+<div>Actually, no. I think I need it for the async case. Garrr….</div>
+<div><br/></div>
+<div>Both async and sync plugin instantiation calls LoadPlugin through PContent.ipdl. Maybe it'd be better if I set run ID there instead of all of this async monkeying about.</div>
+<div><br/></div>
+<div>Ah, heh, and RecvLoadPlugin calls into mozilla::plugins::SetupBridge, which is where billm initially suggested I set the ID in the first place. FULL CIRCLE, BABY.</div>
+<div><br/></div>
+<div>Yeah, I think this is going to work. I really don't need to wait for the plugin process to gets its initialization done, which is what the AssociatePluginFoo stuff was all about.</div>
+<div><br/></div>
+<div>Note - mozilla::plugins::SetupBridge is re-entrant.</div>
+<div><br/></div>
+<div>Ok, the dummy thing I wrote seems to be acceptable by billm / aklotz. Let's move on.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Expose the runID via nsIObjectLoadingContent</div>
+<div><br/></div>
+<div>If I can get this, I think everything else is mostly gravy.</div>
+<div><br/></div>
+<div>Now… how the hell do I get from an nsObjectLoadingContent to the PluginModuleContentParent?</div>
+<div><br/></div>
+<div>Like, I can get from an nsObjectLoadingContent to an nsPluginInstanceOwner, and I can get from a PluginInstanceParent to a PluginModuleContentParent.</div>
+<div><br/></div>
+<div>But how do I get from an nsPluginInstanceOwner to the PluginInstanceParent? Or is there another path?</div>
+<div><br/></div>
+<div>Current path I can think of seems to be through this NPP struct that npapi.h seems to define. We static_cast an PluginInstanceParent to a PluginDataResolver* and set it to the instance's NPP pdata… or something. This is so fucked down here.</div>
+<div><br/></div>
+<div>Hm… apparently, nsNPAPIPluginInstance can call into PluginModuleParent as its "library". Ok...</div>
+<div><br/></div>
+<div>Yes - PluginModuleParent subclasses PluginLibrary.</div>
+<div><br/></div>
+<div>I could go from nsObjectLoadingContent.cpp, and reach into mInstanceOwner to get the nsNPAPIPluginInstance...</div>
+<div><br/></div>
+<div>And then that could be extended to ask its PluginLibrary for a run ID. In the single process case, we can just make that return NS_ERROR_NOT_IMPLEMENTED or something.</div>
+<div><br/></div>
+<div>jimm likes this plan! I think I can make this work.</div>
+<div><br/></div>
+<div>This NS_ERROR_NOT_IMPLEMENTED thing - I want to return that in the event that the plugin is loaded in process. Can I easily detect that in nsObjectLoadingContent? Yes - I have to get at the Library and check library->IsOOP.</div>
+<div><br/></div>
+<div>Sweet! I can totally do this! Let's start by adding the member to nsIObjectLoadingContent.idl.</div>
+<div><br/></div>
+<div>Done! Now I can forward down to PluginLibrary… lots of hops here. *sigh*.</div>
+<div><br/></div>
+<div>I've changed the GetRunId method in PluginModuleParent to return an nsresult instead, that was it can be an implementation of the method for PluginLibrary, and the PluginLibrary for the  in-process case can just return NS_ERROR_NOT_IMPLEMENTED.</div>
+<div><br/></div>
+<div>HOLY SHIT that was hard. I had to like… add stuff to this webidl file otherwise it wouldn't show up when I QI'd a Flash object… bah. And then I had to implement _yet another_ GetRunId in nsObjectLoadingContent that calls the XPCOM GetRunId. Kind of a monkey-show here.</div>
+<div><br/></div>
+<div>And I get NS_ERROR_FAILURE, because at the time I'm interested in the run ID, the nsPluginInstanceOwner has gone away. DAMN IT.</div>
+<div><br/></div>
+<div>GOD DAMN IT.</div>
+<div><br/></div>
+<div>So I guess maybe nsObjectLoadingContent should get the run ID on instantiation - like maybe in InstantiatePluginInstance. We get the run ID, store it in a local member on the nsObjectLoadingContent… and a bool for whether or not we were able to successfully get the run ID. Jeebus.</div>
+<div><br/></div>
+<div>Ok, got this to work finally.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Send an observer notification when a plugin crashes</div>
+<div><br/></div>
+<div>This already happens! The notification is called plugin-crashed, and passes a property bag with the pluginDumpID and the browserDumpID. I should pass the run ID here too.</div>
+<div><br/></div>
+<div>Then I need somebody to hold on to it...</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Have each window listen for that observer notification to send a message down to every browser window. Pass down the run ID and whether or not we can submit a crash report.</div>
+<div><br/></div>
+<div>And this probably needs to be in toolkit. :/</div>
+<div><br/></div>
+<div>Wait. No. It'd only need to be in toolkit if I was removing PluginCrashed. I'm only _considering_ removing PluginCrashed. If I don't, then anybody who consumes PluginCrashed will still work.</div>
+<div><br/></div>
+<div>So I wonder if PluginCrashReporter code could go into the TabCrashReporter.jsm file, and then rename that thing to CrashReporters.jsm.</div>
+<div><br/></div>
+<div>Then we have a PluginCrashReporter that gets initted if MOZ_CRASHREPORTER.</div>
+<div><br/></div>
+<div>On init, it registers a global observer for the plugin-crashed notification. When it sees the plugin crashed notification, it maps run IDs to plugin/browser dump IDs.</div>
+<div><br/></div>
+<div>We have gPluginHandler add an observer for the plugin crashed event as well, and when we see it, we send a message down to content with the following information:</div>
+<div><br/></div>
+<div>1) bool for whether or not to show the crash report interface</div>
+<div>2) run ID</div>
+<div><br/></div>
+<div>On submit, pass up information with run ID. This should call into the PluginCrashReporter, which will submit the report.</div>
+<div><br/></div>
+<div>Only need to do this in the parent process.</div>
+<div><br/></div>
+<div>I feel… I feel like I need to get a better sense of how the plugin crash UI works and what it's capabilities are before I continue. Let's do a quick study of that.</div>
+<div><br/></div>
+<div>pluginInstanceCrashed in PluginContent.jsm is where most of the magic happens, it seems...</div>
+<div><br/></div>
+<div>I see - so the event gets "submittedCrashReport" set on it if we automatically sent the crash report - that way we don't show the crashed UI again.</div>
+<div><br/></div>
+<div>Ah… a plugin might not be represented by "window-global" plugins. I might have to think about that. Adding TODO.</div>
+<div><br/></div>
+<div>The plugin crashed UI seems to have several states:</div>
+<div><br/></div>
+<ol>
+<li>submitted</li>
+<li>noSubmit</li>
+<li>noReport</li>
+<li>please</li>
+</ol>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>What about window-global plugins? Do we expose run ID on those? How?</div>
+<div><br/></div>
+<div>Ah, ok, so these are things like the Adobe PDF reader plugin that take up the entirety of the browser content area. What do we currently do when those crash? Let's test.</div>
+<div><br/></div>
+<div>OK, so every NPAPI plugin exposes a nsIObjectLoadingContent.</div>
+<div><br/></div>
+<div>It's Gecko Media Plugins that I need to worry about / test.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Determine what to do about Gecko Media Plugins</div>
+<div><br/></div>
+<div><a href="https://wiki.mozilla.org/GeckoMediaPlugins">On Gecko Media Plugins.</a></div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=957928">Meta bug.</a></div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1009760">Bug that added crash reporting capabilities for GMP's.</a></div>
+<div><br/></div>
+<div>Found the test Gecko Media Plugin under obj/dist/bin/gmp-fake/1.0/</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:19 </span><span style="color: rgb(255, 68, 136);">(jesup) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: </strong><a href="https://mozilla.github.io/webrtc-landing/pc_test.html" style="word-break: break-all;">https://mozilla.github.io/webrtc-landing/pc_test.html</a><strong style="color: rgb(255, 0, 255); font-weight: bold;"> and check "Require H.264"</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:20 </span><span style="color: rgb(255, 68, 136);">(jesup) </span>that will use GMP for the OpenH264 plugin</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:20 </span><span style="color: rgb(255, 0, 136);">(felipe) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: actually when I worked on that bug the machinery was not fully set up yet, so I don't know that myself either. We implemented the bug assuming the platform would send the expected notification on a crash</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:20 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>interesting</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">13:20 </span><span style="color: rgb(255, 68, 136);">(jesup) </span>there's also a test of the fake GMP plugin in dom/media/tests/mochitest</div>
+</div>
+<div><br/></div>
+<div>This works to reproduce the issue and to have a GMP open in a plugin-container, but note that this must be done outside of <b>e10s</b>!</div>
+<div><br/></div>
+<div>I assume that GMP's never display inline like Flash or Java. Assuming this is true, then when a GMP plugin-container crashes, the main process will have the plugin-crashed observer notification called on it. If that observer notification can tell us that it was a GMP that crashed, we know that we only need to show a notification bar and do not need to notify content about the problem. So we can skip sending the message down with the run ID - the run ID is actually not useful in this case</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Verify that GMP never displays inline</div>
+<div><br/></div>
+<div>Yep, confirmed.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">:15 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>jesup: hey - can I assume that GMP's will never display inline - like, no type of GMP is rendered in layout in an &lt;object> like Flash? That they're all "behind the scenes" helping media elements like &lt;video> and &lt;audio>?</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">14:16 </span><span style="color: rgb(255, 68, 136);">(jesup) </span>yes.  Deep in the media pipelines</div>
+</div>
+<div><br/></div>
+<div><b><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1057484">Drew explains everything here.</a></b></div>
+<div><br/></div>
+<div>NPAPI plugin case</div>
+<div><input checked="true" type="checkbox"/>Have plugin-crashed notification pass run ID</div>
+<div><input checked="true" type="checkbox"/>Have browser-plugins' pluginCrashed hear the observer notification, and message all browsers of the window.</div>
+<div><br/></div>
+<div>So, another wrinkle. The binding that gets applied to show the crashed plugin UI isn't something that PluginContent sets up, but is something that the nsObjectLoadingContent does by making a pseudoselector "moz-handler-crashed" match. So by the time the parent processes the minidump and sends down the message to the children, we cannot be certain that all plugins with a matching run ID are in the crashed state. At least, I don't think we can. :/</div>
+<div><br/></div>
+<div>What about ehsan's idea? Let's think about that for a second.</div>
+<div><br/></div>
+<div>nsIObjectLoadingContent.displayedType if nsIObjectLoadingContent.PLUGIN_CRASHED can tell us if the plugin is actually crashed or not.</div>
+<div><br/></div>
+<div>So parent sounds down message… we go through all plugins that have the same run ID. If we find some that are not in the PLUGIN_CRASHED state, stash our plugin information in a Map somewhere along with a WeakMap of the plugins that haven't crashed. When we see the PluginCrashed events, remove plugin from WeakMap (if empty, destroy mapping).</div>
+<div><br/></div>
+<div>On pagehide, also clear mapping.</div>
+<div><br/></div>
+<div>Making progress!</div>
+<div><br/></div>
+<div><img src="Bug%201110887%20-%20With%20e10s,%20plugin%20crash%20submit%20UI%20is%20broken.resources/096BF34B-9A29-468F-9A26-05BB22E6E3C7.png" height="758" width="773"/></div>
+<div><br/></div>
+<div>I only seem to get the UI if I set a breakpoint in PluginContent.jsm in the content process though, which makes me think we've got something kinda race-y here.</div>
+<div><br/></div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">It looks like there are times where the child receives the crash message from the parent, and the nsDOMWindowUtils::GetPlugins method returns nothing, because the plugin object has already unbound itself from the tree. I need to investigate that.</span></div>
+<div><br/></div>
+<div>So wait, that happens <u>after</u> the PluginCrashed event? What's the order in this case?</div>
+<div><br/></div>
+<div>Let's add some logging, since a debugger and a debug build seems to screw everything up.</div>
+<div><br/></div>
+<div>Huh. Ok. So what's the plan there?</div>
+<div><br/></div>
+<div>Well, what's the order of things?</div>
+<div><br/></div>
+<div>Oh, interesting… in this last case, the PluginCrashed event fired first, and then we processed the messages from the parent.</div>
+<div><br/></div>
+<div>But we processed TWO messages from the parent. What? Really? Oh… I guess it's once per tab, and I had two tabs open. Can I confirm that?</div>
+<div><br/></div>
+<div>Yes, that is the case.</div>
+<div><br/></div>
+<div>So this is kinda bad. The PluginCrashed event has happened, but by the time we process the message from the parent, nsIDOMWindowUtils::GetPlugins returns us nothing (because the plugins have been torn out of the tree, I guess?).</div>
+<div><br/></div>
+<div>Woo! This seems to work! Great great great!</div>
+<div><input checked="true" type="checkbox"/>Make PluginContent.jsm special case the GMP case to work the old way.</div>
+<div><input checked="true" type="checkbox"/>Re-introduce mechanism that makes sure we don't show the plugin crashed notification bar if there's any one plugin instance that is large enough to show the inline UI.</div>
+<div><input checked="true" type="checkbox"/>Rename TabCrashReporter.jsm to… ContentCrashReporters.jsm? And then have that host TabCrashReporter and PluginCrashReporter</div>
+<div><input checked="true" type="checkbox"/>Have PluginCrashReporter (and I guess TabCrashReporter?) initialize in nsBrowserGlue.js?</div>
+<div><input checked="true" type="checkbox"/>Have PluginCrashReporter listen for the plugin-crash observer notification, and stash runId mapped to browser / plugin dump IDs</div>
+<div><input checked="true" type="checkbox"/>When submitReport comes up from any browser, pass it off to PluginCrashReporter. Have the PluginCrashReporter tell all navigator:browser windows message managers that a crash report has been submitted for such and such a runId.</div>
+<div><input checked="true" type="checkbox"/>Have PluginContent.jsm listen for that message, and update all plugins with matching runIds to the "crash report sent" state.</div>
+<div><input checked="true" type="checkbox"/>Deal with the invisible plugin crash case</div>
+<div><input checked="true" type="checkbox"/>How come the crashed plugins aren't being updated once I submit the report?</div>
+<div>This was just some silliness on my part - I was referring to some variables with the wrong names.</div>
+<div><input checked="true" type="checkbox"/>Find out why I can't type anything in the crash reporter UI comment input. :/</div>
+<div>This also appears to be the case for single process Firefox, which is a bit odd. Is this reproducible in release?</div>
+<div><br/></div>
+<div>HOLY SMOKES. This appears to be reproducible up to beta, and is therefore maybe a big deal. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1147521">I've filed this bug.</a></div>
+<div><br/></div>
+<div>Looks like smichaud is on the case. Until he has it fixed, I guess I should move on.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Rename runId to runID - hopefully this doesn't bite me, and somebody asks for it to be put back.</div>
+<div><input checked="true" type="checkbox"/>Move optInCB stuff to browser-plugins.js</div>
+<div><input checked="true" type="checkbox"/>Do self review pass</div>
+<div><input checked="true" type="checkbox"/>Fix up review comments</div>
+<div><input checked="true" type="checkbox"/>Split out Run ID stuff to its own bug and get review now. Split this out to <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1148012">bug 1148012</a>.</div>
+<div><input checked="true" type="checkbox"/>Start testing various cases and get patches out of WIP</div>
+<div><input checked="true" type="checkbox"/>Test the full-page plugin case (like PDF viewer)</div>
+<div>
+<div><input checked="true" type="checkbox"/>Is there any pocket of time that PluginCrashed will have fired for all plugins on documents / subdocuments, but that nsIDOMWindowUtils::GetPlugins can return an empty array? Example - during binding switch? <b>bsmedberg says no.</b></div>
+<div><br/></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">14:51 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>bsmedberg: hey - when plugins crash, is there any point in time where the &lt;object> or &lt;embed> is removed from the DOM before it's replaced with the crashed plugin sad-Lego block view? Am I correct in understanding that it remains in the DOM, but that we attach an XBL binding based on some pseudo-selector?</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">14:56 </span><span style="color: rgb(0, 136, 0);">(bsmedberg) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: it is not removed from the DOM</strong></div>
+</div>
+</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Write a new test to test non-determinism.</div>
+<div><br/></div>
+<div>Ugh, this was pretty hacky. It does the job but maaaaaan is it hacky.</div>
+<div><br/></div>
+<div>Let me explain.</div>
+<div><br/></div>
+<div>The problem here is that the code in PluginContent.jsm is dependant on how the &lt;object> or &lt;embed> element is expected to behave during a crash. Specifically, the &lt;object> or &lt;embed>, in the event of a crash, will match the embed:-moz-handler-crashed, applet:-moz-handler-crashed, or object:-moz-handler-crashed pseudoselector, which attaches the pluginProblem binding (the sad lego brick thing).</div>
+<div><br/></div>
+<div>The thing is… it's really hard to mock things out so that the object matches the pseudoselector. And I can't seem to apply the binding manually. It seems I must forcibly crash the plugin in order to show the plugin problem binding.</div>
+<div><br/></div>
+<div>There is a window of time I'm trying to capture here. The window of time is after the pseudoselector matches, but before the PluginCrashed event fires.</div>
+<div><br/></div>
+<div>The problem is that I can't get the pseudoselector to match without firing the PluginCrashed event. So what I do is I cause the plugin to crash to have it match the pseudoselector, allow the PluginCrashed event to fire, and maybe the message to come down from the parent non-deterministically… and once that's all done, I rewind the tape a bit. I reset things so that the pluginProblem binding is in the state it was before it saw PluginCrashed or the message from the parent.</div>
+<div><br/></div>
+<div>Then in one test, I fire the PluginCrashed event and then send the message from the parent, and do the reverse order in my other test.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=51e4ce289284">Try push for test.</a></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Ensure crash reports being submitted are useful</div>
+<div><br/></div>
+<div>This took some doing, but on OS X, it looks like on a build, we get a test plugin created at objdir/dist/plugins/Test.plugin. Just copy that into ~/Library/Internet Plug-ins/ and then go to <a href="http://people.mozilla.org/~tmielczarek/testplugincrash.html">http://people.mozilla.org/~tmielczarek/testplugincrash.html</a> to test. Apparently, kill -SIGABRT doesn't produce useful crash dumps.</div>
+<div><br/></div>
+<div><input type="checkbox"/><s>Update plugin crash tests? Maybe I can make this limp along for the non-e10s case.</s></div>
+<div>
+<div>
+<div>With jimm's patch from <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1145208">bug 1145208</a>, I can run the tests under browser/base/content/test/plugins.</div>
+<div><br/></div>
+<div>In the non-e10s case, this is what fails:</div>
+<div><br/></div>
+<div>browser/base/content/test/plugins/browser_pluginnotification.js</div>
+<div><br/></div>
+<div>In the e10s case, this is what fails:</div>
+<div><br/></div>
+<div>browser/base/content/test/plugins/browser_bug812562.js</div>
+<div>browser/base/content/test/plugins/browser_pluginnotification.js</div>
+<div>browser/base/content/test/plugins/browser_plugins_added_dynamically.js</div>
+<div>browser/base/content/test/plugins/browser_plugins_added_dynamically.js</div>
+<div>browser/base/content/test/plugins/browser_plugins_added_dynamically.js</div>
+<div>browser/base/content/test/plugins/browser_CTP_crashreporting.js</div>
+<div>browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js passes, but is probably somehow busted.</div>
+<div>browser/base/content/test/plugins/browser_pluginCrashCommentAndURL.js is busted.</div>
+</div>
+<div><br/></div>
+<div>I should update at least</div>
+<div>browser/base/content/test/plugins/browser_CTP_crashreporting.js</div>
+<div>browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js</div>
+</div>
+<div>browser/base/content/test/plugins/browser_pluginCrashCommentAndURL.js</div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1148541">I think I can maybe spin this out to a separate bug.</a></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Make sure test from <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1046052">this bug</a> still works for non-e10s.</div>
+<div><br/></div>
+<div>Hm. I appear to have broken this. Let's investigate.</div>
+<div><br/></div>
+<div>Ah, I need to handle old-style crash reporting for non-e10s for the GMP plugin crash case. Done.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Ensure all NPAPI plugin crash tests work for non-e10s</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=51e4ce289284">My try push has some failures. Time to dive in and categorize!</a></div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_CTP_crashreporting.js | submitStatus data should match - Got submitting, expected success</div>
+<div><br/></div>
+<div>At Mossop's suggestion, I've got a patch in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1144797">this bug</a> to add some handy functions to the ContentTask scope for things like polling. That'll be useful for rewriting these tests.</div>
+<div><br/></div>
+<div>Ok, done. I've created this ContentTestUtils.jsm, and a promiseCondition method. That will be useful.</div>
+<div><br/></div>
+<div>That was pretty straightforward! Ok! Great!</div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js | Waited too long for the plugin-crashed notification bar</div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js | Successfully got the plugin-crashed notification bar</div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js | Infobar was shown.</div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_globalplugin_crashinfobar.js | Test timed out - expected PASS</div>
+<div><br/></div>
+<div>Woo! That was also pretty straight-forward. ContentTask is awesome. So is BrowserTestUtils.</div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_pluginnotification.js | Uncaught exception - TypeError: Argument 1 of Document.getAnonymousElementByAttribute is not an object</div>
+<div><br/></div>
+<div>This looks like jimm just needs to finish refactoring this test - I can ignore this.</div>
+<div><br/></div>
+<div>TEST-UNEXPECTED-FAIL | browser/base/content/test/plugins/browser_CTP_zoom.js | Uncaught exception - TypeError: Argument 1 of Document.getAnonymousElementByAttribute is not an object. (Debug builds and Win XP)</div>
+<div><br/></div>
+<div>This looks like jimm just needs to finish refactoring this test - I can ignore this.</div>
+<div><br/></div>
+<div>Timeout on Win XP...</div>
+<div><br/></div>
+<div>PROCESS-CRASH | Main app process exited normally | application crashed [@ libnptest.so + 0x479d]</div>
+<div>PROCESS-CRASH | Main app process exited normally | application crashed [@ libnptest.so + 0x479d]</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Figure out future plan for PluginCrashed event. Just leave it for other XUL apps? Is that necessary? I think I'm going to need this for the GMP case, since it's the only way for now that PluginContent.jsm can be informed of which window is using a GMP (since there's no way of iterating GMP's in a window+descendants like there is for NPAPI plugins).</div>
+<div><input checked="true" type="checkbox"/>Address Mossop's review comments in my non-determinism test patch</div>
+<div><br/></div>
+<div>jimm's test updating patch is still WIP, and it's only a +, so I don't think I should block on it. I've rebased away from it.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=22a719ca5c0e">Try push.</a></div>
+<div><br/></div>
+<div>Huh. So I've got two PROCESS CRASH errors in the log. I suspect that, for some reason, the crashes caused by browser_pluginCrashReportNonDeterminism.js aren't "expected". Weird. Can I prove that?</div>
+<div><br/></div>
+<div>Yes. That appears to be the case. Now I've added an observer to just delete the minidumps.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Address joshmoz's comments and jimm's comments</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4792f0f8926e">New try push</a></div>
+<div><br/></div>
+<div>Hm… intermittent orange?</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Plug intermittent orange.</div>
+<div><br/></div>
+<div>Maybe fixed by checking statusDiv exists first. <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=643849abbf44">Try push.</a></div>
+<div><br/></div>
+<div>Gosh darn it. Need to change promiseCondition to waitForCondition. *sigh*</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec3827fc73ae">Another try push.</a></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Audit states to make sure we're using the right ones.</div>
+<div><br/></div>
+<div>States:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>noReport -> .msgNoCrashReport -> "No report available."</div>
+<div><input checked="true" type="checkbox"/>please -> .msgPleaseSubmit -> "Send crash report"</div>
+<div><input checked="true" type="checkbox"/>noSubmit -> .msgNotSubmitted -> "Crash reporting disabled."</div>
+<div><input checked="true" type="checkbox"/>submitting -> .msgSubmitting -> "Sending report…"</div>
+<div><input checked="true" type="checkbox"/>success -> .msgSubmitted -> "Crash report sent."</div>
+<div><input checked="true" type="checkbox"/>failed -> .msgSubmitFailed -> "Submission failed."</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Do I have to support submittedCrashReport on the PluginCrashed event?</div>
+<div><br/></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">16:56 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>bsmedberg: do you know if Firefox was ever configurable so that it'd send plugin crash reports automatically, and if we still support that?</div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(0, 136, 0);">(bsmedberg) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I don't think it was ever configurable that way</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(0, 136, 0);">(bsmedberg) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: unless perhaps for some special testing configuration</strong></div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>bsmedberg: ok, good to know, thanks</div>
+</div>
+<div><br/></div>
+<div>Looks like that's a <b>NO</b>.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f1149b035ebb">Try push</a></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=89dd750eb506">Another try push to see if those oranges go away</a> (I don't think they're mine).</div>
+<div><br/></div>
+<div>Awwwww yeah - no orange! Land ho!</div>
+<div><br/></div>
+<div>SHIT. Bounced. WTF?</div>
+<div><br/></div>
+<div>Looks like a Linux-only orange. I've retriggered the jobs on the original push here: <a href="https://treeherder.mozilla.org/#/jobs?repo=fx-team&amp;revision=238352c73015">https://treeherder.mozilla.org/#/jobs?repo=fx-team&amp;revision=238352c73015</a> to see if they are intermittent.</div>
+<div><br/></div>
+<div>I've also spun up a debug build on my local VM.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Address intermittent orange</div>
+<div><br/></div>
+<div>
+<div>It looks like the content process is crashing...</div>
+<div><br/></div>
+<div>Here's a screenshot of the error occurring from the test machine:</div>
+<div><br/></div>
+<div><a href="http://i.imgur.com/Tf7xbfb.png">http://i.imgur.com/Tf7xbfb.png</a></div>
+<div><br/></div>
+<div>This seems to be the most interesting part of the log:</div>
+<div><br/></div>
+<div>[Parent 22296] WARNING: '!aObserver', file /media/Projects/mozilla/mozilla-central/xpcom/ds/nsObserverService.cpp, line 287</div>
+<div>[Child 22926] ###!!! ABORT: X_CreateGC: BadDrawable (invalid Pixmap or Window parameter); sync; id=0x4400008: file /media/Projects/mozilla/mozilla-central/toolkit/xre/nsX11ErrorHandler.cpp, line 157</div>
+<div>#01: X11Error (/media/Projects/mozilla/mozilla-central/toolkit/xre/nsX11ErrorHandler.cpp:158)</div>
+<div>[Child 22926] ###!!! ABORT: X_CreateGC: BadDrawable (invalid Pixmap or Window parameter); sync; id=0x4400008: file /media/Projects/mozilla/mozilla-central/toolkit/xre/nsX11ErrorHandler.cpp, line 157</div>
+<div>Hit MOZ_CRASH() at /media/Projects/mozilla/mozilla-central/memory/mozalloc/mozalloc_abort.cpp:33</div>
+<div><br/></div>
+<div>So we're aborting because of a bad drawable, it seems.</div>
+<div><br/></div>
+<div>I'm going to disable this test for Linux for now, and file a follow-up to investigate and re-enable.</div>
+</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Re-land</div>
+<div><br/></div>
+<div><b>Follow-ups</b></div>
+<div><br/></div>
+<div><input type="checkbox"/><s>File a follow-up to consider merging PluginCrashReporter and TabCrashReporter?</s></div>
+<div>Nah, on second thought, they do two completely different things.</div>
+<div><br/></div>
+<div><input type="checkbox"/><s>File follow-up to rename PluginContent.jsm's pluginData and pluginCrashData to NPAPIPluginData and NPAPIPluginCrashData</s> I think this is only important once we start to work on GMP crash reporting, and assumes that we don't use the same run ID root for GMP's. I added <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1146955#c1">this comment</a> to remind me to think about this.</div>
+<div><input checked="true" type="checkbox"/>File follow-up to remove submittedCrashReport from PluginCrashed event - filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1153265">bug 1153265</a></div>
+<div><input checked="true" type="checkbox"/>File follow-up to retry submitting a crash report some number of times - filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1153272">bug 1153272</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to deal with the case where a visible plugin crashes at the same time as an invisible plugin in a different process. It's edge-casey, but that first one might very well hide the notificationbar for the second. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1153276">Filed bug 1153276</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to re-enable browser_pluginCrashReportNonDeterminism.js on Linux and investigate X_CreateGC: BadDrawable bug. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1152811">Bug 1152811</a></div>
+<div><br/></div>
+<div><b><span style="font-size: 18px;">GMP</span></b></div>
+<div><br/></div>
+<div>
+<div>So, below, I'm worrying about GMP for WebRTC and EME. Is it possible to fix the crash reporting UI for e10s for NPAPI plugins while not worrying about the GMP case until later?</div>
+<div><br/></div>
+<div>How would that work?</div>
+<div><br/></div>
+<div>Both of the GMP cases rely on the gmp-plugin-crashed observer notification firing in the same process that content is running in, which is not going to work in e10s land, but I don't need to worry about that. It should still work properly for the non-e10s case, assuming the PluginCrashed event handler doesn't change behaviour too much.</div>
+<div><br/></div>
+</div>
+<div>Ok, I think I can do that. I should file a bug for the GMP crashing case and just move on.</div>
+<div><br/></div>
+<div><br/></div>
+<div>Everything below is for the GMP case, which I've determined can be solved separately in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1146955">bug 1146955</a>. I just have to make sure my solution in this bug doesn't break the non-e10s GMP crash report UI.</div>
+<div><br/></div>
+<div><span style="font-size: 18px;"><b>GMP + WebRTC case</b></span></div>
+<div><br/></div>
+<div><img src="Bug%201110887%20-%20With%20e10s,%20plugin%20crash%20submit%20UI%20is%20broken.resources/BFE380C3-36CD-4298-B7F6-B41333468A81.png" height="218" width="1664"/></div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1057908">Here's the bug for GMP e10s support.</a></div>
+<div><br/></div>
+<div>It's pretty far along. I think I might need the "runId" thing for GMP's as well, but this might be far simpler because PGMPService.ipdl's LoadGMP will return a processID - I can probably pass a run ID back too.</div>
+<div><br/></div>
+<div>Node ID isn't what we want. According to <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1060179#c3">this</a>, node ID distinguishes as follows:</div>
+<div><br/></div>
+<div>"... site A.com running EME in an &lt;iframe> from CDN.com will be considered a different node id than B.com running EME in an &lt;iframe> from CDN.com."</div>
+<div><br/></div>
+<div>GMPProcessParent might need to be able to get at our static run ID counter. Is there some common place where it makes sense for GMP and PluginModuleChromeParent to get the static counter? Or should they not use the same counter?</div>
+<div><br/></div>
+<div>Since this is blocked on e10s support for GMP, should I spin this out to a separate bug?</div>
+<div><br/></div>
+<div>Hm. Maybe I should just base my stuff on top of what's going on in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1057908">bug 1057908</a>, since that's likely to land soon.</div>
+<div><br/></div>
+<div>So, facts:</div>
+<div><br/></div>
+<ol>
+<li>GMP already uses the PluginCrashed event, but sets the gmpPlugin property to true on it to differentiate and are dispatched on the document itself.</li>
+<li>There doesn't seem to be a way of iterating GMP's for some document like there is for NPAPI plugins. I guess that makes sense - GMP's are deep in the plumbing and aren't actually represented in the DOM anywhere</li>
+</ol>
+<div><br/></div>
+<div>Suppose we have each GMP process have a gmpRunId. On crash, parent gets observer notification, right?</div>
+<div><br/></div>
+<div>If so, send message down to the child saying, "Hey yo, we heard a crash with such and such a GMP run ID".</div>
+<div><br/></div>
+<div>Child hears it, and checks to see if it's ever seen a PluginCrashed event for a gmpPlugin with that run ID. If so, sends a message up saying so. Otherwise, adds the run ID to a set of crashed GMP run IDs until pagehide.</div>
+<div><br/></div>
+<div>If a GMP PluginCrashed event is seen, check to see if there is a run ID being stored that matches, and send up a message immediately saying, "Hey, I was using that GMP when it crashed". Otherwise, toss the run ID into the same set so that we can send a message back up immediately when we get the message from the parent.</div>
+<div><br/></div>
+<div>Whoa whoa whoa whoa whoa. It looks like the PluginCrashed event is fired from dom/media/PeerConnection.js. I need to understand this thing more.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Confirm that parent process gets informed of GMP crashes via observer notification. This does not appear to be true yet, but might be true once bug 1057908 is landed. I should test this. I've applied the patches - let's see what happens. <b>Yes - I will get the observer notification in the parent process once bug 1057908 lands.</b></div>
+<div><br/></div>
+<div>So I suspect I should be basing my work off of bug 1057908.</div>
+<div><br/></div>
+<div>Hm… this is going to break PeerConnections.js crash handling model. Like, it's not going to get, as far as I can tell, the observer notification in the content process that it currently uses to bubble up the PluginCrashed events.</div>
+<div><br/></div>
+<div>Ok, so suppose the parent process hears this observer notification (which it will), and then what it does is (like the NPAPI case), messages all browsers that the GMP with run ID X crashed.</div>
+<div><br/></div>
+<div>Then somehow I need to be able to identify which browsers are making use of a GMP to know whether or not to display the notification bar. Maybe have PeerConnection.js add a message listener to the child process message manager.</div>
+<div><br/></div>
+<div>Hears the message, then for each PeerConnection implementation that it's tracking, it calls pluginCrash, passing down the GMP run ID. Wait… how is it supposed to match run IDs to running PeerConnection instances? Fuck.</div>
+<div><br/></div>
+<div>Maybe expose the run ID on PeerConnectionImpl.webidl? Then when we hear the message, PeerConnection.js iterates the list of all active peer connections, queries the PeerConnectionImpl's for matching run IDs, and if they match, calls PluginCrash on it. That causes the PluginCrash event to be bubbled up on the active document in the window that owns the PeerConnection.</div>
+<div><br/></div>
+<div>That's when PluginContent.jsm picks it up. Notices that it's a gmpPlugin and shunts it accordingly - will sent a message directly to the parent to show the notification bar.</div>
+<div><br/></div>
+<div><span style="font-size: 18px;"><b>GMP + EME case</b></span></div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1135541">This bug adds support for the crash report UI for GMP + EME.</a></div>
+<div><span style="font-family: Arial;"><br/></span></div>
+</body></html>
