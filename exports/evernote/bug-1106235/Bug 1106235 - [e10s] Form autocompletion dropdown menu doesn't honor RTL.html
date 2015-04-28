@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.8 (451398)"/><meta name="keywords" content="M6, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-04-14 14:40:26 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1106235"/><meta name="updated" content="2015-04-14 15:47:58 +0000"/><title>Bug 1106235 - [e10s] Form autocompletion dropdown menu doesn't honor RTL</title></head><body>
+<div>Getting frustrated by bug 863514. I need an easy win. This bug, today, will be my (hopefully) easy win.</div>
+<div><br/></div>
+<div>Already, it's kinda strange. It looks like the messages that we use to open autocomplete popups from content processes lives inside toolkit/components/satchel… wtf is satchel?</div>
+<div><br/></div>
+<div><a href="https://wiki.mozilla.org/Firefox/Projects/JS_Satchel">Satchel, apparently, is form history. Okay.</a></div>
+<div><br/></div>
+<div>Searches happen asynchronously. The content process requests a search, via "FormHistory:AutoCompleteSearchAsync":</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/nsFormAutoComplete.js#l386">https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/nsFormAutoComplete.js#l386</a></div>
+<div><br/></div>
+<div>Then this FormHistoryStartup component thing listens for the message, and calls into AutoCompleteE10S.jsm:</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/FormHistoryStartup.js#l85">https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/FormHistoryStartup.js#l85</a></div>
+<div><br/></div>
+<div>And does the search. As soon as the parent gets the message to search, it inits the popup (which unhides it): <a href="https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/AutoCompleteE10S.jsm#l141">https://hg.mozilla.org/mozilla-central/file/7f343964210b/toolkit/components/satchel/AutoCompleteE10S.jsm#l141</a></div>
+<div><br/></div>
+<div>When we have search results, we populate the popup with the results and send a message down to the child with the results.</div>
+<div><br/></div>
+<div>Ok, so the best place to set rtl is probably when we first initialize the popup.</div>
+<div><br/></div>
+<div>Perhaps we can send the direction of the form field along with the FormHistory:AutoCompleteSearchAsync message?</div>
+<div><br/></div>
+<div>Yeah, that should work.</div>
+<div><br/></div>
+<div>Plan:</div>
+<div><br/></div>
+<div>Compute text direction in toolkit/components/satchel/nsFormAutoComplete.js's "autoCompleteSearchAsync"</div>
+<div>Send the direction up in the message</div>
+<div>In the message receiver, pass the direction to _initPopup</div>
+<div>Have _initPopup set the direction on the popup.</div>
+<div><br/></div>
+<div>Boom, roasted. Let's do it. With checkboxes!</div>
+<div><br/></div>
+<div>A brilliant test-case - put this in the URL bar:</div>
+<div><br/></div>
+<div>data:text/html, &lt;html dir="rtl">&lt;body>&lt;form>&lt;input type="text" name="text1" value="" autocomplete="on"/>&lt;/form>&lt;/body>&lt;/html>?text1=test</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Compute text direction in toolkit/components/satchel/nsFormAutoComplete.js's "autoCompleteSearchAsync"</div>
+<div><input checked="true" type="checkbox"/>Send the direction up in the message</div>
+<div>
+<div><input checked="true" type="checkbox"/>In the message receiver, pass the direction to _initPopup</div>
+</div>
+<div><input checked="true" type="checkbox"/>Have _initPopup set the direction on the popup.</div>
+<div><br/></div>
+<div>Ah, so this is interesting. It looks like I can't just set the dir attribute (or chromedir attribute) on the panel and call it a day. That doesn't seem to work. Looking at the single-process case, <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=649840">this is the bug that added RTL support </a>(bug 649840).</div>
+<div><br/></div>
+<div>Ok, panel.style.direction setting works just fine. Let's roll!</div>
+<div><br/></div>
+<div>Posting patch.</div>
+</body></html>

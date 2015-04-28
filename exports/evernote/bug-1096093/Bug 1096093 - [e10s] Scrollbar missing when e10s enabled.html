@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.8 (451398)"/><meta name="keywords" content="M6, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-04-07 15:24:38 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1096093"/><meta name="updated" content="2015-04-27 13:18:29 +0000"/><title>Bug 1096093 - [e10s] Scrollbar missing when e10s enabled</title></head><body>
+<div>Tracy was able to reproduce this after a Nightly update installed itself and he restarted.</div>
+<div><br/></div>
+<div>His settings:</div>
+<ol>
+<li>External monitor (with Nightly on it)</li>
+<li>Mouse plugged in</li>
+<li>"System Preferences" > "General" "Show scroll bars" is set at "Show scroll bars Automatically"</li>
+</ol>
+<div><br/></div>
+<div>I have STR!</div>
+<div><br/></div>
+<div>I was finally able to reproduce this. My STR (likely not minimal, but it's a start):</div>
+<div><br/></div>
+<div>0) Make sure Firefox is set up to restore your tabs / windows from last time when starting up</div>
+<div>1) Open a single tab in Firefox that is long (requires a vertical scrollbar). The root document needs to be long - no CSS trickery (so a dxr page is no good. This Bugzilla bug is probably a good page to load, actually).</div>
+<div>2) Make sure devtools.chrome.enabled and devtools.debugger.remote-enabled are set to true</div>
+<div>3) Open up the Scratchpad from DevTools, and in the titlebar, set Environment to Browser</div>
+<div>4) Paste the script I've attached to this bug ("restart.js") into the Scratchpad, and click "Run"</div>
+<div><br/></div>
+<div>The browser should restart and load the test page. Every now and then, the vertical scrollbar is missing.</div>
+<div><br/></div>
+<div>Should look at DrawScrollbar method in nsNativeThemeCocoa. In the _parent_ process, because the content process knows nothing about scrolling or anything.</div>
+<div><br/></div>
+<div>Huh. We never seem to enter DrawScrollbar. What the hell?</div>
+<div><br/></div>
+<div><img src="Bug%201096093%20-%20%5Be10s%5D%20Scrollbar%20missing%20when%20e10s%20enabled.resources/AA563B1E-E2DE-4E14-AC48-4E08C42DC3F6.png" height="483" width="183"/></div>
+<div><br/></div>
+<div>So the left is the bug, the right is what we should be drawing. Notice that there's not even the "track" of the scrollbar back there. It's like Gecko is <i>prepared</i> to show the scrollbar, but just doesn't draw it. And this is the non-overlay scrollbar, obviously.</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:17 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: pong</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: hi! Investigating bug 1096093, which I've just managed to reproduce</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: <a href="https://photos-3.dropbox.com/t/2/AAAMm_cm5SRTYr_30eGvPuo9-pLidEIHh2rdyO0s38OUOg/12/2921989/png/1024x768/3/1428706800/0/2/Screenshot%202015-04-10%2017.13.30.png/CIWssgEgASACIAMoASgC/JZxBC3TX4iKteAogjf_eJ2noEiHDSg33OjUWn1clViA" style="word-break: break-all;">https://photos-3.dropbox.com/t/2/AAAMm_cm5SRTYr_30eGvPuo9-pLidEIHh2rdyO0s38OUOg/12/2921989/png/1024x768/3/1428706800/0/2/Screenshot%202015-04-10%2017.13.30.png/CIWssgEgASACIAMoASgC/JZxBC3TX4iKteAogjf_eJ2noEiHDSg33OjUWn1clViA</a></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>on the left is the bug</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>the right is what's supposed to be rendered</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>it looks like we're not drawing the non-overlay scrollbar at all in the buggy case. No track, no scrolly-nubbin, nothing</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:18 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: got any suggestions about where I should to figure out why that might be happening?</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">17:21 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: hmm, hard to say, but here is the bug (with patch) of the initial rollout of overlay scrollbars: </strong><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=636564" style="word-break: break-all;">https://bugzilla.mozilla.org/show_bug.cgi?id=636564</a></div>
+</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:21 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I guess that could give you an idea of the code we touched</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: is there something in particular that you do to reproduce the problem?</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:22 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: yeah, it's kinda wacky. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1096093#c23" style="word-break: break-all;">https://bugzilla.mozilla.org/show_bug.cgi?id=1096093#c23</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:23 </span><span style="color: rgb(255, 0, 136);">(spohl) </span>lol, you're kidding, right?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: I wish. :)</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: and this is e10s only?</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: yeah</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>so, full of wtf</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: I seem to recall bugmail about invalid drawables, which could obviously cause us to not draw the scrollbars</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 136);">(spohl) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley: but honestly, I know nothing about that…</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">17:25 </span><span style="color: rgb(255, 0, 136);">(spohl) </span>sorry… :-/</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">17:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley) </span>spohl: no worries.</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">17:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">mconley </span><span style="color: rgb(0, 136, 0);">applies latex gloves</span></div>
+</div>
+<div><br/></div>
+<div>Welp, shit. Now I'm learning about overlay scrollbars and how that worked.</div>
+<div><br/></div>
+<div>Ohhhhh… ok, now I see why I might not have entered DrawScrollbar. DrawScrollbar looks really really old. I don't even know if it's used anymore.</div>
+<div><br/></div>
+<div>I think I want the part of nsNativeThemeCocoa.mm that calls RenderWithCoreUILegacy? NS_THEME_SCROLLBAR_TRACK_VERTICAL maybe?</div>
+<div><br/></div>
+<div>Hypothesis: I cannot replicate this behaviour if I have MOZ_DEBUG_CHILD_PROCESS=1.</div>
+<div>FALSE. I was able to reproduce this. Even stranger, it looks like the scroll bar went away after being around for a while!</div>
+<div><br/></div>
+<div>Bugzilla seems to be the place where the scrollbars really disappear… why is that?</div>
+<div><br/></div>
+<div>Ooooh - what's really interesting is that in the buggy case, where I still have a scrollbar, and then I go back to Bugzilla, and the scrollbar is gone… the scrollbar seems to be in a weird overlay mode where it disappears unless the window is scrolling.</div>
+<div><br/></div>
+<div>So overlay really seems to be involved here. Which means.. *sigh*, I guess I'd really better dig into that overlay scrollbar patch to see what it does.</div>
+<div><br/></div>
+<div>Welp.</div>
+<div><br/></div>
+<div>Here we go.</div>
+<div><br/></div>
+<div>So the patch adds a -moz-overlay-scrollbars GkAtom...</div>
+<div><br/></div>
+<div>There's this ScrollbarActivity thing that looks pretty important, and it implements nsIDOMEventListener. According to ScrollbarActivity.h:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier; color: #4f9192"><i>/**<br/>
+ * ScrollbarActivity<br/>
+ *<br/>
+ * This class manages scrollbar behavior that imitates the native Mac OS X<br/>
+ * Lion overlay scrollbar behavior: Scrollbars are only shown while "scrollbar<br/>
+ * activity" occurs, and they're hidden with a fade animation after a short<br/>
+ * delay.<br/>
+ *<br/>
+ * Scrollbar activity has these states:<br/>
+ *  - inactive:<br/>
+ *      Scrollbars are hidden.<br/>
+ *  - ongoing activity:<br/>
+ *      Scrollbars are visible and being operated on in some way, for example<br/>
+ *      because they're hovered or pressed.<br/>
+ *  - active, but waiting for fade out<br/>
+ *      Scrollbars are still completely visible but are about to fade away.<br/>
+ *  - fading out<br/>
+ *      Scrollbars are subject to a fade-out animation.<br/>
+ *<br/>
+ * Initial scrollbar activity needs to be reported by the scrollbar holder that<br/>
+ * owns the ScrollbarActivity instance. This needs to happen via a call to<br/>
+ * ActivityOccurred(), for example when the current scroll position or the size<br/>
+ * of the scroll area changes.<br/>
+ *<br/>
+ * As soon as scrollbars are visible, the ScrollbarActivity class manages the<br/>
+ * rest of the activity behavior: It ensures that mouse motions inside the<br/>
+ * scroll area keep the scrollbars visible, and that scrollbars don't fade away<br/>
+ * while they're being hovered / dragged. It also sets a sticky hover attribute<br/>
+ * on the most recently hovered scrollbar.<br/>
+ *<br/>
+ * ScrollbarActivity falls into hibernation after the scrollbars have faded<br/>
+ * out. It only starts acting after the next call to ActivityOccurred() /<br/>
+ * ActivityStarted().</i></span></div>
+<div><i><span style="font-size: 12px;"><span style="font-family: Courier;"><span style="color: rgb(79, 145, 146);"> */</span></span></span></i></div>
+<div><br/></div>
+<div>Hm. So you'd think in the case where we have perma-scrollbars, that ScrollbarActivity wouldn't be necessary. Like, we just wouldn't need it. Right? So who is in charge of ScrollbarActivity?</div>
+<div><br/></div>
+<div>Hypothesis: In the bad case, we're still using ScrollbarActivity when we're not supposed to.</div>
+<div><br/></div>
+<div>That… doesn't seem to be the case, as far as I can tell. I don't see a construction of ScrollbarActivity. :/</div>
+<div><br/></div>
+<div>I should put some logging in just to be sure.</div>
+<div><br/></div>
+<div>It looks like both the child and the parent processes query nsLookAndFeel.mm to find out if we're using overlay scrollbars. And according to the child, the answer is always "true", and for the parent, the answer is "false".</div>
+<div><br/></div>
+<div>What happens if I force the value to always be false?</div>
+<div><br/></div>
+<div>So… forcing that value to be false seems to save the day here. The bug is gone.</div>
+<div><br/></div>
+<div>I wonder why?</div>
+<div><br/></div>
+<div>And what if we always return true?</div>
+<div><br/></div>
+<div>Ok, still can't reproduce. And what if I feed one value to the content process, and another one to the parent process?</div>
+<div><br/></div>
+<div>Another observation - I can easily get into the state where the initial browser has the overlay scrollbar when it shouldn't - subsequent tabs get no scrollbars!</div>
+<div><br/></div>
+<div><i>I do think that relationship is important - the missing scrollbar manifests if multiple tabs are restored, and the initial tab gets the overlay scroll state.</i></div>
+<div><br/></div>
+<div>ScrollbarActivity came out of <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=778810">bug 778810</a>, and was a B2G bug for making it possible to have overlay scrollbars in FxOS. This was before the Lion stuff came along - spohl's Lion scrollbar work came about and built on top of this.</div>
+<div><br/></div>
+<div>Bug 778810 really just adds this ScrollbarActivity thing, and makes it manage a timer of 450 milliseconds that gets reset if there is any scrollbar activity. After the timeout is hit, the active attribute is removed from the vertical and horizontal scrollbars. As soon as there's more activity, it re-adds the active attribute. The active attribute is for visibility and effects.</div>
+<div><br/></div>
+<div>So there are two things to consider - the styling of the scrollbars, and whether or not they can overlay content. I think it's the latter which is busted.</div>
+<div><br/></div>
+<div>The scrollbar work that mstange (and spohl) worked on does fancy tracking of mouse events and scheduling of opacity, but that's about it.</div>
+<div><br/></div>
+<div>Ah… interesting, so it looks like I do hit ScrollbarActivity::ActivityOccurred in the content process. So the content process is under the impression that we should be using overlay scrollbars. Huh.</div>
+<div><br/></div>
+<div>What happens if the content process always thinks that we're _not_ using the overlay scrollbars?</div>
+<div><br/></div>
+<div>That… seems to solve it? In a debug build anyway. Let's try on an opt build.</div>
+<div><br/></div>
+<div>Yes, this also seems to solve it. Now the question is… is this the right solution?</div>
+<div><br/></div>
+<div>For a bunch of time, eIntID_UseOverlayScrollbars is returning true, and then suddenly it returns false. That looks suspicious.</div>
+<div><br/></div>
+<div>How does NSScroller work? Ah, that's something we bring in from Cocoa.h</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier; color: #c01e51">bool</span> <span style="font: 12.0px Courier">nsLookAndFeel</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">SystemWantsOverlayScrollbars()<br/>
+{<br/>
+ </span> <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier">([NSScroller respondsToSelector</span><span style="font: 12.0px Courier; color: #797979">:</span><span style="font: 12.0px Courier; color: #008f00"><b>@selector</b></span><span style="font: 12.0px Courier">(preferredScrollerStyle)]</span> <span style="font: 12.0px Courier; color: #797979">&amp;&amp;</span><span style="font: 12.0px Courier"><br/>
+          [NSScroller preferredScrollerStyle]</span> <span style="font: 12.0px Courier; color: #797979">==</span> <span style="font: 12.0px Courier">mozNSScrollerStyleOverlay);</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">}</span></span></div>
+<div><br/></div>
+<div>Hypothesis - the child process is starting up, and doesn't yet have up-to-date information about the scrollbar preference. It is not set up to listen for scrollbar preference changes. We do, however, notify the child when the parent process notices the preference changes. So the problem is occurring when the content process starts up after the parent process already knows the preference, but before the child process figures it out.</div>
+<div><br/></div>
+<div><b>FALSE</b>. Or at least partially false. ScrollbarActivity is constantly querying the OS for the LookAndFeel metric on overlay scrollbars, and if it doesn't match expectation, it's supposed to trigger a theme refresh on the PresContext.</div>
+<div><br/></div>
+<div>WAT.</div>
+<div><br/></div>
+<div>Ohhh, interesting… </div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier; color: #c01e51">void</span><span style="font: 12.0px Courier"><br/>
+ScrollFrameHelper</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">HandleScrollbarStyleSwitching()<br/>
+{<br/>
+ </span> <span style="font: 12.0px Courier; color: #4f9192"><i>// Check if we switched between scrollbar styles.<br/></i></span><span style="font: 12.0px Courier"> </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(mScrollbarActivity</span> <span style="font: 12.0px Courier; color: #797979">&amp;&amp;</span><span style="font: 12.0px Courier"><br/>
+      LookAndFeel</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">GetInt(LookAndFeel</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">eIntID_UseOverlayScrollbars)</span> <span style="font: 12.0px Courier; color: #797979">==</span> <span style="font: 12.0px Courier; color: #797979">0</span><span style="font: 12.0px Courier">) {<br/>
+    mScrollbarActivity</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">Destroy();<br/>
+    mScrollbarActivity</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">nullptr;<br/>
+    mOuter</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">PresContext()</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">ThemeChanged();<br/>
+  }<br/>
+ </span> <span style="font: 12.0px Courier; color: #008f00"><b>else</b></span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(</span><span style="font: 12.0px Courier; color: #797979">!</span><span style="font: 12.0px Courier">mScrollbarActivity</span> <span style="font: 12.0px Courier; color: #797979">&amp;&amp;</span><span style="font: 12.0px Courier"><br/>
+           LookAndFeel</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">GetInt(LookAndFeel</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">eIntID_UseOverlayScrollbars)</span> <span style="font: 12.0px Courier; color: #797979">!=</span> <span style="font: 12.0px Courier; color: #797979">0</span><span style="font: 12.0px Courier">) {<br/>
+    mScrollbarActivity</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier; color: #008f00"><b>new</b></span> <span style="font: 12.0px Courier">ScrollbarActivity(do_QueryFrame(mOuter));<br/>
+    mOuter</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">PresContext()</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">ThemeChanged();<br/>
+  }</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">}</span></span></div>
+<div><br/></div>
+<div>This thing is called everytime a scrollframe is reflowed… in the bad case, we satisfy neither of these conditions. mScrollbarActivity is nullptr, and LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) is 0.</div>
+<div><br/></div>
+<div>So what the hell is going on? What influences that white strip? Is it because we're waiting for a ThemeChanged that never comes?</div>
+<div><br/></div>
+<div>I… I guess so.</div>
+<div><br/></div>
+<div>So let's take a look at this again, in the single process case, and in the multi-process case. Let's set a breakpoint in nsPresContext::ThemeChanged in the single process case on start-up and see how we get there.</div>
+<div><br/></div>
+<div>So, good to know - when a mouse is plugged in or unplugged, ChildView gets that information via  <span style="font: 11.0px Menlo">scrollbarSystemMetricChanged.</span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;"><br/></span></span></div>
+<div>It looks like even in the single-process case, the scrollbar LookAndFeel metric returns 1 for UseOverlayScrollbars for a while, and then false.</div>
+<div><br/></div>
+<div>Hypothesis - I suspect that in the single-process case, we'll have scrollbarSystemMetricChanged on us...</div>
+<div><br/></div>
+<div><b>TRUE</b>.</div>
+<div><br/></div>
+<div>So, conclusion: In single-process Firefox, we construct the DOM, and meanwhile, the operating system is asynchronously figuring out about the preferred scrollbar state. But we initially assume overlay scrollbars. As soon as the change occurs, nsChildView.mm hears about it in scrollbarSystemMetricChanged, and we do a NotifyThemeChanged to queue a ThemeChange flush. And meanwhile, the LookAndFeel for UseOverlayScrollbars has changed for everybody reading it.</div>
+<div><br/></div>
+<div>In the multi-process case, the UseOverlayScrollbars metric changes, but the child never hears about the scrollbarSystemMetricChanged event. So it never does a ThemeChanged on the nsPresContext.</div>
+<div><br/></div>
+<div>Solution brainstorming time.</div>
+<div><br/></div>
+<ol>
+<li>Have nsLookAndFeel for OS X in the content process get initial value not from NSScroller, but by messaging the parent, and caching the value. That way the child and parent are always in sync. When the parent hears that the theme has changed, send a message down to the child to flush. That would also potentially fix the highlight colours bug that mstange noticed.</li>
+<li>Have something in the content process also listen for the NSPreferredScrollerStyleDidChangeNotification notification and flush the theme accordingly. I can't think of a really great place to do that right now though. Also, seems break-out-of-sandbox-y?</li>
+<li>Variation on (1) - have the parent send down the initial overlay scrollbar value, which the content process will cache until it hears that it should flush from the parent.</li>
+</ol>
+<div><br/></div>
+<div>If I do (1), maybe I can hitch the value onto the GetXPCOMProcessAttributes PContent message that ContentChild synchronously asks for when initting XPCOM.</div>
+<div><br/></div>
+<div>Suppose I do that… I think I need a way for nsLookAndFeel.mm to know that we're feeding it a value that it should cache instead of reading the NSScroller information. Huh. Thinking…</div>
+<div><br/></div>
+<div>Assumption: It's not necessary for nsLookAndFeel.mm to keep polling NSScroller for the preferred scrollbar style in the parent process, since we know we'll get a NSPreferredScrollerStyleDidChangeNotification when it changes. So read it once and cache it once.</div>
+<div><br/></div>
+<div>So what we'll do is memoize it the first time in the parent process, and invalidate once we get NSPreferredScrollerStyleDidChangeNotification fired. Add methods to nsLookAndFeel.mm so that we can update it with the right value.</div>
+<div><br/></div>
+<div>Then, in nsLookAndFeel.mm, when reading the overlay scrollbar int metric, instead of asking NSScroller, have the content process ask the ContentChild for the value. The ContentChild should have this information stashed in it from when it got initted.</div>
+<div><br/></div>
+<div>When the parent sees NSPreferredScrollerStyleDidChangeNotification, LookAndFeel's will eventually hear about it. Maybe nsXPLookAndFeel.cpp can fire an Observer notification after LookAndFeel::Refresh that ContentParent's can listen for and message their children about.</div>
+<div><br/></div>
+<div>ContentChild hears that LookAndFeel was updated. </div>
+<div><br/></div>
+<div>Note that PuppetWidget doesn't have an mWidgetListener, so it…uh… we'd have to find some other way of updating the UI...</div>
+<div><br/></div>
+<div>Q: Suppose I have 3 non-remote tabs - simple, with a single vertical scrollbar. When I change scrollbar stuff, how many times is nsPresContext::ThemeChanged called?</div>
+<div><br/></div>
+<div>A: 4 times. One might be for the main window, and the other three for the content windows.</div>
+<div><br/></div>
+<div>So I suspect every tab needs to know.</div>
+<div><br/></div>
+<div>So have the ContentParent send a message down the ContentChild. The ContentChild manages TabChild's, so use:</div>
+<div><br/></div>
+<div>PManager* PFoo::Manager()</div>
+<div>const InfallibleTArray&lt;PManagee*> PFoo::ManagedPManagee();</div>
+<div>void PFoo::ManagedPManagee(InfallibleTArray&lt;PManagee*>&amp;);</div>
+<div><br/></div>
+<div>And access each TabChild, telling each to call ThemeChanged on their PresContext's. Oh, maybe instead of using that snippet above, I use nsContentUtils::CallOnAllRemoteChildren...</div>
+<div><br/></div>
+<div>Let's try to boil that down.</div>
+<div><br/></div>
+<div>ContentChild gets initial overlay scrollbar metric on init, and tells nsLookAndFeel about it. <b>We need to do that in order for the processes to stay in sync.</b></div>
+<div><br/></div>
+<div>I need a way to poke that value into nsLookAndFeel. Or have nsLookAndFeel query ContentChild about it.</div>
+<div><br/></div>
+<div>
+<div><span style=""><span title="Friday, April 17, 2015 3:10:50 PM">3:10 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: hey, so I've got a plan for bug 1096093, and I want to run it by a widget peer</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:10:53 PM">3:10 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/firebot" title="firebot (firebot@moz-pku4c8.glob.com.au)">firebot</a>> <a href="https://bugzil.la/1096093" rel="noreferrer" target="_blank">https://bugzil.la/1096093</a> — ASSIGNED, <a href="mailto:mconley@mozilla.com" rel="noreferrer" target="_blank">mconley@mozilla.com</a> — [e10s] Scrollbar missing when e10s enabled</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:11:16 PM">3:11 PM</span></span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a> reads the bug</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:12:01 PM">3:12 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: what I propose is that <a href="http://nsLookAndFeel.mm" rel="noreferrer" target="_blank">nsLookAndFeel.mm</a> should start caching the overlay scrollbar metric, and that ContentParent should send down an initial seed value of that metric to ContentChild. ContentChild sets that seed value in nsLookAndFeel.</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:12:06 PM">3:12 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> that way they're in sync with one another</div>
+<div><span title="Friday, April 17, 2015 3:12:12 PM">3:12 PM</span> chmanchester → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chmanchester%7Cafk" title="chmanchester|afk (Chris@moz-jsk9qt.2rkg.9kg1.0101.2620.IP)">chmanchester|afk</a></div>
+<div><span title="Friday, April 17, 2015 3:13:18 PM">3:13 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> then, when LookAndFeel::Refresh is called in the parent if the overlay scrollbar value is changed, we send a message down to all remote frames saying so</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:14:04 PM">3:14 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> wait</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:14:09 PM">3:14 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> I've already noticed a problem with this plan.</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:14:40 PM">3:14 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: lemme refine this - I'll get back to you</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:14:51 PM">3:14 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> this sounds like a general problem in that nsLookAndFeel in the child process isn't getting notifiedabout theme changed events, so its cache never updates?</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:15:12 PM">3:15 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: correct - but the added bonus is that for Cocoa, the overlay scrollbar metric that we query the OS for is async</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:15:25 PM">3:15 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> nice</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:15:26 PM">3:15 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> and that two separate processes might get different values for that metric</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:15:39 PM">3:15 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> and it's up to those processes to register notifications to hear about when the metric is updated</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:15:53 PM">3:15 PM</span></span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/myrdd" title="myrdd (quassel@moz-3qofuv.access.ecotel.net)">myrdd</a> quit (<a href="mailto:quassel@moz-3qofuv.access.ecotel.net">quassel@moz-3qofuv.access.ecotel.net</a>) Ping timeout: 121 seconds</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:16:07 PM">3:16 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> but we have no nice place to register for those sorts of notifications in the content process (I'm not even sure we'd want to - that might violate sandbox rules?)</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:16:08 PM">3:16 PM</span></span> Gijs → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Gijs_away" title="Gijs_away (chatzilla@moz-1evr0l.cable.virginm.net)">Gijs_away</a></div>
+<div><span style=""><span title="Friday, April 17, 2015 3:16:44 PM">3:16 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-f1jf0c.0j4i.jtu0.0101.2620.IP)">Mossop</a>> Seems like the child process should never be asking the OS and just always getting it from the parent process</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:17:01 PM">3:17 PM</span></span> jchen → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jchen%7Caway" title="jchen|away (jchen@moz-r9c0fb.res.rr.com)">jchen|away</a></div>
+<div><span title="Friday, April 17, 2015 3:17:06 PM">3:17 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> I really hate the fact that we have two modules for everything</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:17:10 PM">3:17 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> one in each process</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:17:12 PM">3:17 PM</span></span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> nods</div>
+<div><span title="Friday, April 17, 2015 3:17:17 PM">3:17 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> we should have just one, and the other be a proxy</div>
+<div><span title="Friday, April 17, 2015 3:18:12 PM">3:18 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> Mossop: yes - but various parts of graphics / layout asks for that metric a lot, so we'd need to cache it and then eventually invalidate it when the value is updated</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:18:16 PM">3:18 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> mconley: sounds like certain values in nsLookAndFeel need to get forward</div>
+<div><span title="Friday, April 17, 2015 3:18:23 PM">3:18 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> from parent to child</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:18:25 PM">3:18 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-f1jf0c.0j4i.jtu0.0101.2620.IP)">Mossop</a>> mconley: Sure</div>
+<div><span title="Friday, April 17, 2015 3:20:20 PM">3:20 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: do you have any suggestions about how I should modify nsLookAndFeel to ask the parent (and cache) when running in the content process? Like, do we really want to send an individual message up to the parent for the first time each metric is queried for?</div>
+<div><span title="Friday, April 17, 2015 3:20:34 PM">3:20 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> Or do we want to send all of the current metrics down to the child when we initialize the ContentChild?</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:21:22 PM">3:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> I would build something into nsLookAndFeel that handles syncing certain values between the two.. and I would make that ipc interface async</div>
+<div><span title="Friday, April 17, 2015 3:21:40 PM">3:21 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> and flush when the parent picks up a change</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:21:46 PM">3:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> mconsley: would that work?</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:22:01 PM">3:22 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> mconley</div>
+<div><span title="Friday, April 17, 2015 3:22:13 PM">3:22 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: how do we make the interface async? nsLookAndFeel querying is very much synchronous...</div>
+<div><span title="Friday, April 17, 2015 3:23:37 PM">3:23 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> you mentioned that content polls repeatedly for this overlay setting..</div>
+<div><span title="Friday, April 17, 2015 3:23:59 PM">3:23 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> yes, content is constantly asking for immediate results for the overlay setting.</div>
+<div><span title="Friday, April 17, 2015 3:24:00 PM">3:24 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> which means updating it in the content process doesn't have to happen right when the content process asks for the value the first time</div>
+<div><b><span style=""><span title="Friday, April 17, 2015 3:24:25 PM">3:24 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-f1jf0c.0j4i.jtu0.0101.2620.IP)">Mossop</a>> You said that querying the OS for the metric is async? So instead of querying the OS query the parent the first time</b></div>
+<div><span style=""><span title="Friday, April 17, 2015 3:24:28 PM">3:24 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> I guess I'm saying that the paretn laf module listens for changes..</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:24:37 PM">3:24 PM</span></span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> thinks</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:24:50 PM">3:24 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> I guess I'm trying to make this solution too generic</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:24:58 PM">3:24 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> but really, I think the overlay scrollbar thing is really special</div>
+<div><span title="Friday, April 17, 2015 3:25:11 PM">3:25 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> because I can't find many other examples of async OS look and feel metrics</div>
+<div><span title="Friday, April 17, 2015 3:25:21 PM">3:25 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: would you agree with that?</div>
+<div><span title="Friday, April 17, 2015 3:25:56 PM">3:25 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> am I correct in saying that, for the most part, LookAndFeel metrics synchronously gather information from the underlying OS? And this scrollbar one is an outlier?</div>
+<div><span title="Friday, April 17, 2015 3:26:00 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> are there other values in nsLookAndFeel we need to sync or is this the only value that isn't correct in the content process?</div>
+<div><span title="Friday, April 17, 2015 3:26:16 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a>> yes I beleive so</div>
+<div><span style=""><span title="Friday, April 17, 2015 3:26:25 PM">3:26 PM</span></span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-it64bn.dhcp.embarqhsd.net)">jimm</a> looks at the header</div>
+<div><span title="Friday, April 17, 2015 3:26:28 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> jimm: we definitely need to tell the content process when to flush its look and feel cache</div>
+</div>
+<div><span title="Friday, April 17, 2015 3:26:44 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> for things like colours</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Let nsLookAndFeel.mm cache the eIntID_UseOverlayScrollbars and eIntID_AllowOverlayScrollbarsOverlap values.</div>
+<div><input checked="true" type="checkbox"/>Create LookAndFeelIntCache struct, mapping IDs to values.</div>
+<div><input checked="true" type="checkbox"/>Add nsLookAndFeel::SeedIntCache(LookAndFeelIntCache); that will populate the cache that I created two steps above.</div>
+<div><input checked="true" type="checkbox"/>Add nsLookAndFeel::GetIntCache(), so that nsLookAndFeel is responsible for serializing the stuff to send down</div>
+<div><input checked="true" type="checkbox"/>Make sure GetIntCache signature makes sense for getting an InfallibleTArray.</div>
+<div><input checked="true" type="checkbox"/>Rename SeedIntCache to SetIntCache</div>
+<div><input checked="true" type="checkbox"/>Have ContentChild query the parent for the LookAndFeelIntCache when initting XPCOM stuff.</div>
+<div><input checked="true" type="checkbox"/>Have ContentParent call nsLookAndFeel::GetIntCache, and then send the resulting cache down to the child.</div>
+<div><input checked="true" type="checkbox"/>Have the ContentChild call nsLookAndFeel::SetIntCache</div>
+<div><input checked="true" type="checkbox"/>Have PresContext tell every TabParent when the ThemeChanges.</div>
+<div><input checked="true" type="checkbox"/>Have TabChild call ThemeChanged on each PresShell.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Figure out why the overlay scrollbar is scaled like crazy...</div>
+<div><br/></div>
+<div><img src="Bug%201096093%20-%20%5Be10s%5D%20Scrollbar%20missing%20when%20e10s%20enabled.resources/F27FB100-166D-418F-8CE6-365D2731D031.png" height="422" width="494"/></div>
+<div><br/></div>
+<div>It's scaled completely wrong… why?</div>
+<div><br/></div>
+<div>What controls that?</div>
+<div><br/></div>
+<div>Looking at layout/xul/nsScrollbarFrame.cpp right now...</div>
+<div><br/></div>
+<div>Wait… a big clue - with e10s disabled, all overlay scrollbars look like that. What happens if I remove my caching stuff?</div>
+<div><br/></div>
+<div>wtf - that doesn't fix it… something weird is going on… I backed out most of the stuff under cocoa, and still no fix.</div>
+<div><br/></div>
+<div>Hypothesis - I didn't introduce this problem. It's a problem from inbound.</div>
+<div><br/></div>
+<div>TRUE. None of my patches introduced this problem. \o/ I just had an unlucky pull.</div>
+<div><br/></div>
+<div>What about botond's patch? Nope, not botond's patch. Wtf.</div>
+<div><br/></div>
+<div>Well, let's just ignore it for now. If it ends up merging to central, well, I guess I can bisect there. But for now, I need botond's patch.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Send over the cache (again) when the theme is refreshed. In the parent, clear the cache.</div>
+<div><input checked="true" type="checkbox"/>Find the changeset that introduced the massive overlay scrollbar problem - somebody already filed this bug. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1156918">Bug 1156918.</a></div>
+<div><br/></div>
+<div>Cleanup:</div>
+<div><input checked="true" type="checkbox"/>Move LookAndFeelInt IPDL struct into widget somehow?</div>
+<div><br/></div>
+<div>Patch posted!</div>
+<div><br/></div>
+<div>Got review! Try push for good measure: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5d612c989c5">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5d612c989c5</a></div>
+<div><br/></div>
+<div>Bah - orange.</div>
+<div><br/></div>
+<div>
+<div><span style=""><span title="Wednesday, April 22, 2015 5:45:25 PM">5:45 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: So, I bet your patch is causing us to try to get the gtk theme or something.</div>
+<div><span style=""><span title="Wednesday, April 22, 2015 5:45:47 PM">5:45 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: but in xpcshell we probably don't initialize it (or can't since there's no display)</div>
+<div><span title="Wednesday, April 22, 2015 5:46:07 PM">5:46 PM</span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> thinks</div>
+<div><span title="Wednesday, April 22, 2015 5:46:10 PM">5:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: so that'd cause GetXPCOMProcessAttributes to fail and the child process wouldn't start up properly.</div>
+<div><span title="Wednesday, April 22, 2015 5:46:32 PM">5:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> that sounds very plausible</div>
+<div><span title="Wednesday, April 22, 2015 5:46:58 PM">5:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> hrm</div>
+<div><span style=""><span title="Wednesday, April 22, 2015 5:47:11 PM">5:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> mrbkap: any suggestions on ways around that?</div>
+<div><span style=""><span title="Wednesday, April 22, 2015 5:47:16 PM">5:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> assuming it is the case?</div>
+<div><span style=""><span title="Wednesday, April 22, 2015 5:47:40 PM">5:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: Let me run with the patch to at least get a stack to where it's happening.</div>
+</div>
+<div><span title="Wednesday, April 22, 2015 5:47:46 PM">5:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: This should be easy to work around.</div>
+<div>
+<div><span title="Wednesday, April 22, 2015 6:56:42 PM">6:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: ok</div>
+<div><span title="Wednesday, April 22, 2015 6:56:47 PM">6:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: I have your patch in a debugger.</div>
+<div><span title="Wednesday, April 22, 2015 6:56:54 PM">6:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> excellent</div>
+<div><span title="Wednesday, April 22, 2015 6:57:28 PM">6:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: things fall apart here: <a href="https://pastebin.mozilla.org/8831102" rel="noreferrer" target="_blank">https://pastebin.mozilla.org/8831102</a></div>
+<div><span title="Wednesday, April 22, 2015 6:57:55 PM">6:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: You might have to talk to karlt to figure out how to fix this.</div>
+<div><span title="Wednesday, April 22, 2015 6:58:09 PM">6:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> mrbkap: ok, sounds good. Thanks so much!</div>
+<div><span title="Wednesday, April 22, 2015 6:58:10 PM">6:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: We didn't use to call into the look and feel code at all in xpcshell (where there's no display, etc.) but now we do.</div>
+<div><span title="Wednesday, April 22, 2015 6:58:45 PM">6:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: and the gtk code doesn't deal well with it.</div>
+<div><span title="Wednesday, April 22, 2015 6:58:59 PM">6:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> understood - yeah, I can see how this could break things.</div>
+<div><span title="Wednesday, April 22, 2015 7:00:13 PM">7:00 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: would you mind sneaking <a href="https://pastebin.mozilla.org/8831104" rel="noreferrer" target="_blank">https://pastebin.mozilla.org/8831104</a> into the patch to fix your orange?</div>
+</div>
+<div><span title="Wednesday, April 22, 2015 7:00:35 PM">7:00 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrbkap" title="mrbkap (sid51@moz-oqs9nd.0j4i.jtu0.0101.2620.IP)">mrbkap</a>> mconley: I had to write it in order to get to the new error.</div>
+<div><br/></div>
+<div><br/></div>
+<div>Here's the stack:</div>
+<div><br/></div>
+<div>at /build/buildd/gtk+2.0-2.24.23/gtk/gtkinvisible.c:319</div>
+<div>#10 0x00007fffeb4379de in ?? () from /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0</div>
+<div>#11 0x00007fffeb43910d in g_object_newv () from /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0</div>
+<div>#12 0x00007fffeb4398bc in g_object_new () from /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0</div>
+<div>#13 0x00007ffff246d48a in nsLookAndFeel::Init (this=0x7fffe164eff0)</div>
+<div>at /home/mrbkap/work/main/mozilla/widget/gtk/nsLookAndFeel.cpp:906</div>
+<div>#14 0x00007ffff246b76c in nsLookAndFeel::nsLookAndFeel (this=0x7fffe164eff0)</div>
+<div>at /home/mrbkap/work/main/mozilla/widget/gtk/nsLookAndFeel.cpp:49</div>
+<div>#15 0x00007ffff2432274 in nsXPLookAndFeel::GetInstance ()</div>
+<div>at /home/mrbkap/work/main/mozilla/widget/nsXPLookAndFeel.cpp:256</div>
+<div>#16 0x00007ffff2433417 in mozilla::LookAndFeel::GetIntCache ()</div>
+<div>at /home/mrbkap/work/main/mozilla/widget/nsXPLookAndFeel.cpp:777</div>
+<div>#17 0x00007ffff2113c9f in mozilla::dom::ContentParent::RecvGetXPCOMProcessAttributes (this=</div>
+<div>0x7fffe1472800, aIsOffline=0x7fffffff96ac, aIsLangRTL=0x7fffffff9750,</div>
+<div>dictionaries=0x7fffffff98d0, clipboardCaps=0x7fffffff9770, domainPolicy=0x7fffffff9900,</div>
+<div>lookAndFeelIntCache=0x7fffffff98e0)</div>
+<div><br/></div>
+<div>Simplest approach might be to send a sync message up to the parent when the LookAndFeel is first Init'd.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Send sync message up to parent to get LookAndFeel int cache when initted.</div>
+<div><br/></div>
+<div>Ok, let's TRY again! <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4e057bc88610">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4e057bc88610</a></div>
+<div><br/></div>
+<div>Fuuuuuuuuck - burned the tree for B2G and emulator stuff. :( . I think I'm missing a header import of nsTArray.h.</div>
+<div><br/></div>
+<div>Try: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f87eaa8bf913">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f87eaa8bf913</a></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/><s>File a bug to flush the LookAndFeel cache in the content process when it is flushed in the parent (otherwise, things like highlight colours become invalidated)</s> This is actually getting fixed with my patch.</div>
+<div><input checked="true" type="checkbox"/>File a bug for mrbkap's patch with nsBidiKeyboard.cpp. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1158791">Bug 1158791</a></div>
+<div><input checked="true" type="checkbox"/>File a follow-up to evaluate jimm's suggestion for moving the look and feel caching into nsXPLookAndFeel. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1158793">Bug 1158793</a></div>
+<div><input checked="true" type="checkbox"/>File a follow-up where we don't get the inline scrollbars when starting up if mouse plugged in. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1158798">Bug 1158798</a></div>
+</body></html>

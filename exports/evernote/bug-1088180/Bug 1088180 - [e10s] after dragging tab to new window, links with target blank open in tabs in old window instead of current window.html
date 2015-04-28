@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.8 (451398)"/><meta name="keywords" content="M6, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-04-09 15:26:50 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1088180"/><meta name="updated" content="2015-04-10 14:37:48 +0000"/><title>Bug 1088180 - [e10s] after dragging tab to new window, links with target blank open in tabs in old window instead of current window</title></head><body>
+<div>So the place that opens the new tab is in browser.js, in openURIInFrame. The thing that calls that is right here:</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/file/8f57f60ee58a/dom/ipc/TabParent.cpp#l636">https://hg.mozilla.org/mozilla-central/file/8f57f60ee58a/dom/ipc/TabParent.cpp#l636</a></div>
+<div><br/></div>
+<div>I suspect browserDOMWin is wrong - that this TabParent is confused about who its mama is.</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/file/8f57f60ee58a/dom/ipc/TabParent.cpp#l598">https://hg.mozilla.org/mozilla-central/file/8f57f60ee58a/dom/ipc/TabParent.cpp#l598</a></div>
+<div><br/></div>
+<div>browserDOMWin is mBrowserDOMWindow, which is set via SetBrowserDOMWindow.</div>
+<div><br/></div>
+<div>Besides some forwarding, seems to only ever be called in nsFrameLoader's TryRemoteBrowser.</div>
+<div><br/></div>
+<div>So perhaps we should be swapping the browser DOM Windows when we swap frame loaders?</div>
+<div><br/></div>
+<div>Like, in nsFrameLoader::SwapWithOtherLoader? Is it that easy? Let's find out!</div>
+<div><br/></div>
+<div>Whoops - accidentally implemented it in SwapWithOtherLoader instead of SwapWithOtherRemoteLoader.</div>
+<div><br/></div>
+<div>Yay, it works! And smaug likes it! Pushed!</div>
+<div><br/></div>
+</body></html>
