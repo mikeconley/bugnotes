@@ -46,7 +46,7 @@ def html_escape(text):
     return escape(text, HTML_ESCAPE_TABLE)
 
 
-def extract(document, resources, destination, assets, folder, dry_run=False):
+def extract(document, resources, destination, assets, folder, dry_run=False, bug_id=None):
     logging.info("Identifying associated bug...")
     bug_tag = document.find("meta", {"name":"source-url"})
     if not bug_tag:
@@ -58,17 +58,19 @@ def extract(document, resources, destination, assets, folder, dry_run=False):
     logging.debug("Extracted URL from source-url meta tag: %s" % bug_url)
     bug_url = urlparse.urlparse(bug_url)
 
-    if bug_url.hostname != EXPECTED_BUG_HOSTNAME:
+    if not bug_id and bug_url.hostname != EXPECTED_BUG_HOSTNAME:
         logging.error("Expected a bug URL with hostname %s"
                       % EXPECTED_BUG_HOSTNAME)
         return
 
     query_dict = urlparse.parse_qs(bug_url.query)
-    if 'id' not in query_dict:
+    if not bug_id and 'id' not in query_dict:
         logging.error("Expected a bug ID in the URL %s" % bug_url.geturl())
         return
 
-    bug_id = str(query_dict['id'][0])
+    if not bug_id:
+      bug_id = str(query_dict['id'][0])
+
     logging.info("Found a reference to bug #%s" % bug_id)
 
     bug_title_tag = document.find("title")
@@ -182,7 +184,7 @@ def main(options):
         # Now send it all off to the glue factory!
         extract(document, resources, destination=options.destination,
                 assets=options.assets, folder=folder,
-                dry_run=options.dry_run)
+                dry_run=options.dry_run, bug_id=options.bug_id)
 
 
 if __name__ == "__main__":
@@ -199,6 +201,8 @@ if __name__ == "__main__":
                         help="Just simulate extraction and copying.")
     parser.add_argument("--verbose", action="store_true",
                         help="Print debugging messages to the console.")
+    parser.add_argument("--bug-id", action="store", dest="bug_id",
+                        help="The bug is not for Bugzilla, so supply your own bug id. This better be unique!")
     parser.add_argument("folders", metavar="FOLDER", nargs="+",
                         help="Evernote folders to extract from.")
 
