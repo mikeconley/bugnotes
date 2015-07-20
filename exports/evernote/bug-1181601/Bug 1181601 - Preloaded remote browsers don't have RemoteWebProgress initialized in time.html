@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.16 (451861)"/><meta name="keywords" content="Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-07-08 15:06:04 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1181601"/><meta name="updated" content="2015-07-08 21:37:02 +0000"/><title>Bug 1181601 - Preloaded remote browsers don't have RemoteWebProgress initialized in time</title></head><body lang="">
+<div>The problem appears to be that any preloaded about:newtab browsers after the first preloaded about:newtab browser cannot communicate with the parent.</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div><br/></div>
+<div>The reason that the first preloaded newtab works, but not the others is because the first preloaded newtab is somehow ruining things for future about:newtabs.</div>
+<div><br/></div>
+<div><b>Experiment:</b></div>
+<div><br/></div>
+<div>Eliminate all error messages via the hackiest means possible to see if that influences the other preloaded about:newtab pages.</div>
+<div><br/></div>
+<div>This did not fix the issue.</div>
+<div><br/></div>
+<div><b>Experiment:</b></div>
+<div><b><br/></b></div>
+<div>See if there's any console spew from a debug build that might explain why messages are not being dispatched properly</div>
+<div><br/></div>
+<div>[Parent 59writeAtomic435] WARNING: 'aTabParent != sActiveTabParent', file /Users/mikeconley/Projects/mozilla-central/dom/events/IMEStateManager.cpp, line 948</div>
+<div>[Child 59437] WARNING: nsWindow::GetNativeData not implemented for this type: file /Users/mikeconley/Projects/mozilla-central/widget/PuppetWidget.cpp, line 1068</div>
+<div>++DOCSHELL 0x121d53000 == 5 [pid = 59437] [id = 5]</div>
+<div>++DOMWINDOW == 10 (0x121dc4800) [pid = 59437] [serial = 12] [outer = 0x0]</div>
+<div>[Child 59437] WARNING: NS_ENSURE_TRUE(domDoc &amp;&amp; target) failed: file /Users/mikeconley/Projects/mozilla-central/dom/base/nsContentUtils.cpp, line 3680</div>
+<div>[Child 59437] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80070057: file /Users/mikeconley/Projects/mozilla-central/dom/base/nsContentUtils.cpp, line 3735</div>
+<div>++DOMWINDOW == 11 (0x1238dd800) [pid = 59437] [serial = 13] [outer = 0x121dc4800]</div>
+<div>*************************</div>
+<div>A coding exception was thrown and uncaught in a Task.</div>
+<div><br/></div>
+<div>Full message: TypeError: File path should be a (non-empty) string</div>
+<div>Full stack: @resource://gre/modules/osfile/osfile_shared_front.jsm:400:1</div>
+<div>writeAtomic@resource://gre/modules/osfile/osfile_async_worker.js:266:1</div>
+<div>worker.dispatch@resource://gre/modules/osfile/osfile_async_worker.js:31:26</div>
+<div>anonymous/AbstractWorker.prototype.handleMessage@resource://gre/modules/workers/PromiseWorker.js:122:16</div>
+<div>@resource://gre/modules/osfile/osfile_async_worker.js:46:43</div>
+<div><br/></div>
+<div>*************************</div>
+<div>*************************</div>
+<div>A coding exception was thrown and uncaught in a Task.</div>
+<div><br/></div>
+<div>Full message: TypeError: File path should be a (non-empty) string</div>
+<div>Full stack: writeAtomic@resource://gre/modules/osfile/osfile_shared_front.jsm:400:1</div>
+<div>writeAtomic@resource://gre/modules/osfile/osfile_async_worker.js:266:1</div>
+<div>worker.dispatch@resource://gre/modules/osfile/osfile_async_worker.js:31:26</div>
+<div>anonymous/AbstractWorker.prototype.handleMessage@resource://gre/modules/workers/PromiseWorker.js:122:16</div>
+<div>@resource://gre/modules/osfile/osfile_async_worker.js:46:43</div>
+<div><br/></div>
+<div>*************************</div>
+<div>*************************</div>
+<div>A coding exception was thrown and uncaught in a Task.</div>
+<div><br/></div>
+<div>Full message: TypeError: File path should be a (non-empty) string</div>
+<div>Full stack: writeAtomic@resource://gre/modules/osfile/osfile_shared_front.jsm:400:1</div>
+<div>writeAtomic@resource://gre/modules/osfile/osfile_async_worker.js:266:1</div>
+<div>worker.dispatch@resource://gre/modules/osfile/osfile_async_worker.js:31:26</div>
+<div>anonymous/AbstractWorker.prototype.handleMessage@resource://gre/modules/workers/PromiseWorker.js:122:16</div>
+<div>@resource://gre/modules/osfile/osfile_async_worker.js:46:43</div>
+<div><br/></div>
+<div>*************************</div>
+<div>[Child 59437] WARNING: '!editorRectEvent.mSucceeded', file /Users/mikeconley/Projects/mozilla-central/widget/ContentCache.cpp, line 254</div>
+<div>[Child 59437] WARNING: '!mContentCache.CacheEditorRect(this, &amp;aIMENotification)', file /Users/mikeconley/Projects/mozilla-central/widget/PuppetWidget.cpp, line 829</div>
+<div>[Child 59437] WARNING: NS_ENSURE_SUCCESS(rv, true) failed with result 0x80570030: file /Users/mikeconley/Projects/mozilla-central/docshell/base/nsDocShell.cpp, line 11758</div>
+<div>++DOMWINDOW == 12 (0x123aae800) [pid = 59437] [serial = 14] [outer = 0x121dc4800]</div>
+<div>SENDING MESSAGE WITH:</div>
+<div>about:newtab</div>
+<div>about:newtab</div>
+<div><br/></div>
+<div>Sending message: NewTab:RegisterPage</div>
+<div>I REGISTERD THIS PAGE</div>
+<div><br/></div>
+<div>Sending message: NewTab:InitializeGrid</div>
+<div><br/></div>
+<div>Sending message: RemotePage:Load</div>
+<div>--DOMWINDOW == 27 (0x130a31000) [pid = 59435] [serial = 8] [outer = 0x129d6a400] [url = about:blank]</div>
+<div>--DOMWINDOW == 11 (0x1238dd800) [pid = 59437] [serial = 13] [outer = 0x121dc4800] [url = about:blank]</div>
+<div><br/></div>
+<div><b>No - nothing interesting in here.</b></div>
+<div><b><br/></b></div>
+<div><b>Experiment:</b></div>
+<div><b><br/></b></div>
+<div>Set up a message listener directly to the preloaded browser that just dumps to the console when Content:LocationChange is sent. Very simple, stripped down, without any other machinery.</div>
+<div><br/></div>
+<div>Ah hah! We just learned that the message for onLocationChange is being sent up, but that the message listener in RemoteWebProgress.jsm is not getting it for some reason.</div>
+<div><br/></div>
+<div>Question: Why is RemoteWebProgress not getting the message that <b>is being sent up</b> from the content (and we know it's being sent up).</div>
+<div><br/></div>
+<div>AH HAH</div>
+<div><br/></div>
+<div>I think I know what's going on!</div>
+<div><br/></div>
+<div><s>I believe the problem is that the remote-browser.xml binding is not being attached properly to the preloaded browser!</s></div>
+<div><br/></div>
+<div><b>THE REASON</b>: The problem is that the RemoteWebProgress is constructed lazily, and the preloaded browser sends up a message with updates before the RemoteWebProgress has a chance to be loaded and attached. So the reason that the messages aren't being received is because the RemoteWebProgress is created too late!</div>
+<div><br/></div>
+<ol>
+<li>For the preloaded browser, make sure that RemoteWebNavigation is loaded when the preloaded browser is created</li>
+<li>In browser.js's _loadURIWithFlags, we need to figure out what path the preloaded browser goes through, and make sure that we somehow call webProgress - this will cause us to instantiate RemoteWebProgress, which sets up the listeners, and bobs your uncle.</li>
+</ol>
+<div><br/></div>
+<div>Renamed from Unable to receive messages from preloaded, remote newtab page to Preloaded remote browsers don't have RemoteWebProgress initialized in time</div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

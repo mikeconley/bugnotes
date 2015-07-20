@@ -1,0 +1,597 @@
+---
+layout: post
+title:  "Bug 1170488 - browser.documentURI goes out of sync when doing same-document navigation in e10s"
+date:   2015-07-20
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1170488">
+ Bug 1170488 - browser.documentURI goes out of sync when doing same-document navigation in e10s
+</a>
+<div>
+ I suspect this is related to
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1173215">
+  bug 1173215
+ </a>
+ - Google Photos is, I believe, using history.pushState to manipulate the browser history, and we're getting confused about what the current URI is.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is what's failing in browser-plugins.js's showClickToPlayNotification:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+  showClickToPlayNotification
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  :
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   function
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (browser, plugins, showNow, principal,
+  <br/>
+  host, location) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // It is possible that we've received a message from the frame script to show
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // a click to play notification for a principal that no longer matches the one
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // that the browser's content now has assigned (ie, the browser has browsed away
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // after the message was sent, but before the message was received). In that case,
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // we should just ignore the message.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  principal.equals(browser.contentPrincipal)) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   return
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br/>
+  }
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Data URIs, when linked to from some page, inherit the principal of that
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // page. That means that we also need to compare the actual locations to
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // ensure we aren't getting a message from a Data URI that we're no longer
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // looking at.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  receivedURI
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  BrowserUtils.makeURI(location);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  browser.documentURI.equalsExceptRef(receivedURI)) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   return
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Confirm that history.pushState is being used by the test case.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes, this appears to be the case.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oooh - smaug has a patch for bug 1173215. Let's see if that fixes this!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… it doesn't. :( Why not?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ *sigh*. The URLs still don't match. Let me see if I can get a minimal test case here...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The failure is that the location that we're getting sent up via this.content.document.location.href does not match the browser.documentURI.spec.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://goo.gl/photos/EcjuHj5M8jiuo7Jw6">
+  https://goo.gl/photos/EcjuHj5M8jiuo7Jw6
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Redirects to: https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ PushState to URL: https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ PushState to URL: https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ PushState to URL: https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Click on video
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ PushState to URL: /share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw/photo/AF1QipPq9LaXsIpH8fjccjbK-N5A1473RdJnaPlzXRC5?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ message arrives in parent from child:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ location from child = "https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw/photo/AF1QipPq9LaXsIpH8fjccjbK-N5A1473RdJnaPlzXRC5?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ but browser.documentURI is:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ https://photos.google.com/share/AF1QipOmq9kJvQLc02UoDJuewyWH9K-3kBmREke-n7bqkXCBFekIndYCHDQN_AeqQvZFaw?key=YmVib0lYMUZ2Q3BDZi1jVTlNaUcya1U1WnYwZ1JR
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh, ok, so I've got a working test case for e10s… not for non-e10s yet though. Weird...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, make sure to try it in an iframe!! Wait. No. That doesn't make any sense - the iframe is embedded in the same parent document… :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WAAAAIT - this appears to be working in non-e10s mode now! Woo! Asking the reporter to confirm.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And if that's the case, then I have a working test case for it being busted in e10s (which I still see).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ahhhh… so I think I need to better understand the relationship between location and documentURI. That appears to be in flux here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When browser-child.js handles onLocationChange in WebProgressListener for pushState, it looks as if content.document.documentURIObject.spec is pointing at the original URI that the document was at before the pushState.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the easiest thing would be to set documentURI to be the same as the location we're setting to. But I need to examine what single process Firefox does.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The test: create and inject a frame script that does the following:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 1) Adds a listener for onLocationChange
+</div>
+<div>
+ 2) Dumps out the value of content.document.documentURI.spec
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Then inject that script into a non-e10s browser, and make that browser do the pushstate thing. Observe the output.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ If the printed out spec doesn't match the final URI from the pushState, then we're apparently behaving properly. :(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, let's get started.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  CONCLUSION:
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It seems to be the case that in single-process mode, in onLocationChange, when firing after a pushState, the content.document.documentURIObject.spec has not yet been updated.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But after escaping that function, in the parent, the gBrowser.selectedBrowser.documentURIObject.spec has been updated. So that must occur elsewhere. Right - it happens right after:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://hg.mozilla.org/mozilla-central/file/ce863f9d8864/docshell/base/nsDocShell.cpp#l11717">
+  https://hg.mozilla.org/mozilla-central/file/ce863f9d8864/docshell/base/nsDocShell.cpp#l11717
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <code>
+  // Step 6: If the document's URI changed, update document's URI and update
+ </code>
+ <br/>
+ <code>
+  // global history.
+ </code>
+ <br/>
+ <code>
+  //
+ </code>
+ <br/>
+ <code>
+  // We need to call FireOnLocationChange so that the browser's address bar
+ </code>
+ <br/>
+ <code>
+  // gets updated and the back button is enabled, but we only need to
+ </code>
+ <br/>
+ <code>
+  // explicitly call FireOnLocationChange if we're not calling SetCurrentURI,
+ </code>
+ <br/>
+ <code>
+  // since SetCurrentURI will call FireOnLocationChange for us.
+ </code>
+ <br/>
+ <code>
+  //
+ </code>
+ <br/>
+ <code>
+  // Both SetCurrentURI(...) and FireDummyOnLocationChange() pass
+ </code>
+ <br/>
+ <code>
+  // nullptr for aRequest param to FireOnLocationChange(...). Such an update
+ </code>
+ <br/>
+ <code>
+  // notification is allowed only when we know docshell is not loading a new
+ </code>
+ <br/>
+ <code>
+  // document and it requires LOCATION_CHANGE_SAME_DOCUMENT flag. Otherwise,
+ </code>
+ <br/>
+ <code>
+  // FireOnLocationChange(...) breaks security UI.
+ </code>
+</div>
+<div>
+ <code>
+  if (!
+  <a>
+   equalURIs
+  </a>
+  ) {
+ </code>
+</div>
+<div>
+ <code>
+  <a>
+   SetCurrentURI
+  </a>
+  (
+  <a>
+   newURI
+  </a>
+  , nullptr, true, LOCATION_CHANGE_SAME_DOCUMENT);
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   &lt;-- FIRES ONLOCATIONCHANGE
+  </span>
+ </code>
+</div>
+<div>
+ <code>
+  <a>
+   document
+  </a>
+  <a>
+   -&gt;
+  </a>
+  <a>
+   SetDocumentURI
+  </a>
+  (
+  <a>
+   newURI
+  </a>
+  );
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   &lt;-- UPDATED DOCUMENT URI
+  </span>
+ </code>
+ <br/>
+ <br/>
+ <code>
+  <a>
+   AddURIVisit
+  </a>
+  (
+  <a>
+   newURI
+  </a>
+  ,
+  <a>
+   oldURI
+  </a>
+  ,
+  <a>
+   oldURI
+  </a>
+  , 0);
+ </code>
+ <br/>
+ <br/>
+ <code>
+  // AddURIVisit doesn't set the title for the new URI in global history,
+ </code>
+ <br/>
+ <code>
+  // so do that here.
+ </code>
+ <br/>
+ <code>
+  if (
+  <a>
+   mUseGlobalHistory
+  </a>
+  &amp;&amp; !
+  <a>
+   mInPrivateBrowsing
+  </a>
+  ) {
+ </code>
+</div>
+<div>
+ <code>
+  <a>
+   nsCOMPtr
+  </a>
+  &lt;
+  <a>
+   IHistory
+  </a>
+  &gt;
+  <a>
+   history
+  </a>
+  =
+  <a>
+   services
+  </a>
+  ::
+  <a>
+   GetHistoryService
+  </a>
+  ();
+ </code>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, cool. So, hypothesis:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In multi-process Firefox, after a pushState, browser.documentURI.spec will always be one URI stale. As, in, it will always be out of date by one URI.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ YES, that appears to be the case. OK, got it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Writing it up in the bug.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Renaming: Summary: Click-to-Play for Adobe Flash not working when loading video not directly → browser.documentURI goes out of sync when doing same-document navigation in e10s
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ My test passes, and the Flash thing works if I update the document URI
+ <i>
+  before
+ </i>
+ we do onLocationChange… so let me try that.
+</div>

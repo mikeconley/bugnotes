@@ -1,0 +1,64 @@
+---
+layout: post
+title:  "Bug 1173219 - Make TabParent::RecvCreateWindow less crash prone"
+date:   2015-07-20
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1173219">
+ Bug 1173219 - Make TabParent::RecvCreateWindow less crash prone
+</a>
+<div>
+ Ok, this should be pretty straight-forward. I want to be able to send the nsresult back to the caller (success or failure), and then always return true from TabParent::RecvCreateWindow.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Easy-peasy.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ There are a number of ways to do this… I've settled on having TabParent default to setting the aResult to NS_OK, and then setting to NS_ERROR_FAILURE in case things go wrong, and returning true. An alternative was to default it to NS_ERROR_FAILURE, and setting to in the success cases. Bah.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting - sometimes we use no-braces for single-line conditionals where we normally used to do:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ NS_ENSURE_SUCCESS(rv, false);
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I did not know this.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ try:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=086aae77d3c6">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=086aae77d3c6
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, looking green! Landed!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This might fix a bunch of crashes we're seeing on Dev Edition, so requesting uplift.
+</div>

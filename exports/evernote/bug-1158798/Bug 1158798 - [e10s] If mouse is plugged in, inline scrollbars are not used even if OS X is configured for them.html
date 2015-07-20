@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.16 (451861)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-07-03 15:12:48 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1158798"/><meta name="updated" content="2015-07-10 21:14:14 +0000"/><title>Bug 1158798 - [e10s] If mouse is plugged in, inline scrollbars are not used even if OS X is configured for them</title></head><body lang="">
+<div>Heeeeere we go. This is very similar to bug 1096093.</div>
+<div><br/></div>
+<div>Here's the synthesis of the problem in that bug:</div>
+<div><br/></div>
+<div>"So, conclusion: In single-process Firefox, we construct the DOM, and meanwhile, the operating system is asynchronously figuring out about the preferred scrollbar state. But we initially assume overlay scrollbars. As soon as the change occurs, nsChildView.mm hears about it in scrollbarSystemMetricChanged, and we do a NotifyThemeChanged to queue a ThemeChange flush. And meanwhile, the LookAndFeel for UseOverlayScrollbars has changed for everybody reading it.</div>
+<div><br/></div>
+<div>In the multi-process case, the UseOverlayScrollbars metric changes, but the child never hears about the scrollbarSystemMetricChanged event. So it never does a ThemeChanged on the nsPresContext. "</div>
+<div><br/></div>
+<div>So, hypothesis: the UseOverlayScrollbars metric is changing but the child is not being informed about it at start-up.</div>
+<div><br/></div>
+<div>Test: I'll add breakpoints in two places: nsChildView::scrollbarSystemMetricChanged and TabParent::ThemeChanged. In the child, TabChild::RecvThemeChanged and nsLookAndFeel::SetIntCacheImpl.</div>
+<div><br/></div>
+<div>It doesn't look like the parent is sending the initial change on the scrollbar metric. Interesting.</div>
+<div><br/></div>
+<div>So from logging, it looks like this is some silliness on my part.</div>
+<div><br/></div>
+<div>Here's the sequence of events:</div>
+<div><br/></div>
+<div>Parent starts up. After a while, it hears about the scrollbar metric changing. It updates its internal notion of whether or not to use overlay scrollbars.</div>
+<div><br/></div>
+<div>A while later, the child starts up, and asks the parents for the look and feel cache...</div>
+<div><br/></div>
+<div>But the cache is a nsTArray&lt;LookAndFeelInt> with no elements… what the hell? I definitely watched the values get put into that array. I probably did it wrong. :(</div>
+<div><br/></div>
+<div>And yet… sending theme changes works. So I can use that as a model.</div>
+<div><br/></div>
+<div>Ahhhhhhhhhhhhh I'm an idiot.</div>
+<div><br/></div>
+<div>In PContent.ipdl:</div>
+<div><br/></div>
+<div>    sync GetLookAndFeelCache(LookAndFeelInt[] lookAndFeelIntCache);</div>
+<div><br/></div>
+<div>This is NOT the way to get an array of data from the parent! This is how we _pass_ data to the parent. The lookAndFeelIntCache should be a return value from the parent!</div>
+<div><br/></div>
+<div>Oh jeebus. Well, at least this should be a straight-forward fix.</div>
+<div><br/></div>
+<div>Ok, patch written, tests appear to work. Let's get this puppy on try.</div>
+</body></html>

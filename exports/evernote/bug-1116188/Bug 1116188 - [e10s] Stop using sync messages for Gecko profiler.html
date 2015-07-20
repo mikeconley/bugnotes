@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.16 (451861)"/><meta name="keywords" content="M7, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-05-01 17:13:59 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1116188"/><meta name="updated" content="2015-06-12 19:15:57 +0000"/><title>Bug 1116188 - [e10s] Stop using sync messages for Gecko profiler</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;" lang="">
+<div>How do we make this async?
+<div><br/></div>
+Well, let's see what's sync...
+<div><br/></div>
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1008435">Here's where I added profile powers for the content and plugin processes.</a> (Bug 1008435).
+<div><br/></div>
+It looks like the Profiler backend fires an observer notification when it wants the profiles from each process.
+<div><br/></div>
+So that's synchronous. That's no good. I should find where that observer notification is fired… void TableTicker::StreamJSObject seems to be the place.
+<div><br/></div>
+Ah, nsIProfiler's GetProfile is sync. So that's one part of the problem.
+<div><br/></div>
+We'll probably need an async method here...
+<div><br/></div>
+So there are a few pieces here.
+<div><br/></div>
+I need to make nsIProfiler have an async method for gathering profiles, and I need that method to asynchronously gather profiles from each process.
+<div><br/></div>
+Then I need to alter Gecko-Profiler-Addon to use that method for gathering profiles. Luckily, it looks like Gecko-Profiler-Addon already has a callback-y interface. So that'll be easy!
+<div><br/></div>
+So the real challenge is the nsIProfiler bit.
+<div><br/></div>
+Let's pretend I add a method called GetProfileAsync that takes some callback thing. The callback will be called with the profile when it's ready.
+<div><br/></div>
+GetProfileAync
+<div><br/></div>
+Interestingly, the profiler-subprocess nsIObserverNotification subject is a ProfileSaveEvent, which takes a SubProcessCallback… and so it looks like there's already some async machinery here...
+<div><br/></div>
+Hm.. I'm not convinced that this SubProcessCallback and SubProcessContext thing is going to work… I think it's assumed, when sewing together this profile, that it's all going to come in synchronously. That really isn't going to be the case.
+<div><br/></div>
+Well… unless it's known that we don't complete the profile string until the children all respond somehow. Like, the other processes should say "Here's my profile", or maybe "I have no profile, because I'm not profiling" (or maybe just an empty profile).
+<div><br/></div>
+Like, the main thread holds onto the current progress of sewing together the profile… exits and stashes current state when it reaches the point where we need subprocess stuff… when subprocesses report in, add them in the order they come in.
+<div><br/></div>
+Also, we might have to break up the profile message. It can be several megabytes… I think we can hit limits. Like:
+<div><br/></div>
+WARNING: IPC message is too big: file /Users/mikeconley/Projects/mozilla-central/ipc/chromium/src/chrome/common/ipc_channel_posix.cc, line 531
+<div><br/></div>
+Wait… the message limit is, apparently, 268435456 bytes… or 268.435 MB. That's crazy if we exceed that. :/
+<div><br/></div>
+Something really funky is going down with my OS X build. :( Content process keeps crashing when I try to grab a profile. Why?
+<div><br/></div>
+Markus has pointed me to this work which is relevant… "<b><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1154115">Bug 1154115</a></b> - Rewrite profile JSON streaming". Anything <font color="#000000">I do</font> should probably be based on this.
+<div><br/></div>
+<b>THE PLAN:</b><br/></div>
+<ol>
+<li>Have GetProfile and GetProfileData both return Promises (ensure we have JS Contexts, and use Promise::Create, just like ServiceWorkerManager:</li>
+</ol>
+<div><br/>
+<span style="font:12.0px Courier;">nsCOMPtr</span><span style="font:12.0px Courier;"><font color="#797979">&lt;</font></span><span style="font:12.0px Courier;">nsIGlobalObject</span><span style="font:12.0px Courier;"><font color="#797979">></font></span> <span style="font:12.0px Courier;">sgo</span> <span style="font:12.0px Courier;"><font color="#797979">=</font></span> <span style="font:12.0px Courier;">do_QueryInterface(window);</span><br/>
+<span style="font:12.0px Courier;">  ErrorResult result;</span><br/>
+<span style="font:12.0px Courier;">  nsRefPtr</span><span style="font:12.0px Courier;"><font color="#797979">&lt;</font></span><span style="font:12.0px Courier;">Promise</span><span style="font:12.0px Courier;"><font color="#797979">></font></span> <span style="font:12.0px Courier;">promise</span> <span style="font:12.0px Courier;"><font color="#797979">=</font></span> <span style="font:12.0px Courier;">Promise</span><span style="font:12.0px Courier;"><font color="#797979">::</font></span><span style="font:12.0px Courier;">Create(sgo, result);</span><br/>
+<span style="font:12.0px Courier;"> </span> <b><span style="font:12.0px Courier;"><font color="#008F00">if</font></span></b> <span style="font:12.0px Courier;">(result.Failed()) {</span><br/>
+<span style="font:12.0px Courier;">   </span> <b><span style="font:12.0px Courier;"><font color="#008F00">return</font></span></b> <span style="font:12.0px Courier;">result.StealNSResult();</span><br/>
+<span style="font:12.0px Courier;">  }</span>
+<div><br/></div>
+<span style="font:12.0px Courier;">  ServiceWorkerJobQueue</span><span style="font:12.0px Courier;"><font color="#797979">*</font></span> <span style="font:12.0px Courier;">queue</span> <span style="font:12.0px Courier;"><font color="#797979">=</font></span> <span style="font:12.0px Courier;">GetOrCreateJobQueue(cleanedScope);</span><br/>
+<span style="font:12.0px Courier;">  MOZ_ASSERT(queue);</span>
+<div><br/></div>
+<span style="font:12.0px Courier;">  nsRefPtr</span><span style="font:12.0px Courier;"><font color="#797979">&lt;</font></span><span style="font:12.0px Courier;">ServiceWorkerResolveWindowPromiseOnUpdateCallback</span><span style="font:12.0px Courier;"><font color="#797979">></font></span> <span style="font:12.0px Courier;">cb</span> <span style="font:12.0px Courier;"><font color="#797979">=</font></span><br/>
+<span style="font:12.0px Courier;">   </span> <b><span style="font:12.0px Courier;"><font color="#008F00">new</font></span></b> <span style="font:12.0px Courier;">ServiceWorkerResolveWindowPromiseOnUpdateCallback(window, promise);</span>
+<div><br/></div>
+<span style="font:12.0px Courier;">  nsRefPtr</span><span style="font:12.0px Courier;"><font color="#797979">&lt;</font></span><span style="font:12.0px Courier;">ServiceWorkerRegisterJob</span><span style="font:12.0px Courier;"><font color="#797979">></font></span> <span style="font:12.0px Courier;">job</span> <span style="font:12.0px Courier;"><font color="#797979">=</font></span><br/>
+<span style="font:12.0px Courier;">   </span> <b><span style="font:12.0px Courier;"><font color="#008F00">new</font></span></b> <span style="font:12.0px Courier;">ServiceWorkerRegisterJob(queue, cleanedScope, spec, cb, documentPrincipal);</span><br/>
+<span style="font:12.0px Courier;">  queue</span><span style="font:12.0px Courier;"><font color="#797979">-></font></span><span style="font:12.0px Courier;">Append(job);</span>
+<div><br/></div>
+<span style="font:12.0px Courier;">  promise.forget(aPromise);</span></div>
+<ol>
+<li>This function should through if a Profile is already being gathered. Maybe expose some state on nsIProfiler to say whether gathering is underway.</li>
+<li>Have nsProfiler or what-have-you send the profiler-subprocess notification around. That should immediately return with a count of how many profiles we're waiting for. Stash that value somewhere in nsProfiler.</li>
+<li>Each process parent asks each child for their profiles.</li>
+<li>Each child receives message, gathers profile, send async message with the result.</li>
+<li>Each parent receives result, calls into nsProfiler with the result.</li>
+<li>nsProfiler receives result. Decrements counter. If the counter is at 0, finish the stream and resolve the promise. Or, if the result is an error, Reject the promise.</li>
+</ol>
+<div><br/>
+That's the general idea of it, anyhow.
+<div><br/></div>
+Bah. Shu's patch in bug 1154115 doesn't apply cleanly. :(
+<div><br/></div>
+Idea: pass object through observer notification. Has method I call which returns function to call when message with profile returns.
+<div><br/></div>
+</div>
+<div>Class maintains count of functions it has handed out, is in charge of resolving Promise once last Profile comes in?</div>
+<div><br/></div>
+<div>Ok, Shu's patch has landed. Time to unmothball this bug.</div>
+<div><br/></div>
+<div>Let's see if I can just return a Promise that I can resolve after some time...</div>
+<div><br/></div>
+<div>We're going to make it only possible to get profiles from other processes asynchronously. Are you ready?</div>
+<div><br/></div>
+<div><br/></div>
+<div>Assertion failure: !PreservingWrapper() (Destroying cache with a preserved wrapper!), at /Users/mikeconley/Projects/mozilla-central/dom/base/nsWrapperCache.h:80</div>
+<div>#01: nsWrapperCache::~nsWrapperCache()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x107a17f]</div>
+<div>#02: mozilla::dom::Promise::~Promise()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x37697d4]</div>
+<div>#03: mozilla::dom::Promise::~Promise()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x376abb5]</div>
+<div>#04: mozilla::dom::Promise::~Promise()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x376ab89]</div>
+<div>#05: mozilla::dom::Promise::DeleteCycleCollectable()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x376aaee]</div>
+<div>#06: mozilla::dom::Promise::cycleCollection::DeleteCycleCollectable(void*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3777ec2]</div>
+<div>#07: SnowWhiteKiller::~SnowWhiteKiller()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xcf692]</div>
+<div>#08: RemoveSkippableVisitor::~RemoveSkippableVisitor()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xd0de8]</div>
+<div>#09: RemoveSkippableVisitor::~RemoveSkippableVisitor()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xbab55]</div>
+<div>#10: nsPurpleBuffer::RemoveSkippable(nsCycleCollector*, bool, bool, void (*)())[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xad14a]</div>
+<div>#11: nsCycleCollector::ForgetSkippable(bool, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xad4ae]</div>
+<div>#12: nsCycleCollector_forgetSkippable(bool, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xb153e]</div>
+<div>#13: FireForgetSkippable(unsigned int, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1ba629b]</div>
+<div>#14: CCTimerFired(nsITimer*, void*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1ba78b5]</div>
+<div>#15: nsTimerImpl::Fire()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x19caeb]</div>
+<div>#16: nsTimerEvent::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x19ced1]</div>
+<div>#17: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x197966]</div>
+<div>#18: NS_ProcessNextEvent(nsIThread*, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1f2b88]</div>
+<div>#19: nsThread::Shutdown()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x196f85]</div>
+<div>#20: mozilla::LazyIdleThread::ShutdownThread()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x18de1e]</div>
+<div>#21: mozilla::LazyIdleThread::Notify(nsITimer*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x18ec28]</div>
+<div>#22: non-virtual thunk to mozilla::LazyIdleThread::Notify(nsITimer*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x18eccf]</div>
+<div>#23: nsTimerImpl::Fire()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x19cb07]</div>
+<div>#24: nsTimerEvent::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x19ced1]</div>
+<div>#25: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x197966]</div>
+<div>#26: NS_ProcessNextEvent(nsIThread*, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1f2b88]</div>
+<div>#27: nsThread::Shutdown()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x196f85]</div>
+<div>#28: void nsRunnableMethodArguments&lt;>::apply&lt;nsIThread, nsresult (nsIThread::*)()>(nsIThread*, nsresult (nsIThread::*)())[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a4013]</div>
+<div>#29: nsRunnableMethodImpl&lt;nsresult (nsIThread::*)(), true>::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a3caa]</div>
+<div>#30: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x197966]</div>
+<div>#31: NS_ProcessNextEvent(nsIThread*, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1f2b88]</div>
+<div>#32: nsThread::Shutdown()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x196f85]</div>
+<div>#33: void nsRunnableMethodArguments&lt;>::apply&lt;nsIThread, nsresult (nsIThread::*)()>(nsIThread*, nsresult (nsIThread::*)())[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a4013]</div>
+<div>#34: nsRunnableMethodImpl&lt;nsresult (nsIThread::*)(), true>::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a3caa]</div>
+<div>#35: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x197966]</div>
+<div>#36: NS_ProcessNextEvent(nsIThread*, bool)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1f2b88]</div>
+<div>#37: nsThread::Shutdown()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x196f85]</div>
+<div>#38: void nsRunnableMethodArguments&lt;>::apply&lt;nsIThread, nsresult (nsIThread::*)()>(nsIThread*, nsresult (nsIThread::*)())[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a4013]</div>
+<div>#39: nsRunnableMethodImpl&lt;nsresult (nsIThread::*)(), true>::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1a3caa]</div>
+<div>#40: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x197966]</div>
+<div>#41: NS_ProcessPendingEvents(nsIThread*, unsigned int)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1f29cb]</div>
+<div>#42: nsBaseAppShell::NativeEventCallback()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x39c8ac9]</div>
+<div>#43: nsAppShell::ProcessGeckoEvents(void*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3a46f31]</div>
+<div>#44: __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x12b31]</div>
+<div>#45: __CFRunLoopDoSources0[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x12455]</div>
+<div>#46: __CFRunLoopRun[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x357f5]</div>
+<div>#47: CFRunLoopRunSpecific[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x350e2]</div>
+<div>#48: RunCurrentEventLoopInMode[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5feb4]</div>
+<div>#49: ReceiveNextEventCommon[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5fc52]</div>
+<div>#50: BlockUntilNextEventMatchingListInMode[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5fae3]</div>
+<div>#51: _DPSNextEvent[/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x155533]</div>
+<div>#52: -[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:][/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x154df2]</div>
+<div>#53: -[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:][/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3a45b57]</div>
+<div>#54: -[NSApplication run][/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x14c1a3]</div>
+<div>#55: nsAppShell::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3a478dc]</div>
+<div>#56: nsAppStartup::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4991f21]</div>
+<div>#57: XREMain::XRE_mainRun()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4a45c4c]</div>
+<div>#58: XREMain::XRE_main(int, char**, nsXREAppData const*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4a465ae]</div>
+<div>#59: XRE_main[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4a46a5d]</div>
+<div>#60: do_main(int, char**, nsIFile*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/firefox +0x1cb5]</div>
+<div>#61: main[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/firefox +0x1161]</div>
+<div><br/></div>
+<div>So I've got this Promise thing… how should this work?</div>
+<div><br/></div>
+<div>Pass this thing that implements nsISupports. Passes it through the observer service to all of the parents. Parents that can profile increment the counter and get the callback. Individually store the callbacks. Sends message to child to get profile. Message comes back from child, grabs stashed callback, and calls it with result. Should assert main thread.</div>
+<div><br/></div>
+<div>Simplest, after talking to jrmuizel, ehsan, mstange and tbsaunde - instead of doing fancy things where I call a method and get back a callable, I'll just have the Parent's stash the thing I'm passing around the observer service.</div>
+<div><br/></div>
+<div>  MOZ_ASSERT(NS_IsMainThread());</div>
+<div><br/></div>
+<div>  if (NS_WARN_IF(!aCx)) {</div>
+<div>    return NS_ERROR_FAILURE;</div>
+<div>  }</div>
+<div><br/></div>
+<div>  JSObject *jsGlobal = JS::CurrentGlobalOrNull(aCx);</div>
+<div><br/></div>
+<div>  if (NS_WARN_IF(!jsGlobal)) {</div>
+<div>    return NS_ERROR_FAILURE;</div>
+<div>  }</div>
+<div><br/></div>
+<div>  nsIScriptGlobalObject* sgo = nsJSUtils::GetStaticScriptGlobal(jsGlobal);</div>
+<div><br/></div>
+<div>  if (NS_WARN_IF(!sgo)) {</div>
+<div>    return NS_ERROR_FAILURE;</div>
+<div>  }</div>
+<div><br/></div>
+<div>  ErrorResult result;</div>
+<div>  nsRefPtr&lt;Promise> promise = Promise::Create(sgo, result);</div>
+<div>  if (result.Failed()) {</div>
+<div>    return result.StealNSResult();</div>
+<div>  }</div>
+<div><br/></div>
+<div>  promise->MaybeResolve(true);</div>
+<div><br/></div>
+<div>  promise.forget(aPromise);</div>
+<div>  return NS_OK;</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Create the promise in nsProfiler, and pass it along to TableTicker for resolution?<br/></div>
+<div><input checked="true" type="checkbox"/>Create a new class that implements nsISupports called, uh, ProfileGatherer? Make sure we can send it around when we send the observer notification.</div>
+<div><br/></div>
+<div>This thing should probably take a TableTicker, a SpliceableJSONWriter, and the Promise to be resolved.</div>
+<div><br/></div>
+<div>Methods for the start and end of creating the profile. Make the sync stuff call the first, and the latter - remove the profile-subprocess stuff from it.</div>
+<div><br/></div>
+<div>For the async stuff, call the start, and then do our special monitoring stuff. Once the last oop profile comes in, do the end stuff, and then pass it to the promise resolver.</div>
+<div><br/></div>
+<div>It should immediately start blasting out the system stuff.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Split and move TableTicker::StreamJSON logic into two TableTicker static methods - Head and Foot</div>
+<div><br/></div>
+<div>Ok, so I've got like… the very bare minimum written to maybe get this to work. And it's still kinda busted. I'm crashing for some reason when I try to gather the profile, and neither gdb nor XCode are being very forthcoming about why. It's really frustrating - like, I don't seem to hit a breakpoint.</div>
+<div><br/></div>
+<div>Huh… something to do with the JSON writer...</div>
+<div><br/></div>
+<div>Why am I crashing? Why is resolving the Promise causing us to fail this assertion:</div>
+<div><br/></div>
+<div>Assertion failure: cx->runtime()->requestDepth || cx->runtime()->isHeapBusy(), at /Users/mikeconley/Projects/mozilla-central/js/src/jscntxt.cpp:1172</div>
+<div><br/></div>
+<div>What is an AutoJSContext? Could that help me here?</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:33 </span><span style="color: rgb(255, 0, 136);">(shu) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: oh i don't know anything about the C++ Promise crap either :/</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:33 </span><span style="color: rgb(255, 0, 136);">(shu) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: but yeah, try AutoJSContext on the stack</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:33 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>alright, I'll look into that. Thanks!</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">13:35 </span><span style="color: rgb(0, 136, 0);">Waldo has joined (waldo@<span style="text-decoration: underline; word-break: break-all;"><a href="http://moz-h28sem.sntcca.sbcglobal.net">moz-h28sem.sntcca.sbcglobal.net</a></span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:37 </span><span style="color: rgb(255, 68, 0);">(sfink) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: and if that doesn't work, try an AutoJSAPI - </strong><a href="https://dxr.mozilla.org/mozilla-central/source/dom/base/ScriptSettings.h?from=AutoJSAPI#213" style="word-break: break-all;">https://dxr.mozilla.org/mozilla-central/source/dom/base/ScriptSettings.h?from=AutoJSAPI#213</a></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">13:37 </span><span style="color: rgb(0, 136, 255);">(efaust) </span>"..better add a test for legacy generators, just in case", they said. "Who the hell uses |new| on a legacy generator?", he said. "That's some mighty fine test failure you've got there", the sheriff said.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>sfink: ooh, thank you!</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(255, 68, 136);">(Waldo) </span>efaust: lol</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(255, 68, 0);">(sfink) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: or maybe AutoEntryScript if whatever you're doing might run a JS script inside there</strong></div>
+</div>
+<div><br/></div>
+<div>I'm failing this assertion now...</div>
+<div>    MOZ_ASSERT(strlen(mChunkList[i].get()) == mChunkLengths[i]);</div>
+<div><br/></div>
+<div>HOLY SHIT. WE DID IT.</div>
+<div><br/></div>
+<div>Apparently, I need to enter a compartment in order to exercise the JSAPI. The JSContext I was using was garbage, and I needed to get into this unprivileged junk compartment. Otherwise, I had no zone. Something like that.</div>
+<div><br/></div>
+<div>Before:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier; color: #c01e51">void</span><span style="font: 12.0px Courier"><br/>
+ProfileGatherer</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">Resolve()<br/>
+{<br/>
+  MOZ_ASSERT(NS_IsMainThread());<br/>
+  AutoJSContext cx;<br/>
+  JS</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">RootedValue val(cx);<br/>
+  {<br/>
+    UniquePtr</span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier; color: #c01e51">char</span><span style="font: 12.0px Courier">[]</span><span style="font: 12.0px Courier; color: #797979">></span> <span style="font: 12.0px Courier">buf</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">mWriter.WriteFunc()</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">CopyData();<br/>
+    NS_ConvertUTF8toUTF16</span> <span style="font: 12.0px Courier; color: #0433ff">js_string</span><span style="font: 12.0px Courier">(nsDependentCString(buf.get()));<br/>
+    MOZ_ALWAYS_TRUE(JS_ParseJSON(cx,</span> <span style="font: 12.0px Courier; color: #008f00"><b>static_cast</b></span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier; color: #008f00"><b>const</b></span> <span style="font: 12.0px Courier; color: #c01e51">char16_t</span><span style="font: 12.0px Courier; color: #797979">*></span><span style="font: 12.0px Courier">(js_string.get()),<br/>
+                                 js_string.Length(),</span> <span style="font: 12.0px Courier; color: #797979">&amp;</span><span style="font: 12.0px Courier">val));<br/>
+  }<br/>
+  mPromise</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">MaybeResolve(cx, val);</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">}</span></span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;"><br/></span></span></div>
+<div>After:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier; color: #c01e51">void</span><span style="font: 12.0px Courier"><br/>
+ProfileGatherer</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">Resolve()<br/>
+{<br/>
+  MOZ_ASSERT(NS_IsMainThread());<br/>
+  AutoJSAPI jsapi;<br/>
+  jsapi.Init();<br/>
+  JSContext</span><span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">cx</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">jsapi.cx();<br/>
+  JSAutoCompartment</span> <span style="font: 12.0px Courier; color: #0433ff">ac</span><span style="font: 12.0px Courier">(cx, xpc</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">UnprivilegedJunkScope());<br/>
+<br/>
+  JS</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">RootedValue val(cx);<br/>
+  {<br/>
+    UniquePtr</span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier; color: #c01e51">char</span><span style="font: 12.0px Courier">[]</span><span style="font: 12.0px Courier; color: #797979">></span> <span style="font: 12.0px Courier">buf</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">mWriter.WriteFunc()</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">CopyData();<br/>
+    NS_ConvertUTF8toUTF16</span> <span style="font: 12.0px Courier; color: #0433ff">js_string</span><span style="font: 12.0px Courier">(nsDependentCString(buf.get()));<br/>
+    MOZ_ALWAYS_TRUE(JS_ParseJSON(cx,</span> <span style="font: 12.0px Courier; color: #008f00"><b>static_cast</b></span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier; color: #008f00"><b>const</b></span> <span style="font: 12.0px Courier; color: #c01e51">char16_t</span><span style="font: 12.0px Courier; color: #797979">*></span><span style="font: 12.0px Courier">(js_string.get()),<br/>
+                                 js_string.Length(),</span> <span style="font: 12.0px Courier; color: #797979">&amp;</span><span style="font: 12.0px Courier">val));<br/>
+  }<br/>
+  mPromise</span><span style="font: 12.0px Courier; color: #797979">-></span><span style="font: 12.0px Courier">MaybeResolve(val);</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">}</span></span></div>
+<div><br/></div>
+<div><br/></div>
+<div><s><input type="checkbox"/>Reconsider destructor mechanism</s></div>
+<div><br/></div>
+<div>Naw - I don't think I want to do this, because having the TableTicker hold a reference to the gatherer is important so that we know that we can't gather another set of profiles while already gathering one. If that makes any sense.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Clear out TableTicker's mGatherer on Resolving...</div>
+<div><input checked="true" type="checkbox"/>Why am I not getting profiles from the plugin process?</div>
+<div><br/></div>
+<div>That was me being foolish - I'd forgotten that if the plugin process starts _after_ I've begun profiling, then I won't get a profile from it.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Make sure that nsIProfiler.getProfileDataAsync works from the Profiler add-on</div>
+<div><br/></div>
+<div>Hrm - right now, this doesn't work because I can't seem to get the ScriptGlobalObject with:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier">MOZ_ASSERT(NS_IsMainThread());<br/>
+<br/>
+ </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(NS_WARN_IF(</span><span style="font: 12.0px Courier; color: #797979">!</span><span style="font: 12.0px Courier">aCx)) {<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier">NS_ERROR_FAILURE;<br/>
+  }<br/>
+<br/>
+  JSObject</span> <span style="font: 12.0px Courier; color: #797979">*</span><span style="font: 12.0px Courier">jsGlobal</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">JS</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">CurrentGlobalOrNull(aCx);<br/>
+<br/>
+ </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(NS_WARN_IF(</span><span style="font: 12.0px Courier; color: #797979">!</span><span style="font: 12.0px Courier">jsGlobal)) {<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier">NS_ERROR_FAILURE;<br/>
+  }<br/>
+<br/></span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">  nsIScriptGlobalObject<span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">sgo</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">nsJSUtils</span><span style="font: 12.0px Courier; color: #797979">::</span>GetStaticScriptGlobal(jsGlobal);</span></span></div>
+<div><br/></div>
+<div>Like, it's null when I call it from the profiler add-on.</div>
+<div><br/></div>
+<div>Ah! jorendorff helped me find the right incantations to get the nsIGlobalObject out of the JSContext we are passed:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier"> nsIGlobalObject</span><span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">go</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">xpc</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">NativeGlobal(JS</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font-family: Courier;"><span style="font-size: 12px;">CurrentGlobalOrNull(aCx));</span></span></div>
+<div><br/></div>
+<div>Boom! And then I needed to make sure that the object I resolve with resides in the same compartment as the Promise:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier"> AutoJSAPI jsapi;</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;"> jsapi.Init();</span></span></div>
+<div><span style="font: 12.0px Courier"> JSContext</span><span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">cx</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">jsapi.cx();</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;"> JSAutoCompartment <span style="font: 12.0px Courier; color: #0433ff">ac</span><span style="font: 12.0px Courier">(cx, mPromise</span><span style="font: 12.0px Courier; color: #797979">-></span>GlobalJSObject());</span></span></div>
+<div><br/></div>
+<div>Aw hell yeah. And we're in business! I'm gathering profiles asynchronously, baby! WOOOOO</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Make sure profiler stuff is ifdef'd out where appropriate on MOZ_ENABLE_PROFILER_SPS</div>
+<div><br/></div>
+<div>BenWa thinks it might be better to do things as follows:</div>
+<div><br/></div>
+<ol>
+<li>profile-subprocess observer notification goes out. ProfilerGatherer asks all child processes to begin fetching profiles. We pause the profiler here.</li>
+<li>Once all profiles come in, ProfileGatherer sends an observer notification out asking for all profiles before blasting out the profile. Don't do the head/foot split.</li>
+</ol>
+<div><br/></div>
+<div>How hard of a modification is that?</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Rebase off of the head/foot bit.<br/></div>
+<div><input checked="true" type="checkbox"/>When ToJSONObjectAsync comes in. Create the Gatherer.</div>
+<div><input checked="true" type="checkbox"/>Pass around an observer notification for subprocesses to gather their profiles.<br/></div>
+<div><input checked="true" type="checkbox"/>In ProfileGatherer, when the count goes to zero, tell TableTicker, which will go about fetching the profiles, and returning a JSObject. Gatherer then calls the callback to resolve the promise.</div>
+<div><input checked="true" type="checkbox"/>When ContentParent and PluginModuleParent receive the profiles, stash them in a string.</div>
+<div><input checked="true" type="checkbox"/>When the observer notification to get the profiles comes into ContentParent and PluginModuleParent, have them give up their strings and then truncate them</div>
+<div><input checked="true" type="checkbox"/>Make sure TableTicker.h and ProfileJSONWriter.h are private</div>
+<div><s><input checked="true" type="checkbox"/>Hook up wiring for a callback to be passed on completion</s></div>
+<div><s><input checked="true" type="checkbox"/>Have nsProfiler pass a static method callback, and hold on to the Promise for resolution</s></div>
+<div><input checked="true" type="checkbox"/>bz's error handling <a href="http://mxr.mozilla.org/mozilla-central/source/dom/fetch/Fetch.cpp#1616">(see this)</a><br/></div>
+<div><input checked="true" type="checkbox"/>Fix build issue:</div>
+<div><br/></div>
+<div>
+<div>/builds/slave/try-lx-00000000000000000000000/build/src/xpcom/base/nsRefPtr.h:66:7: error: invalid use of incomplete type 'class mozilla::ProfileGatherer'</div>
+<div>/builds/slave/try-lx-00000000000000000000000/build/src/tools/profiler/TableTicker.h:20:7: error: forward declaration of 'class mozilla::ProfileGatherer'</div>
+<div>gmake[5]: *** [platform-linux.o] Error 1</div>
+<div>gmake[4]: *** [tools/profiler/target] Error 2</div>
+<div>gmake[4]: *** Waiting for unfinished jobs....</div>
+<div>gmake[3]: *** [compile] Error 2</div>
+<div>gmake[2]: *** [default] Error 2</div>
+<div>gmake[1]: *** [realbuild] Error 2</div>
+<div>gmake: *** [build] Error 2</div>
+<div>Return code: 2</div>
+<div>'mach build' did not run successfully. Please check log for errors.</div>
+<div>Running post_fatal callback...</div>
+<div>Exiting -1</div>
+<div># TBPL FAILURE #</div>
+</div>
+<div># TBPL FAILURE #</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Fix other new build issue</div>
+<div><input checked="true" type="checkbox"/>Fix bholley issues</div>
+<div><br/></div>
+<div>bholley says:</div>
+<div><br/></div>
+<div>"You should pass your global object directly to jsapi.Init(), and treat it fallibly:</div>
+<div>
+<p>if (!jsapi.Init(myglobal)) {<br/>
+return false;<br/>
+}</p>
+<p>// No need for a JSAutoCompartment here.</p>
+</div>
+<div><br/></div>
+<div>You should also not add new usages of JS_GetPendingException/JS_SetPendingException/JS_ReportPendingException. Use the API on AutoJSAPI instead."</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>File a bug to use async profile API for Browser Toolbox to get subprocess samples. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1174272"><b>Bug 1174272</b></a></div>
+</body></html>

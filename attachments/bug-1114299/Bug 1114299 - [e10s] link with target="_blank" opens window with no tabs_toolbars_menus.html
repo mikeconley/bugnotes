@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1114299 - [e10s] link with target="_blank" opens window with no tabs/toolbars/menus</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1114299.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201114299%20-%20%5Be10s%5D%20link%20with%20target=%22_blank%22%20opens%20window%20with%20no%20tabs_toolbars_menus_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1114299 - [e10s] link with target="_blank" opens window with no tabs/toolbars/menus</h1>
+    <p class="meta">Jul 20, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1114299">
+ Bug 1114299 - [e10s] link with target="_blank" opens window with no tabs/toolbars/menus
+</a>
+<div>
+ Ooooh - jst filed this one. Time for mconley to prove his worth!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I can easily reproduce this. Time to get a debug build and figure out wtf is going on.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ In the non-e10s case, the chrome flags are 4094.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We eventually reach:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-style: normal; font-variant: normal; font-weight: normal;">
+  <span style="font-size: 11px;">
+   <span style="font-family: Menlo;">
+    rv = windowCreator2-&gt;CreateChromeWindow2(parentChrome, chromeFlags,
+    <br>
+    contextFlags, uriToLoad,
+    <br>
+    aOpeningTab, &amp;cancel,
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   getter_AddRefs(newChrome));
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   <br>
+  </span>
+ </span>
+</div>
+<div>
+ And the flags are still 4094.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, in e10s mode, the flags are&nbsp;1049806.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah… in non-e10s mode, we match&nbsp;nsIWebBrowserChrome::CHROME_ALL, but not in non-e10s mode… where does that get set?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ahhhhhhh GROSSSS
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So here's what's up:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+The&nbsp;problem&nbsp;here&nbsp;appears&nbsp;that&nbsp;nsWindowWatcher::CalculateChromeFlags&nbsp;is&nbsp;not&nbsp;prepared&nbsp;to&nbsp;handle&nbsp;the&nbsp;case&nbsp;where&nbsp;only&nbsp;",remote"&nbsp;or&nbsp;",non-remote"&nbsp;are&nbsp;passed&nbsp;as&nbsp;features.
+
+ <br>
+ <br>
+ 
+Note&nbsp;that&nbsp;when&nbsp;",private"&nbsp;is&nbsp;passed&nbsp;in&nbsp;by&nbsp;itself,&nbsp;we&nbsp;have&nbsp;code&nbsp;at&nbsp;the&nbsp;start&nbsp;of&nbsp;CalculateChromeFlags&nbsp;to&nbsp;detect&nbsp;this,&nbsp;and&nbsp;automatically&nbsp;set&nbsp;chromeFlags&nbsp;to&nbsp;nsIWebBrowserChrome::CHROME_ALL,&nbsp;which&nbsp;gives&nbsp;the&nbsp;window&nbsp;all&nbsp;of&nbsp;the&nbsp;default&nbsp;features.
+
+ <br>
+ <br>
+ 
+I&nbsp;figure&nbsp;we&nbsp;want&nbsp;to&nbsp;do&nbsp;something&nbsp;similar&nbsp;when&nbsp;aFeatures&nbsp;equals&nbsp;any&nbsp;of:
+
+ <br>
+ <br>
+ "private"
+ <br>
+ "remote"
+ <br>
+ "non-remote"
+ <br>
+ "private,remote"
+ <br>
+ "remote,private"
+ <br>
+ "private,non-remote"
+ <br>
+ "non-remote,private"
+ <br>
+ <br>
+</div>
+<div>
+ 
+So&nbsp;I&nbsp;think&nbsp;we&nbsp;need&nbsp;to&nbsp;put&nbsp;some&nbsp;logic&nbsp;somewhere&nbsp;in&nbsp;CalculateChromeFlags&nbsp;to&nbsp;detect&nbsp;these&nbsp;cases.&nbsp;Kinda&nbsp;gross,&nbsp;but&nbsp;there&nbsp;you&nbsp;have&nbsp;it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It feels really hacky to just add string comparison checks for all of 
+those… and if the number of flags that act like this grows, the 
+conditionals will just go out of control.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gijs brings up a good point though - why do we even need "remote" and 
+"non-remote"? As far as I can tell, we only want "remote" for tests… 
+only want "non-remote" for the "Open non-e10s window" option, which will
+ eventually go away. Hrm.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Welp, let's suppose we write a new method that checks for these one-off cases. How would it work?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We'll call it, "ImpliesAllChrome". Returns true if aFeatures contains 
+"remote", "non-remote" and/or "private", but nothing else.
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  Have collection of one-off flags. That'd be "remote", "non-remote" and "private".
+ </li>
+ <li>
+  Separate by commas
+ </li>
+ <li>
+  For each feature, check against collection. If doesn't match, return false.
+ </li>
+ <li>
+  Return true.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ That's probably the simplest way to go here, at least to my 
+Javascript-y mind. I have no idea how simple this sort of string thing 
+will be in C++. Knowing Gecko strings, not very.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, nsCTR::strtok is probably what we want.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2b3f9e650a80">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2b3f9e650a80
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Check for green try build (
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2b3f9e650a80">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2b3f9e650a80
+ </a>
+ )
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Investigate and address test failure:&nbsp;browser/base/content/test/general/browser_bug462673.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So wtf is going on here? It looks like the test is failing for e10s 
+because we're suddenly opening a new window instead of a new tab. What 
+the hell?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ In the e10s case, the chromeFlags become 1052670.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Looks like something different is occurring in&nbsp;nsWindowWatcher::GetWindowOpenLocation...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So this appears to be a special case where the window is an e10s 
+window, but the browser is non-remote, and attempting to open a window. 
+In this case, we calculate that the window being opened has CHROME_ALL, 
+but also&nbsp;CHROME_REMOTE_WINDOW.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Then, afterwards, in nsWindowWatcher::GetWindowOpenLocation, we do this check:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (restrictionPref
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ==
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  2
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Only continue if there are no size/position features and no special
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // chrome flags.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  (aChromeFlags
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !=
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_ALL
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ||
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+  aPositionSpecified
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ||
+ </span>
+ <span style="font: 12.0px Courier">
+  aSizeSpecified)) {
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   return
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIBrowserDOMWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  OPEN_NEWWINDOW;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And we're supposed to not satisfy any of those conditions - AKA, 
+aPositionSpecified should be false (which it is), aSizeSpecified should 
+be false (which it is), but aChromeFlags should be 
+nsIWebBrowserChrome::CHROME_ALL, which it is not! It's not because it 
+has CHROME_REMOTE_WINDOW as well.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we want to check to see if aChromeFlags is not equal to CHROME_ALL, or CHROME_ALL/PRIVATE, or CHROME_ALL/REMOTE, etc. bleh.
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  000000111111111110 &lt;-- all
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  Current: &nbsp; &nbsp;&nbsp; 110000111111111110
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  100000000000000000000 &lt;-- remote
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  10000000000000000 &lt;-- private
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  100000000000000000 &lt;-- non-private
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So why didn't this break before my patch?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Because the features string was empty, CHROME_ALL was set, and
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Hypothesis
+ </b>
+ :
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Calling window.open with the private feature from a non-remote browser in an e10s window will result in a non-e10s window.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Yes, this is true, but only from chrome callers.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, so the problem is that sometimes Gecko decides to attach the 
+"remote" feature for windows that are requested from chrome, or from 
+remote tabs. It'll attach it based on whether or not the default is to 
+make the tabs remote or not in a new window.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So my solution is to ignore the REMOTE bit on the chrome flags when determining which location to open a window to. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=32fcfd715655">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=32fcfd715655
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Answer this question:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ How come this test was failing with my patch, but not failing before? 
+In other words, why is the change to the WindowLocation code necessary?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Answer:
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The test opens a window without features, and so we shortcut to just 
+setting the chrome flags to CHROME_ALL (and maybe setting the private 
+mode flag on it too - though the test doesn't do that).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  What this means is that in the e10s case, we actually open a non-e10s 
+window during the test case, which isn't great. We should always open 
+e10s windows when e10s is the default, and choose during runtime if the 
+URL is blacklisted or not.
+ </s>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ With this new patch, we "do it up right", and mark the CHROME_ALL flag, but also the REMOTE flag.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This means that the&nbsp;GetWindowOpenLocation in the parent process 
+goes wrong when we attempt to open a window from a non-remote browser in
+ an e10s window - the window has the REMOTE flag on it!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So now we ignore that flag in the&nbsp;GetWindowOpenLocation calculation.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ugh. That's actually kind of ugly.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Isn't there a better solution here?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Question:
+ </b>
+ Why aren't we opening a non-e10s window without the patch? How does Gecko know to open a remote window?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks like in&nbsp;nsAppShellService::JustCreateTopWindow, after 
+looking at the CHROME_REMOTE_WINDOW flag, we _also_ look at the load 
+context of the parent window. Even if CHROME_REMOTE_WINDOW is not set, 
+we'll still look at the load context of the parent window, and copy it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What the fuck?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Question:
+ </b>
+ Can e10s windows create non-e10s windows? How?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Yes, we can. Oh what the fuck - so we've got these two checks going on -
+ one in nsAppShellService::JustCreateTopWindow, and one 
+in&nbsp;nsWindowWatcher::OpenWindowInternal… and both do the job of 
+calling SetPrivateBrowsing, SetRemoteTabs. But for the remote case, one 
+defaults to inheriting from the parent (if a parent exists), whereas the
+ other explicitly checks the chrome flags. And the second overrides the 
+first. &nbsp;why? WHY???
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WHAT THE ACTUAL FUCK
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, let's calm down. Time to switch to decaf. One of the reasons for 
+the one setting, and then the override is: sensible defaults.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But I do think there's something strange going on in here that we can be smarter about.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wait a second.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The case that we're failing 
+in&nbsp;nsWindowWatcher::GetWindowOpenLocation is only for when the new 
+nsIDOMWindow is being opened from a JS caller… and when content opens 
+the nsIDOMWindow, it shouldn't be able to specify remote/non-remote - we
+ should default to the user preference.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So why are we still setting it?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah - because in the test, the page is a chrome:// URL, meaning it's a chrome caller! AND a caller from JS! GOTCHA.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, to sum up the problem:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ For chrome-privledged JS callers of 
+nsWindowWatcher::OpenWindowInternal, use of private, non-private or 
+remote will result in particular 1's being set on the higher bits of the
+ chrome flags. Those higher 1's are not necessary in the 
+GetWindowOpenLocation check, so we should truncate them.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Wait… wait wait wait.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ In jst's test case, the one I'm _actually_ trying to fix, 
+isChromeCaller is false… and so we're not actually getting the window 
+chrome we want. How does this work in single-process?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Oh what the fuck. In the single-process case, clicking on jst's link results in isCallerChrome being true. WTAF???
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ When opening a window via window.open, isCallerChrome is false. When opening via a link click, isCallerChrome is true.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Yes, this appears to be true.
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ So what the actual fuck are we going to do here???
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Thinking time...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There are several layers of problems here. First of all, 
+CalculateChromeFlags is behaving differently between e10s and non-e10s 
+windows. Specifically, in single process Firefox, CalculateChromeFlags 
+makes distinctions between windows that are being opened via JS in 
+content, and windows opened via something like a link click.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Multi-process is different - it only distinguishes between windows 
+opened between content and chrome. It doesn't have the fine distinction 
+between the types of ways windows can be opened from content (via js, or
+ via link click).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Is that stopping me here? Or is that a separate problem?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GARHALKJHL:AEKJTL:KAEJLT:KJS:LK:LSDKFJ:LSKDJF :LSKERKJ ER:LCM SKLFJ
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I hate this bug. Hate hate hate hate this bug.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Question: if the content process is opening a tab… can't we just let 
+CalculateChromeFlags do its thing without needing to pass ,remote in the
+ feature list?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh… I removed the ,remote suffix, and jst's testcase still failed. Why is that?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, because in the child process, we compute that the window should be 
+opened remotely anyways, so we modify the chrome flags coming up.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FOCUS. I need to figure out how to fix the root bug, and not get caught up in trying to make all of opening windows sane.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Two things:
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  I need to make sure CHROME_ALL is applied even if the remote feature is supplied
+ </li>
+ <li>
+  I need to make sure content can communicate a distinction between 
+links opened from script, and links opened by clicking on links
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ Luckily, the only caller of CalculateChromeFlags (nsWindowWatcher::OpenWindowInternal) knows if the page was called from JS.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Remove useless ,remote thing that TabChild adds
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Pass aCalledFromJS to CalculateChromeFlags
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Make it clearer what we're using isCallerChrome, aCalledFromJS and&nbsp;aOpenedFromRemoteTab to compute
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh. Now on startup, the main window has no toolbars. :(
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The chrome flags it calculates are&nbsp;2147483649… and without my patch, it calculates&nbsp;2148536318
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  1000001100010010011011 &lt;-- What my patch causes us to generate for the first window
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  1000001100100010111000 &lt;-- What we were generating before my patch
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So I need to know what bits 1, 2, 6, 11 and 12 are. Those don't match.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ My patch has:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 1, 2, 11 erroneously ON.
+</div>
+<div>
+ 6, 12 erroneously OFF.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Translation from bit positions:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 1: CHROME_DEFAULT
+</div>
+<div>
+ 2: CHROME_WINDOW_BORDERS
+</div>
+<div>
+ 6:&nbsp;CHROME_TOOLBAR
+</div>
+<div>
+ 11:&nbsp;CHROME_TITLEBAR
+</div>
+<div>
+ 12:&nbsp;CHROME_EXTRA
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Final tally:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ CHROME_DEFAULT, CHROME_WINDOW_BORDERS, CHROME_TITLEBAR are erroneously ON
+</div>
+<div>
+ CHROME_TOOLBAR, CHROME_EXTRA are erroneously OFF.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Find out why presenceFlag is false with the patch
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Because I goofed. By removing the FeaturesImplyAllChrome thing, I 
+failed to put back the check for "all", to set the presenceFlag.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Oh god. This code.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=11677acbc35b">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=11677acbc35b
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Bah. Test failures. :(
+</div>
+<div>
+ <br>
+</div>
+<div>
+ docshell/test/navigation/test_bug278916.html
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUCK I HATE THIS BUG.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Today, I'mma smash it. TODAY IS THE DAY. WE SMASH. TODAY. SMASH BUG SMASH BUG.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, as I wrote earlier, I wonder if part of my problem is that I'm 
+getting distracted by how bad all of this shit is, that I'm not keeping 
+my eye on the prize. EYE ON THE PRIZE.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The prize is fixing the bug! The distractions are trying to fix this 
+whole damn thing. The temptation is to just burn it to the fucking 
+ground.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Fix the bug fix the bug
+</div>
+<div>
+ <br>
+</div>
+<div>
+ LET US SYNTHESIZE THE PROBLEM. YET AGAIN.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem is that when content in content processes uses window.open 
+with no arguments, and the parent decides that user prefs dictate that 
+we should open a new window, the window is not given the CHROME_ALL 
+chromeFlag.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Fixing that fixes jst's bug.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We also need to be careful - the test in browser_bug462673.js was 
+failing for e10s because a content script was opening a window, and we 
+computed the chrome flags to include the CHROME_REMOTE flag, and not 
+just be CHROME_ALL, which causes us to open the window as a real window 
+instead of a tab.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What to do, what to do, what to do?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Think think think
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201114299%20-%20%5Be10s%5D%20link%20with%20target=%22_blank%22%20opens%20window%20with%20no%20tabs_toolbars_menus_files/1114299-EF9C984F-CFDE-45BD-9F03-2AA8B81C6425.gif" height="184" width="256">
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, let's see if we can break this down into some invariants:
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  Content can never dictate remote, private, non-remote, non-private. 
+Anything opened by content will use the defaults that 
+CalculateChromeFlags computes based on the user preferences.
+ </li>
+ <li>
+  Assert that any chrome flags from the child do not include the remote, non-remote, private, non-private flags.
+ </li>
+ <li>
+  If the parent is opening either a tab or a window, set the chrome 
+flags accordingly, with the default remote chrome flag. Assert that 
+remote begets remote.
+ </li>
+ <li>
+  Profit???
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ Oh lord, here we go.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Add assertions that remote, private, non-remote and non-private flags never come from the content process.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So in&nbsp;nsWindowWatcher::GetWindowOpenLocation...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I want to be false if the bottom 12 bits do not match the bottom 12 bits of nsIWebBrowserChrome::CHROME_ALL.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  0000 0000 0000 0000 0000 1111 1111 1110 &lt;-- CHROME_ALL
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  0000 0000 0001 0000 0000 1111 1111 1110 &lt;-- want to match
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  0000 0000 0000 0000 0000 1101 1111 1110 &lt;-- no match
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  0000 0000 0000 0000 0001 1111 1111 1110 &lt;-- want to match
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br>
+ </span>
+</div>
+<div>
+ WebBrowserChrome Features that content can choose:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ menubar, toolbar, location, personalbar, status, dependent, dialog, minimizable, resizable, scrollbars
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WebBrowserChrome features that content CANNOT choose:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ chrome, modal, titlebar, alwaysRaised, alwaysLowered, z-lock, close,
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUCK. I have tests that fail the assertions I was passing in. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Maybe this is good. Maybe I've actually found bugs here. Let's examine.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ docshell/test/navigation/test_bug278916.html
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, tons of assertion failures. Why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Well, it looks like there are a number of places where content tries to open a window, and we calculate chrome flags...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AH FUCK, FAILING TESTS AGAIN.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ A bunch are intermittents, but several are not:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ docshell/test/test_bug637644.html
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  102 INFO TEST-UNEXPECTED-FAIL | docshell/test/test_bug637644.html | 
+Snapshot canvases are not the same size - comparing them makes no sense -
+ expected PASS
+ </div>
+ <div>
+  103 INFO TEST-UNEXPECTED-FAIL | docshell/test/test_bug637644.html | Popups should look identical - expected PASS
+ </div>
+ <div>
+  104 INFO TEST-UNEXPECTED-FAIL | docshell/test/test_bug637644.html | 
+Snapshot canvases are not the same size - comparing them makes no sense -
+ expected PASS
+ </div>
+</div>
+<div>
+ 105 INFO TEST-UNEXPECTED-FAIL | docshell/test/test_bug637644.html | Popups should not look identical - expected PASS
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah - interesting. The windows in e10s are not the right size. Wtf?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Mn-e10s...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Connection to Marionette server is lost. Check gecko.log (desktop firefox) or logcat (b2g) for errors."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gecko log:
+ <a href="http://mozilla-releng-blobs.s3.amazonaws.com/blobs/try/sha512/fc02969961c1c8ffa6a779a11790288c2458f650f3b8b9bd760d86bef88ae145745f7b02ae5f3d2af6d662784c36efc35a411d06f67f34c31dde70d8effd5d89">
+  
+http://mozilla-releng-blobs.s3.amazonaws.com/blobs/try/sha512/fc02969961c1c8ffa6a779a11790288c2458f650f3b8b9bd760d86bef88ae145745f7b02ae5f3d2af6d662784c36efc35a411d06f67f34c31dde70d8effd5d89
+
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Oh for fucks sake, I apparently have to ENABLE_MARIONETTE in order to run marionette tests. ???
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, fixed both of these - I think both were related. I was incorrectly 
+passing the features from the child. The IPDL was using nsString when it
+ should have used nsCString, and in all of the conversions, I think I 
+was doing something dumb, where the features were always blank when they
+ got to the parent.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we're passing!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GAHHHH - AND NOW WE'RE STILL NOT OPENING THE WINDOW CORRECTLY FOR JST'S TEST CASE.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ BAHHHHH
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah - it's because of the features thing. I still need to make it nullptr if the length is 0 in TabParent.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, and we're good again.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Neeeeed a regression test.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  10000 0000 0110 1100 1110
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  0000 0000 1111 1111 1110 &lt;-- CHROME_ALL
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  110 1100 1110
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Write some regression tests
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4027fd3c62ee">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4027fd3c62ee
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ HOLY SHIT, we've landed and merged!
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
