@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.13 (451655)"/><meta name="keywords" content="Has TODOs, M7, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-05-03 16:09:02 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1091112"/><meta name="updated" content="2015-05-21 17:16:44 +0000"/><title>Bug 1091112 - Print dialog doesn't get focus automatically, if e10s is enabled</title></head><body lang="">
+<div>Ok, this is a matter of proxying the dialog to the parent like we do with Windows and Linux.</div>
+<div><br/></div>
+<div>This should also fix <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1091103"><b>Bug 1091103</b></a> - Print dialog does not use retina resolution with e10s enabled.</div>
+<div><br/></div>
+<div>So here we go again. I think this is a matter of finding out what the dialog needs, serializing it, deserializing it, big bada boom.</div>
+<div><br/></div>
+<div>nsIWebBrowserPrint::enumerateDocumentNames is something I need to send over...</div>
+<div><br/></div>
+<div>nsPrintDialogServiceX::Show seems to have all of the hints. Basically, I need it so that what's deserialized can provide enumerateDocumentNames for this:</div>
+<div><br/></div>
+<div>
+<pre>
+<code>  char16_t** docTitles;</code>
+<code>  uint32_t titleCount;</code>
+<code>  nsresult rv = aWebBrowserPrint->EnumerateDocumentNames(&amp;titleCount, &amp;docTitles);</code>
+<code>  if (NS_SUCCEEDED(rv) &amp;&amp; titleCount > 0) {</code>
+<code>    CFStringRef cfTitleString = CFStringCreateWithCharacters(NULL, reinterpret_cast&lt;const UniChar*>(docTitles[0]),</code>
+<code>                                                             NS_strlen(docTitles[0]));</code>
+<code>    if (cfTitleString) {</code>
+<code>      ::PMPrintSettingsSetJobName(settingsX->GetPMPrintSettings(), cfTitleString);</code>
+<code>      CFRelease(cfTitleString);</code>
+<code>    }</code>
+<code>    for (int32_t i = titleCount - 1; i >= 0; i--) {</code>
+<code>      free(docTitles[i]);</code>
+<code>    }</code>
+<code>    free(docTitles);</code>
+<code>    docTitles = NULL;</code>
+<code>    titleCount = 0;</code>
+<code>  }</code>
+</pre></div>
+<div><br/></div>
+<div>And then I also need it to be able to spew out NSPrintInfo. Yech:</div>
+<div><br/></div>
+<div>
+<pre>
+<code>NSPrintInfo* printInfo = settingsX->GetCocoaPrintInfo();</code>
+</pre></div>
+<div><br/></div>
+<div><a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html">NSPrintInfo documentation</a>. <a href="http://stackoverflow.com/questions/5763995/printing-multiple-pages-in-objective-c">Example usage.</a></div>
+<div><br/></div>
+<div>So it looks like an NSPrintInfo wraps a dictionary, like GTK. So maybe I can just extract that dictionary, send it on down to the content process, where it'll replace the nsIPrintSettingX's NSPrintInfo with a new one.</div>
+<div><br/></div>
+<div>So let's break this down:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>See if the title for nsIPrintSettings is good enough for PMPrintSettingsSetJobName. Looks like Title and DocURL is mostly ignored. WTF.</div>
+<div><input checked="true" type="checkbox"/>Serialize and send the document names over. Actually, we just need to send one, since the first one is the only one that nsPrintDialogX listens for.</div>
+<div><br/></div>
+<div>The dictionary is keyed on NSStrings. The value can be any number of things, I'm afraid… I see NSPrinter, NSNumber, NSString, NSDate, NSURL</div>
+<div><br/></div>
+<div>When deserializing, it looks like we can get an NSPrinter back via [NSPrinter printerWithName:@"NAME"]</div>
+<div><br/></div>
+<div>So I think instead of passing an array of key-value pair, I just add fields to PPrintingTypes.ipdlh - and make sure the primitives get initialized as empty.</div>
+<div><br/></div>
+<div>
+<div>
+<div>
+<p><code>NSString *const NSPrintPrinter; NSString *const NSPrintCopies; NSString *const NSPrintAllPages; NSString *const NSPrintFirstPage; NSString *const NSPrintLastPage; NSString *const NSPrintMustCollate; NSString *const NSPrintReversePageOrder; NSString *const NSPrintJobDisposition; NSString *const NSPrintSavePath; NSString *const NSPrintPagesAcross; NSString *const NSPrintPagesDown; NSString *const NSPrintTime; NSString *const NSPrintDetailedErrorReporting; NSString *const NSPrintFaxNumber; NSString *const NSPrintPrinterName; NSString *const NSPrintHeaderAndFooter; NSString *const NSPrintSelectionOnly; NSString *const NSPrintJobSavingURL; NSString *const NSPrintJobSavingFileNameExtensionHidden'</code></p>
+</div>
+</div>
+<h4>Constants we need to serialize</h4>
+</div>
+<div><input checked="true" type="checkbox"/>NSPrintPrinter</div>
+<div><br/></div>
+<div>An NSPrinter object—the printer to use.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution</b>: Store this in printerName.</div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintPrinterName</div>
+<div><br/></div>
+<div>An NSString object that specifies the name of a printer.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+</div>
+<div><b>Solution:</b> Just store this in printerName.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintCopies</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer—the number of copies to spool.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Store this in numCopies.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintAllPages</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, includes all pages in output.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new bool field - printAllPages.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintFirstPage</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer value that specifies the first page in the print job.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Store this in startPageRange</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintLastPage</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer value that specifies the last page in the print job.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution</b>: Store this in endPageRange.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintMustCollate</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, collates output.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new bool field - mustCollate.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintReversePageOrder</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, prints first page last.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Store this in printReversed.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintJobDisposition</div>
+<div><br/></div>
+<div>An NSString object that specifies the job disposition.</div>
+<div><br/></div>
+<div>NSPrintSpoolJob, NSPrintPreviewJob, NSPrintSaveJob, or NSPrintCancelJob. See <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/setJobDisposition:">setJobDisposition:</a> for details.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new short field - disposition</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintPagesAcross</div>
+<div><br/></div>
+<div>An NSNumber object that specifies the number of logical pages to be tiled horizontally on a physical sheet of paper.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new short field - pagesAcross</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintPagesDown</div>
+<p>An <code>NSNumber</code> object that specifies the number of logical pages to be tiled vertically on a physical sheet of paper.</p>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new short field - pagesDown</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintDetailedErrorReporting</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, produce detailed reports when an error occurs.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new bool field - detailedErrorReporting</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintFaxNumber</div>
+<div><br/></div>
+<div>An NSString object that specifies a fax number.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new string field - faxNumber</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintHeaderAndFooter</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, a standard header and footer are added outside the margins of each page.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new bool field - addHeaderAndFooter.</div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintJobSavingFileNameExtensionHidden</div>
+<div><br/></div>
+<div>A boolean NSNumber indicating whether the job’s file name extension should be hidden when the <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/jobDisposition">jobDisposition</a> is <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/c/data/NSPrintSaveJob">NSPrintSaveJob</a>. The default is NO.</div>
+<div><br/></div>
+<div>Available in OS X v10.6 and later.</div>
+<div><br/></div>
+</div>
+<div><b>Solution:</b> Add a new bool field fileNameExtensionHidden</div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintSelectionOnly</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES only the current selection is printed.</div>
+<div><br/></div>
+<div>Available in OS X v10.6 and later.</div>
+<div><br/></div>
+</div>
+<div><b>Solution:</b> Store this in print options flags via nsIPrintSettings::kEnableSelectionRB. We'll need to add options to the common group.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintJobSavingURL</div>
+<div><br/></div>
+<div>An NSURL containing the location to which the job file will be saved when the <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/jobDisposition">jobDisposition</a> is <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/c/data/NSPrintSaveJob">NSPrintSaveJob</a>.</div>
+<div><br/></div>
+<div>Available in OS X v10.6 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Store this in toFileName.</div>
+<div><br/></div>
+<div><a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSURL_Class/index.html#//apple_ref/occ/instp/NSURL/absoluteString">https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSURL_Class/index.html#//apple_ref/occ/instp/NSURL/absoluteString</a></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintTime</div>
+<div><br/></div>
+<div>An NSDate object that specifies the time at which printing should begin.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new string field - printTime, and use <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSDateFormatter_Class/index.html#//apple_ref/occ/instm/NSDateFormatter/stringFromDate:">https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSDateFormatter_Class/index.html#//apple_ref/occ/instm/NSDateFormatter/stringFromDate:</a> for conversion</div>
+</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Have parent process create an nsPrintSettingsX, and hand it over to the dialog.</div>
+<div><input checked="true" type="checkbox"/>The thing we get back to give to the content process… make sure we serialize the NSPrintInfo dictionary.</div>
+<div><input checked="true" type="checkbox"/>Deserialize the document names for EnumerateDocumentNames for MockWebBrowserPrint</div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintPrinter</div>
+<div><br/></div>
+<div>An NSPrinter object—the printer to use.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>Using just the printer name, I think we need to get a reference to an NSPrinter.</div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintPrinterName</div>
+<div><br/></div>
+<div>An NSString object that specifies the name of a printer.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintCopies</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer—the number of copies to spool.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintAllPages</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, includes all pages in output.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintFirstPage</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer value that specifies the first page in the print job.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintLastPage</div>
+<div><br/></div>
+<div>An NSNumber object containing an integer value that specifies the last page in the print job.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintMustCollate</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, collates output.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintReversePageOrder</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, prints first page last.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintJobDisposition</div>
+<div><br/></div>
+<div>An NSString object that specifies the job disposition.</div>
+<div><br/></div>
+<div>NSPrintSpoolJob, NSPrintPreviewJob, NSPrintSaveJob, or NSPrintCancelJob. See <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/setJobDisposition:">setJobDisposition:</a> for details.</div>
+<div><br/></div>
+<div>Available in OS X v10.0 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintPagesAcross</div>
+<div><br/></div>
+<div>An NSNumber object that specifies the number of logical pages to be tiled horizontally on a physical sheet of paper.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintPagesDown</div>
+<p>An <code>NSNumber</code> object that specifies the number of logical pages to be tiled vertically on a physical sheet of paper.</p>
+<div>Available in OS X v10.4 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintDetailedErrorReporting</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, produce detailed reports when an error occurs.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+</div>
+<div><br/></div>
+<div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintFaxNumber</div>
+<div><br/></div>
+<div>An NSString object that specifies a fax number.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new string field - faxNumber</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintHeaderAndFooter</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES, a standard header and footer are added outside the margins of each page.</div>
+<div><br/></div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><b>Solution:</b> Add a new bool field - addHeaderAndFooter.</div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintJobSavingFileNameExtensionHidden</div>
+<div><br/></div>
+<div>A boolean NSNumber indicating whether the job’s file name extension should be hidden when the <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/jobDisposition">jobDisposition</a> is <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/c/data/NSPrintSaveJob">NSPrintSaveJob</a>. The default is NO.</div>
+<div><br/></div>
+<div>Available in OS X v10.6 and later.</div>
+<div><br/></div>
+</div>
+<div><b>Solution:</b> Add a new bool field fileNameExtensionHidden</div>
+<div><br/></div>
+<div><br/></div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintSelectionOnly</div>
+<div><br/></div>
+<div>An NSNumber object containing a Boolean value—if YES only the current selection is printed.</div>
+<div><br/></div>
+<div>Available in OS X v10.6 and later.</div>
+<div><br/></div>
+</div>
+<div><b>Solution:</b> Store this in print options flags via nsIPrintSettings::kEnableSelectionRB. We'll need to add options to the common group.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>NSPrintJobSavingURL</div>
+<div><br/></div>
+<div>An NSURL containing the location to which the job file will be saved when the <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/jobDisposition">jobDisposition</a> is <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/c/data/NSPrintSaveJob">NSPrintSaveJob</a>.</div>
+<div><br/></div>
+</div>
+<div>Available in OS X v10.6 and later.</div>
+<div>
+<div><br/></div>
+<div><a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSURL_Class/index.html#//apple_ref/occ/instp/NSURL/absoluteString">https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSURL_Class/index.html#//apple_ref/occ/instp/NSURL/absoluteString</a></div>
+<div><br/></div>
+</div>
+<div>
+<div><input checked="true" type="checkbox"/>NSPrintTime</div>
+<div><br/></div>
+<div>An NSDate object that specifies the time at which printing should begin.</div>
+<div><br/></div>
+</div>
+<div>Available in OS X v10.4 and later.</div>
+<div><br/></div>
+<div><br/></div>
+<div>Ok, time for a self-review: <a href="https://reviewboard.mozilla.org/r/9129/">https://reviewboard.mozilla.org/r/9129/</a></div>
+<div><br/></div>
+<div>TODO:</div>
+<div><input type="checkbox"/>What is up with printSettings is null error when attempting to print?</div>
+<div><br/></div>
+</body></html>

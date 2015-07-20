@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.13 (451655)"/><meta name="keywords" content="M7, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-06-05 14:08:10 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1132006"/><meta name="updated" content="2015-06-05 18:21:16 +0000"/><title>Bug 1132006 - "Restore all crashed tabs" doesn't restore all tabs in all windows</title></head><body lang="">
+<div>
+<div>STR:<br/>
+<br/>
+1) Install TabCrasher[1] or CrashMe[2] to get tab crashing powers<br/>
+2) Open two windows, and add tabs in each browsed to some web content<br/>
+3) In one of the windows, crash the tabs (both add-ons add buttons to crash the content process)<br/>
+4) In one of the crashed windows, choose "Restore All Crashed Tabs"<br/>
+<br/>
+ER:<br/>
+<br/>
+All crashed tabs across all windows should be restored<br/>
+<br/>
+AR:<br/>
+<br/>
+Only the crashed tabs in the window where the user clicked "Restore All Crashed Tabs" are restored.<br/>
+<br/>
+<br/>
+[1]: <a href="https://addons.mozilla.org/en-US/firefox/addon/tab-crasher/">https://addons.mozilla.org/en-US/firefox/addon/tab-crasher/</a><br/>
+[2]: <a href="http://people.mozilla.org/%7Etmielczarek/crashme/">http://people.mozilla.org/~tmielczarek/crashme/</a><br/></div>
+</div>
+<div><br/></div>
+<div><br/></div>
+<div>The problem here appears to be that the crashed browsers for the non-selected window don't have &lt;xul:browser>'s where the permanent key is in the WeakSet. What the hell?</div>
+<div><br/></div>
+<div>And when I try to Restore All Crashed Tabs in the second window, THEN the permanentKeys are in there. WHAT?</div>
+<div><br/></div>
+<div>There should only be one SessionStore.jsm. Only one. What is going on here?</div>
+<div><br/></div>
+<div>WeakSet's don't allow me to easily inspect these things… so I'll switch to a standard Set for now.</div>
+<div><br/></div>
+<div>Ah - I see what was going on. Despite iterating over all windows, we only iterated over the tabs of the currently selected window for restoration.</div>
+<div><br/></div>
+<div>Fixed!</div>
+</body></html>

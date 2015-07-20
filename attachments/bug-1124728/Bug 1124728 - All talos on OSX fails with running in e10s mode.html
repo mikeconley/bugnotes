@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1124728 - All talos on OSX fails with running in e10s mode</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1124728.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201124728%20-%20All%20talos%20on%20OSX%20fails%20with%20running%20in%20e10s%20mode_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1124728 - All talos on OSX fails with running in e10s mode</h1>
+    <p class="meta">Jun 9, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1124728">
+ Bug 1124728 - All talos on OSX fails with running in e10s mode
+</a>
+<div>
+ Ok, I can reproduce this on my talos clone...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here's a log from a debug build:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+(talos)tormini-talos-106-05156:talos&nbsp;mozilla$&nbsp;talos&nbsp;--e10s&nbsp;--develop&nbsp;-n&nbsp;-d&nbsp;-a&nbsp;ts:tsvg&nbsp;-e&nbsp;~/builds/debug/NightlyDebug.app/Contents/MacOS/firefox&nbsp;--datazilla-url&nbsp;output.json&nbsp;--mozAfterPaint
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;application_buildid:&nbsp;20150424125417
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;application_changeset:&nbsp;f214df6ac75f
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;application_display_name:&nbsp;Nightly
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;application_name:&nbsp;Firefox
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;application_version:&nbsp;40.0a1
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;platform_buildid:&nbsp;20150424125417
+</div>
+<div>
+ mozversion&nbsp;INFO&nbsp;|&nbsp;platform_changeset:&nbsp;f214df6ac75f
+</div>
+<div>
+ DEBUG&nbsp;:&nbsp;using&nbsp;testdate:&nbsp;1430766685
+</div>
+<div>
+ DEBUG&nbsp;:&nbsp;actual&nbsp;date:&nbsp;1430766685
+</div>
+<div>
+ qm-pxp01.e:
+</div>
+<div>
+ Started&nbsp;Mon,&nbsp;04&nbsp;May&nbsp;2015&nbsp;15:11:25
+</div>
+<div>
+ Running&nbsp;test&nbsp;ts:
+</div>
+<div>
+ Started&nbsp;Mon,&nbsp;04&nbsp;May&nbsp;2015&nbsp;15:11:25
+</div>
+<div>
+ DEBUG&nbsp;:&nbsp;operating&nbsp;with&nbsp;platform_type&nbsp;:&nbsp;mac_
+</div>
+<div>
+ DEBUG&nbsp;:&nbsp;created&nbsp;profile
+</div>
+<div>
+ 
+DEBUG&nbsp;:&nbsp;command&nbsp;line:&nbsp;/Users/mozilla/builds/debug/NightlyDebug.app/Contents/MacOS/firefox&nbsp;-foreground&nbsp;--no-remote&nbsp;-profile&nbsp;/var/folders/i0/i0+HcaAYESGp90E+La-c-U+++TQ/-Tmp-/tmpzff6wh/profile&nbsp;http://localhost:15707/getInfo.html
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:27.437&nbsp;firefox[1029:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x1004001d0&nbsp;of&nbsp;class&nbsp;NSCFDictionary&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:27.458&nbsp;firefox[1029:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x10011c8c0&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x11cf98800&nbsp;==&nbsp;1&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;1]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;1&nbsp;(0x11d202400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;1]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ [1029]&nbsp;WARNING:&nbsp;Enabling&nbsp;vsync&nbsp;refresh&nbsp;driver
+</div>
+<div>
+ :&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsRefreshDriver.cpp,&nbsp;line&nbsp;862
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:28.564&nbsp;firefox[1029:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x100115ab0&nbsp;of&nbsp;class&nbsp;NSCFDictionary&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:28.565&nbsp;firefox[1029:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x1004570f0&nbsp;of&nbsp;class&nbsp;NSCFData&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;2&nbsp;(0x11d207000)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;2]&nbsp;[outer&nbsp;=&nbsp;0x11d202400]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80520012:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/netwerk/base/nsFileStreams.cpp,&nbsp;line&nbsp;205
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80520012:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/netwerk/base/nsFileStreams.cpp,&nbsp;line&nbsp;492
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x12236c800&nbsp;==&nbsp;2&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;2]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;3&nbsp;(0x1221cc400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;3]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;4&nbsp;(0x11cf4e800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;4]&nbsp;[outer&nbsp;=&nbsp;0x1221cc400]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://global/content/printUtils.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://global/content/viewZoomOverlay.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://browser/content/places/browserPlacesViews.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://browser/content/browser.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://browser/content/downloads/downloads.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Failed&nbsp;to&nbsp;retarget&nbsp;HTML&nbsp;data&nbsp;delivery&nbsp;to&nbsp;the&nbsp;parser&nbsp;thread.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/parser/html/nsHtml5StreamParser.cpp,&nbsp;line&nbsp;951
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://browser/content/downloads/indicator.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9710'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9710'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9710'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9710'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://browser/content/customizableui/panelUI.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Loaded&nbsp;script&nbsp;chrome://global/content/viewSourceUtils.js&nbsp;twice&nbsp;(bug&nbsp;392650):&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp,&nbsp;line&nbsp;216
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x125321000&nbsp;==&nbsp;3&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;3]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;5&nbsp;(0x125338400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;5]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x125321800&nbsp;==&nbsp;4&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;4]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x125338800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;6]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateQueryProcessorRDF.cpp,&nbsp;line&nbsp;226
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp,&nbsp;line&nbsp;1341
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp,&nbsp;line&nbsp;1239
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateQueryProcessorRDF.cpp,&nbsp;line&nbsp;226
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp,&nbsp;line&nbsp;1341
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp,&nbsp;line&nbsp;1239
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp,&nbsp;line&nbsp;268
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x126172000&nbsp;==&nbsp;5&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;5]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x125338000)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;7]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp,&nbsp;line&nbsp;268
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;8&nbsp;(0x126306c00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;8]&nbsp;[outer&nbsp;=&nbsp;0x125338000]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Subdocument&nbsp;container&nbsp;has&nbsp;no&nbsp;frame:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;2512
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;9&nbsp;(0x12610e400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;9]&nbsp;[outer&nbsp;=&nbsp;0x125338400]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;Subdocument&nbsp;container&nbsp;has&nbsp;no&nbsp;frame:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;2512
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;10&nbsp;(0x12610ec00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;10]&nbsp;[outer&nbsp;=&nbsp;0x125338800]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;11&nbsp;(0x126111400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;11]&nbsp;[outer&nbsp;=&nbsp;0x125338000]
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mTextInputHandler)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsChildView.mm,&nbsp;line&nbsp;5248
+</div>
+<div>
+ [1029]&nbsp;WARNING:&nbsp;Enabling&nbsp;vsync&nbsp;compositor
+</div>
+<div>
+ :&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/layers/ipc/CompositorParent.cpp,&nbsp;line&nbsp;484
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;sRGB_framebuffer&nbsp;marked&nbsp;as&nbsp;unsupported:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/gl/GLContextFeatures.cpp,&nbsp;line&nbsp;768
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;depth_texture&nbsp;marked&nbsp;as&nbsp;unsupported:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/gl/GLContextFeatures.cpp,&nbsp;line&nbsp;768
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/events/ContentEventHandler.cpp,&nbsp;line&nbsp;110
+</div>
+<div>
+ 
+[1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(EnsureScriptEnvironment(),&nbsp;nullptr)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp,&nbsp;line&nbsp;4595
+</div>
+<div>
+ 
+[1031]&nbsp;WARNING:&nbsp;XPCOM&nbsp;objects&nbsp;created/destroyed&nbsp;from&nbsp;static&nbsp;ctor/dtor:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp,&nbsp;line&nbsp;148
+</div>
+<div>
+ 
+[1031]&nbsp;WARNING:&nbsp;XPCOM&nbsp;objects&nbsp;created/destroyed&nbsp;from&nbsp;static&nbsp;ctor/dtor:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp,&nbsp;line&nbsp;148
+</div>
+<div>
+ 
+[1031]&nbsp;WARNING:&nbsp;XPCOM&nbsp;objects&nbsp;created/destroyed&nbsp;from&nbsp;static&nbsp;ctor/dtor:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp,&nbsp;line&nbsp;148
+</div>
+<div>
+ 
+[1031]&nbsp;WARNING:&nbsp;XPCOM&nbsp;objects&nbsp;created/destroyed&nbsp;from&nbsp;static&nbsp;ctor/dtor:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp,&nbsp;line&nbsp;148
+</div>
+<div>
+ 
+[1031]&nbsp;WARNING:&nbsp;XPCOM&nbsp;objects&nbsp;created/destroyed&nbsp;from&nbsp;static&nbsp;ctor/dtor:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp,&nbsp;line&nbsp;148
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;No&nbsp;docshells&nbsp;for&nbsp;remote&nbsp;frames!:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp,&nbsp;line&nbsp;492
+</div>
+<div>
+ Shumway&nbsp;is&nbsp;registered
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mCallback)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameMessageManager.cpp,&nbsp;line&nbsp;741
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mTextInputHandler)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsChildView.mm,&nbsp;line&nbsp;5248
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80004005:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/toolkit/xre/nsXREDirProvider.cpp,&nbsp;line&nbsp;1369
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:34.206&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x1078029f0&nbsp;of&nbsp;class&nbsp;NSCFDictionary&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:34.209&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x1078108e0&nbsp;of&nbsp;class&nbsp;NSCFData&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;nsWindow::GetNativeData&nbsp;not&nbsp;implemented&nbsp;for&nbsp;this&nbsp;type:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/PuppetWidget.cpp,&nbsp;line&nbsp;1102
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x11f703800&nbsp;==&nbsp;1&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[id&nbsp;=&nbsp;1]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;1&nbsp;(0x11b295c00)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;1]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(domDoc&nbsp;&amp;&amp;&nbsp;target)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsContentUtils.cpp,&nbsp;line&nbsp;3622
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80070057:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsContentUtils.cpp,&nbsp;line&nbsp;3677
+</div>
+<div>
+ [Child&nbsp;1031]&nbsp;WARNING:&nbsp;Enabling&nbsp;vsync&nbsp;refresh&nbsp;driver
+</div>
+<div>
+ :&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsRefreshDriver.cpp,&nbsp;line&nbsp;862
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;2&nbsp;(0x11f79c000)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;2]&nbsp;[outer&nbsp;=&nbsp;0x11b295c00]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;Could&nbsp;not&nbsp;get&nbsp;disk&nbsp;information&nbsp;from&nbsp;DiskSpaceWatcher:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/storage/DOMStorageIPC.cpp,&nbsp;line&nbsp;319
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'!editorRectEvent.mSucceeded',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/PuppetWidget.cpp,&nbsp;line&nbsp;815
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;Could&nbsp;not&nbsp;get&nbsp;disk&nbsp;status&nbsp;from&nbsp;nsIDiskSpaceWatcher:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/uriloader/prefetch/nsOfflineCacheUpdateService.cpp,&nbsp;line&nbsp;321
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;3&nbsp;(0x11faac400)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;3]&nbsp;[outer&nbsp;=&nbsp;0x11b295c00]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;'NS_FAILED(rv)',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/indexedDB/ActorsParent.cpp,&nbsp;line&nbsp;8644
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9710'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(startupCache)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xbl/nsXBLDocumentInfo.cpp,&nbsp;line&nbsp;237
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(startupCache)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xbl/nsXBLDocumentInfo.cpp,&nbsp;line&nbsp;305
+</div>
+<div>
+ __metrics&nbsp; &nbsp; Screen&nbsp;width/height:1600/1200
+</div>
+<div>
+ colorDepth:24
+</div>
+<div>
+ Browser&nbsp;inner&nbsp;width/height:&nbsp;1024/689
+</div>
+<div>
+ __metrics
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;###!!!&nbsp;ASSERTION:&nbsp;consider&nbsp;quit&nbsp;stopper&nbsp;out&nbsp;of&nbsp;bounds:&nbsp;'mConsiderQuitStopper&nbsp;&gt;&nbsp;0',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/toolkit/components/startup/nsAppStartup.cpp,&nbsp;line&nbsp;528
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(node)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp,&nbsp;line&nbsp;3545
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(EnsureScriptEnvironment(),&nbsp;nullptr)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp,&nbsp;line&nbsp;4595
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mDocShell)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp,&nbsp;line&nbsp;332
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(domWindow)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp,&nbsp;line&nbsp;86
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(EnsureScriptEnvironment(),&nbsp;nullptr)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp,&nbsp;line&nbsp;4595
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;RemoveObserver()&nbsp;called&nbsp;for&nbsp;unregistered&nbsp;observer:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp,&nbsp;line&nbsp;205
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;RemoveObserver()&nbsp;called&nbsp;for&nbsp;unregistered&nbsp;observer:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp,&nbsp;line&nbsp;205
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;RemoveObserver()&nbsp;called&nbsp;for&nbsp;unregistered&nbsp;observer:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp,&nbsp;line&nbsp;205
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;nsAppShell::Exit()&nbsp;called&nbsp;redundantly:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsAppShell.mm,&nbsp;line&nbsp;669
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'!mMainThread',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp,&nbsp;line&nbsp;395
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime,&nbsp;aDesc))',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp,&nbsp;line&nbsp;760
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(inBrowser)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp,&nbsp;line&nbsp;82
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime,&nbsp;aDesc))',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp,&nbsp;line&nbsp;760
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mDocShell)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp,&nbsp;line&nbsp;332
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(mDocShell)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp,&nbsp;line&nbsp;332
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(domWindow)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp,&nbsp;line&nbsp;86
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;NS_ENSURE_TRUE(inBrowser)&nbsp;failed:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp,&nbsp;line&nbsp;82
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;2&nbsp;(0x11b295c00)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;1]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;http://localhost:15707/getInfo.html]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;1&nbsp;(0x11f79c000)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;2]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;0&nbsp;(0x11faac400)&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[serial&nbsp;=&nbsp;3]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;http://localhost:15707/getInfo.html]
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'!mMainThread',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp,&nbsp;line&nbsp;395
+</div>
+<div>
+ --DOCSHELL&nbsp;0x11f703800&nbsp;==&nbsp;0&nbsp;[pid&nbsp;=&nbsp;1031]&nbsp;[id&nbsp;=&nbsp;1]
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'!mMainThread',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp,&nbsp;line&nbsp;395
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.653&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fafa220&nbsp;of&nbsp;class&nbsp;NSFont&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.654&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff709f3588&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.654&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fafa220&nbsp;of&nbsp;class&nbsp;NSFont&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.655&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff709f3588&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.656&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fafa220&nbsp;of&nbsp;class&nbsp;NSFont&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.656&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff709f3588&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.657&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc073c0&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.657&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07400&nbsp;of&nbsp;class&nbsp;NSButtonImageSource&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.658&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff709f3588&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.658&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc078c0&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.659&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07900&nbsp;of&nbsp;class&nbsp;NSButtonImageSource&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.659&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff709f3588&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.660&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07e40&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.660&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07e40&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.661&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x7fff70a1c988&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.661&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07ec0&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.662&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07f40&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.662&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x10626ae10&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.663&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fafa7f0&nbsp;of&nbsp;class&nbsp;NSFont&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.664&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11fc07dc0&nbsp;of&nbsp;class&nbsp;NSImage&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.664&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x1067609b0&nbsp;of&nbsp;class&nbsp;__NSFastEnumerationEnumerator&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.665&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x106760a20&nbsp;of&nbsp;class&nbsp;__NSFastEnumerationEnumerator&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.666&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x107800c70&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.667&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x10781ebb0&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.668&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x106535320&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.669&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x106519000&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.677&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x10781ec00&nbsp;of&nbsp;class&nbsp;NSCFArray&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.678&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11f803a80&nbsp;of&nbsp;class&nbsp;NSScrollView&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.679&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x11f803a80&nbsp;of&nbsp;class&nbsp;NSScrollView&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ 
+2015-05-04&nbsp;15:11:37.680&nbsp;plugin-container[1031:903]&nbsp;***&nbsp;__NSAutoreleaseNoPool():&nbsp;Object&nbsp;0x10626ae10&nbsp;of&nbsp;class&nbsp;NSCFString&nbsp;autoreleased&nbsp;with&nbsp;no&nbsp;pool&nbsp;in&nbsp;place&nbsp;-&nbsp;just&nbsp;leaking
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x129087000&nbsp;==&nbsp;6&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;6]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;12&nbsp;(0x12639dc00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;12]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;13&nbsp;(0x1290d8400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;13]&nbsp;[outer&nbsp;=&nbsp;0x12639dc00]
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime,&nbsp;aDesc))',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp,&nbsp;line&nbsp;760
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime,&nbsp;aDesc))',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp,&nbsp;line&nbsp;760
+</div>
+<div>
+ 
+[Child&nbsp;1031]&nbsp;WARNING:&nbsp;'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime,&nbsp;aDesc))',&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp,&nbsp;line&nbsp;760
+</div>
+<div>
+ nsStringStats
+</div>
+<div>
+ =&gt;&nbsp;mAllocCount:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 13858
+</div>
+<div>
+ =&gt;&nbsp;mReallocCount:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 133
+</div>
+<div>
+ =&gt;&nbsp;mFreeCount:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;13858
+</div>
+<div>
+ =&gt;&nbsp;mShareCount:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;9633
+</div>
+<div>
+ =&gt;&nbsp;mAdoptCount:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 837
+</div>
+<div>
+ =&gt;&nbsp;mAdoptFreeCount:&nbsp; &nbsp; &nbsp; &nbsp; 837
+</div>
+<div>
+ =&gt;&nbsp;Process&nbsp;ID:&nbsp;1031,&nbsp;Thread&nbsp;ID:&nbsp;140735089175744
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;14&nbsp;(0x1269ec400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;14]&nbsp;[outer&nbsp;=&nbsp;0x12639dc00]
+</div>
+<div>
+ ++DOCSHELL&nbsp;0x129085800&nbsp;==&nbsp;7&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;7]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;15&nbsp;(0x1269f4400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;15]&nbsp;[outer&nbsp;=&nbsp;0x0]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;16&nbsp;(0x1269f3800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;16]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;17&nbsp;(0x1221c3400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;17]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ --DOCSHELL&nbsp;0x125321800&nbsp;==&nbsp;6&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;4]
+</div>
+<div>
+ --DOCSHELL&nbsp;0x125321000&nbsp;==&nbsp;5&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;3]
+</div>
+<div>
+ --DOCSHELL&nbsp;0x126172000&nbsp;==&nbsp;4&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;5]
+</div>
+<div>
+ --DOCSHELL&nbsp;0x12236c800&nbsp;==&nbsp;3&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;2]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;16&nbsp;(0x126306c00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;8]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;15&nbsp;(0x125338000)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;7]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;14&nbsp;(0x1290d8400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;13]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;13&nbsp;(0x1269f3800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;16]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;12&nbsp;(0x126111400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;11]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;11&nbsp;(0x12610ec00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;10]&nbsp;[outer&nbsp;=&nbsp;0x125338800]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;10&nbsp;(0x12610e400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;9]&nbsp;[outer&nbsp;=&nbsp;0x125338400]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;9&nbsp;(0x125338400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;5]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;8&nbsp;(0x125338800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;6]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x1221cc400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;3]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;chrome://browser/content/browser.xul]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x11cf4e800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;4]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:blank]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x1220c7800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;18]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x1221c3400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;17]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x1247e9bd0'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x123858800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;19]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x1220c7800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;18]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x1221cb800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;20]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x123858800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;19]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ 
+++DOMWINDOW&nbsp;==&nbsp;7&nbsp;(0x12450bc00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;21]&nbsp;[outer&nbsp;=&nbsp;0x1269f4400]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;6&nbsp;(0x1221cb800)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;20]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(EnsureScriptEnvironment(),&nbsp;nullptr)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp,&nbsp;line&nbsp;4595
+</div>
+<div>
+ --DOCSHELL&nbsp;0x129087000&nbsp;==&nbsp;2&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;6]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(EnsureScriptEnvironment(),&nbsp;nullptr)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80040111:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp,&nbsp;line&nbsp;4595
+</div>
+<div>
+ --DOCSHELL&nbsp;0x129085800&nbsp;==&nbsp;1&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[id&nbsp;=&nbsp;7]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;5&nbsp;(0x1269f4400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;15]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;4&nbsp;(0x12639dc00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;12]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/&gt;]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;3&nbsp;(0x12450bc00)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;21]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]
+</div>
+<div>
+ 
+--DOMWINDOW&nbsp;==&nbsp;2&nbsp;(0x1269ec400)&nbsp;[pid&nbsp;=&nbsp;1029]&nbsp;[serial&nbsp;=&nbsp;14]&nbsp;[outer&nbsp;=&nbsp;0x0]&nbsp;[url&nbsp;=&nbsp;data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/&gt;]
+</div>
+<div>
+ 
+[Parent&nbsp;1029]&nbsp;WARNING:&nbsp;1&nbsp;sort&nbsp;operation&nbsp;has&nbsp;occurred&nbsp;for&nbsp;the&nbsp;SQL&nbsp;statement&nbsp;'0x125352370'.&nbsp;
+ 
+See&nbsp;https://developer.mozilla.org/En/Storage/Warnings&nbsp;details.:&nbsp;file&nbsp;/builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp,&nbsp;line&nbsp;115
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <span title="Monday, May 04, 2015 3:22:21 PM">
+   3:22 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: ping
+ </div>
+ <div>
+  <span style="">
+   <span title="Monday, May 04, 2015 3:26:09 PM">
+    3:26 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: what's up?
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:26:53 PM">
+   3:26 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: hi! I'm working on figuring out why talos tests 
+are hanging on shutdown on OS X. I just reproduced it locally with a 
+debug build, and here's what I saw in the output:
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:26:59 PM">
+   3:26 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence:
+  <a href="https://pastebin.mozilla.org/8832370" rel="noreferrer" target="_blank">
+   https://pastebin.mozilla.org/8832370
+  </a>
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:27:03 PM">
+   3:27 PM
+  </span>
+  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-quidrk.east.verizon.net)">
+   mccr8
+  </a>
+  quit (
+  <a href="mailto:mccr8@moz-quidrk.east.verizon.net">
+   mccr8@moz-quidrk.east.verizon.net
+  </a>
+  ) Quit: quit
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:27:17 PM">
+   3:27 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: uh, hold on - that got truncated
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:27:18 PM">
+   3:27 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;one sec
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:27:39 PM">
+   3:27 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;fitzgen: ^^ looks like this might be you
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:28:09 PM">
+   3:28 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: NS_FAILED(DebberOnGCRunnable::Enqueue.. looks highly suspicious
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:28:23 PM">
+   3:28 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;ah, ok - so it didn't get truncated. phew
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:28:30 PM">
+   3:28 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: yeah, I thought that might be related
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:28:44 PM">
+   3:28 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: when I sample the process periodically, I see it attempting (I think) to dump the heap
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:28:52 PM">
+   3:28 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;and then it just starts spinning the event loop
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:29:02 PM">
+   3:29 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;until I kill the process. Almost as if the window closed, but the shutdown was aborted.
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:29:02 PM">
+   3:29 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrgiggles" title="mrgiggles (mrgiggles@moz-cfhap5.mtv2.mozilla.com)">
+   mrgiggles
+  </a>
+  &gt;&nbsp;the mozilla-inbound tree is now open
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:29:12 PM">
+   3:29 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: odd!
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:29:41 PM">
+   3:29 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: the only interaction we have with the event loop is to post the stats and debugger events
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:29:42 PM">
+   3:29 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: if this is indeed a CC/GC thing... who would I 
+talk to about it? Are you the right person? Or should I be bugging 
+fitzgen?
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:30:15 PM">
+   3:30 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: the new runnable is fitzgen, so I'd see if teh intermittent failures correspond to when that all landed
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:30:33 PM">
+   3:30 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: do you remember the bug number for it?
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:30:48 PM">
+   3:30 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: err.. not of hand.. closed that tab a couple weeks ago
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:30:54 PM">
+   3:30 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;heh, ok
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:30:57 PM">
+   3:30 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;fitzgen: ping
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:31:09 PM">
+   3:31 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: which file should I look at the log of? Can you 
+give me a hint about what the commit message would have looked like?
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:31:12 PM">
+   3:31 PM
+  </span>
+  →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/hubutm20" title="hubutm20 (hubutm20@moz-f5g.tl9.114.79.IP)">
+   hubutm20
+  </a>
+  joined&nbsp;&nbsp;⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/AlexanderSalas" title="AlexanderSalas (Instantbird@moz-u4s.32h.82.200.IP)">
+   AlexanderSalas
+  </a>
+  quit
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:34:37 PM">
+   3:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: his bugzilla status says he's on vacation until the 17th :-(
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:34:38 PM">
+   3:34 PM
+  </span>
+  →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/scientes" title="scientes (scientes@moz-l6hdmu.wa.comcast.net)">
+   scientes
+  </a>
+  joined (
+  <a href="mailto:scientes@moz-l6hdmu.wa.comcast.net">
+   scientes@moz-l6hdmu.wa.comcast.net
+  </a>
+  )
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:34:50 PM">
+   3:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley: let me dig up the bug and we can see who reviewed
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:34:57 PM">
+   3:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;terrence: thanks, I appreciate it. :)
+ </div>
+ <div>
+  <span style="">
+   <span title="Monday, May 04, 2015 3:37:09 PM">
+    3:37 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sfink" title="sfink (chatzilla@moz-vi8qu5.sntcca.sbcglobal.net)">
+   sfink
+  </a>
+  &gt;&nbsp;that's my review, I'm pretty sure
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:37:17 PM">
+   3:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sfink" title="sfink (chatzilla@moz-vi8qu5.sntcca.sbcglobal.net)">
+   sfink
+  </a>
+  &gt;&nbsp;well, of the SM side of things
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:37:25 PM">
+   3:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">
+   terrence
+  </a>
+  &gt;&nbsp;mconley, sfink: bug 1150253
+ </div>
+ <div>
+  <span title="Monday, May 04, 2015 3:37:28 PM">
+   3:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/firebot" title="firebot (firebot@moz-pku4c8.glob.com.au)">
+   firebot
+  </a>
+  &gt;
+  <a href="https://bugzil.la/1150253" rel="noreferrer" target="_blank">
+   https://bugzil.la/1150253
+  </a>
+  — FIXED,
+  <a href="mailto:nfitzgerald@mozilla.com" rel="noreferrer" target="_blank">
+   nfitzgerald@mozilla.com
+  </a>
+  — [jsdbg2] Post a runnable to fire the onGarbageCollection hook
+ </div>
+</div>
+<div>
+ <span title="Monday, May 04, 2015 3:37:47 PM">
+  3:37 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt;&nbsp;terrence: wicked, thanks. Let me rollback to before that patch landed to see if I can just dismiss it as the culprit.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Hypothesis:
+ </b>
+</div>
+<div>
+ Something in bug 1150253 caused this.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  FALSE.
+ </b>
+ Tested the build from before that patch landed.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks like the main lock-up occurs when the initial profile is 
+created and the browser is initialized for the first time, and then 
+quit, before any of the tests operate.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Hypothesis:
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ Something is cancelling during quit-application-requested.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ No - goQuitApplication checks that first.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Hypothesis:
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Somehow appService.quit(forceQuit) is not succeeding.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh… mRunning is apparently false when nsAppStartup::Quit is finishing off… what the hell?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah… ok, so this getInfo.html thing is like… trying to quit, but the 
+goQuitApplication is running in the content process, which closes the 
+window, and then the parent process tries to determine if we should be 
+quitting...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "
+</div>
+<div>
+ I&nbsp;think&nbsp;I've&nbsp;figured&nbsp;this&nbsp;out.
+ <br>
+ <br>
+ 
+We&nbsp;have&nbsp;this&nbsp;getInfo.html&nbsp;page&nbsp;that&nbsp;loads&nbsp;before&nbsp;some&nbsp;(all?)&nbsp;tests&nbsp;are&nbsp;run&nbsp;in&nbsp;order&nbsp;to&nbsp;get&nbsp;the&nbsp;screen&nbsp;dimensions&nbsp;and&nbsp;browser&nbsp;dimensions,&nbsp;which&nbsp;it&nbsp;then&nbsp;dumps&nbsp;into&nbsp;a&nbsp;log&nbsp;that&nbsp;(I&nbsp;assume)&nbsp;Talos&nbsp;consumes&nbsp;to&nbsp;make&nbsp;decisions&nbsp;on&nbsp;how&nbsp;tests&nbsp;should&nbsp;operate&nbsp;under&nbsp;those&nbsp;conditions.
+
+ <br>
+ <br>
+ 
+One&nbsp;of&nbsp;the&nbsp;last&nbsp;things&nbsp;that&nbsp;getInfo.html&nbsp;does&nbsp;is&nbsp;call&nbsp;goQuitApplication();&nbsp;and&nbsp;window.close();.&nbsp;goQuitApplication()&nbsp;is&nbsp;defined&nbsp;in&nbsp;talos/page_load_test/quit.js.&nbsp;goQuitApplication()&nbsp;uses&nbsp;special&nbsp;privileges&nbsp;and&nbsp;calls&nbsp;nsIAppStartup::Quit&nbsp;passing&nbsp;in&nbsp;nsIAppStartup.eForceQuit.
+
+ <br>
+ <br>
+ 
+That&nbsp;getInfo.html&nbsp;page&nbsp;is&nbsp;being&nbsp;loaded&nbsp;in&nbsp;the&nbsp;content&nbsp;process&nbsp;when&nbsp;the&nbsp;--e10s&nbsp;flag&nbsp;is&nbsp;set.
+
+ <br>
+ <br>
+ 
+When&nbsp;the&nbsp;content&nbsp;process&nbsp;calls&nbsp;goQuitApplication(),&nbsp;the&nbsp;content&nbsp;process&nbsp;successfully&nbsp;shuts&nbsp;down,&nbsp;which&nbsp;effectively&nbsp;closes&nbsp;the&nbsp;window.&nbsp;On&nbsp;Windows&nbsp;and&nbsp;Linux,&nbsp;this&nbsp;closing&nbsp;of&nbsp;the&nbsp;last&nbsp;window&nbsp;results&nbsp;in&nbsp;the&nbsp;parent&nbsp;process&nbsp;also&nbsp;shutting&nbsp;down.
+
+ <br>
+ <br>
+ 
+On&nbsp;OS&nbsp;X,&nbsp;however,&nbsp;a&nbsp;process&nbsp;still&nbsp;runs&nbsp;even&nbsp;if&nbsp;all&nbsp;of&nbsp;the&nbsp;windows&nbsp;are&nbsp;closed.&nbsp;You&nbsp;can&nbsp;reproduce&nbsp;this&nbsp;in&nbsp;Firefox&nbsp;today&nbsp;-&nbsp;just&nbsp;close&nbsp;all&nbsp;of&nbsp;your&nbsp;windows&nbsp;by&nbsp;pressing&nbsp;the&nbsp;little&nbsp;red&nbsp;button&nbsp;in&nbsp;the&nbsp;top-left&nbsp;corner&nbsp;on&nbsp;OS&nbsp;X.&nbsp;The&nbsp;Firefox&nbsp;process&nbsp;will&nbsp;keep&nbsp;running,&nbsp;and&nbsp;Firefox&nbsp;will&nbsp;be&nbsp;available&nbsp;in&nbsp;the&nbsp;dock.&nbsp;When&nbsp;you&nbsp;click&nbsp;on&nbsp;the&nbsp;dock&nbsp;icon,&nbsp;a&nbsp;new&nbsp;Firefox&nbsp;window&nbsp;opens.
+
+ <br>
+ <br>
+ 
+So&nbsp;that's&nbsp;why&nbsp;this&nbsp;is&nbsp;happening&nbsp;-&nbsp;forceQuit&nbsp;is&nbsp;happening&nbsp;in&nbsp;the&nbsp;content&nbsp;process&nbsp;and&nbsp;not&nbsp;the&nbsp;parent,&nbsp;and&nbsp;the&nbsp;parent&nbsp;can&nbsp;keep&nbsp;running&nbsp;without&nbsp;any&nbsp;windows.
+
+ <br>
+ <br>
+ 
+This&nbsp;also&nbsp;means&nbsp;that&nbsp;when&nbsp;talos&nbsp;tests&nbsp;do&nbsp;run&nbsp;(when&nbsp;I&nbsp;manually&nbsp;quit&nbsp;the&nbsp;getInfo.html&nbsp;process),&nbsp;that&nbsp;Talos&nbsp;is&nbsp;killing&nbsp;the&nbsp;parent&nbsp;process&nbsp;after&nbsp;each&nbsp;test&nbsp;because&nbsp;it&nbsp;hits&nbsp;the&nbsp;time&nbsp;out,&nbsp;since&nbsp;(again)&nbsp;the&nbsp;parent&nbsp;process&nbsp;is&nbsp;just&nbsp;hanging&nbsp;out&nbsp;since&nbsp;the&nbsp;quit&nbsp;didn't&nbsp;occur&nbsp;properly.
+
+ <br>
+ <br>
+ 
+What&nbsp;I&nbsp;suggest&nbsp;is&nbsp;that&nbsp;we&nbsp;have&nbsp;getInfo.html&nbsp;(and&nbsp;any&nbsp;other&nbsp;content&nbsp;that&nbsp;tries&nbsp;to&nbsp;make&nbsp;use&nbsp;of&nbsp;quit)&nbsp;send&nbsp;a&nbsp;message&nbsp;up&nbsp;to&nbsp;the&nbsp;parent&nbsp;to&nbsp;cause&nbsp;the&nbsp;quit.
+
+ <br>
+ <br>
+</div>
+<div>
+ 
+jmaher&nbsp;-&nbsp;where&nbsp;would&nbsp;be&nbsp;a&nbsp;good&nbsp;place&nbsp;to&nbsp;put&nbsp;a&nbsp;message&nbsp;handler&nbsp;for&nbsp;that&nbsp;quit&nbsp;message?&nbsp;Ideally&nbsp;it'd&nbsp;be&nbsp;in&nbsp;an&nbsp;add-on&nbsp;somewhere...&nbsp;is&nbsp;pageloader&nbsp;the&nbsp;right&nbsp;place&nbsp;to&nbsp;put&nbsp;that&nbsp;kind&nbsp;of&nbsp;general&nbsp;Talos&nbsp;utility&nbsp;for&nbsp;quitting?"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Woo - created talos-powers default add-on. This seems to work, and jmaher likes it. Landed!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh… this breaks cart for some reason. Let me try to reproduce.
+</div>
+<div>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

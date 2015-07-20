@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.13 (451655)"/><meta name="keywords" content="M7, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-05-04 15:41:36 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1124728"/><meta name="updated" content="2015-05-12 22:06:41 +0000"/><title>Bug 1124728 - All talos on OSX fails with running in e10s mode</title></head><body>
+<div>Ok, I can reproduce this on my talos clone...</div>
+<div><br/></div>
+<div>Here's a log from a debug build:</div>
+<div><br/></div>
+<div>(talos)tormini-talos-106-05156:talos mozilla$ talos --e10s --develop -n -d -a ts:tsvg -e ~/builds/debug/NightlyDebug.app/Contents/MacOS/firefox --datazilla-url output.json --mozAfterPaint</div>
+<div>mozversion INFO | application_buildid: 20150424125417</div>
+<div>mozversion INFO | application_changeset: f214df6ac75f</div>
+<div>mozversion INFO | application_display_name: Nightly</div>
+<div>mozversion INFO | application_name: Firefox</div>
+<div>mozversion INFO | application_version: 40.0a1</div>
+<div>mozversion INFO | platform_buildid: 20150424125417</div>
+<div>mozversion INFO | platform_changeset: f214df6ac75f</div>
+<div>DEBUG : using testdate: 1430766685</div>
+<div>DEBUG : actual date: 1430766685</div>
+<div>qm-pxp01.e: </div>
+<div>        Started Mon, 04 May 2015 15:11:25</div>
+<div>Running test ts: </div>
+<div>        Started Mon, 04 May 2015 15:11:25</div>
+<div>DEBUG : operating with platform_type : mac_</div>
+<div>DEBUG : created profile</div>
+<div>DEBUG : command line: /Users/mozilla/builds/debug/NightlyDebug.app/Contents/MacOS/firefox -foreground --no-remote -profile /var/folders/i0/i0+HcaAYESGp90E+La-c-U+++TQ/-Tmp-/tmpzff6wh/profile http://localhost:15707/getInfo.html</div>
+<div>2015-05-04 15:11:27.437 firefox[1029:903] *** __NSAutoreleaseNoPool(): Object 0x1004001d0 of class NSCFDictionary autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:27.458 firefox[1029:903] *** __NSAutoreleaseNoPool(): Object 0x10011c8c0 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>++DOCSHELL 0x11cf98800 == 1 [pid = 1029] [id = 1]</div>
+<div>++DOMWINDOW == 1 (0x11d202400) [pid = 1029] [serial = 1] [outer = 0x0]</div>
+<div>[1029] WARNING: Enabling vsync refresh driver</div>
+<div>: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsRefreshDriver.cpp, line 862</div>
+<div>2015-05-04 15:11:28.564 firefox[1029:903] *** __NSAutoreleaseNoPool(): Object 0x100115ab0 of class NSCFDictionary autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:28.565 firefox[1029:903] *** __NSAutoreleaseNoPool(): Object 0x1004570f0 of class NSCFData autoreleased with no pool in place - just leaking</div>
+<div>++DOMWINDOW == 2 (0x11d207000) [pid = 1029] [serial = 2] [outer = 0x11d202400]</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80520012: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/netwerk/base/nsFileStreams.cpp, line 205</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80520012: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/netwerk/base/nsFileStreams.cpp, line 492</div>
+<div>++DOCSHELL 0x12236c800 == 2 [pid = 1029] [id = 2]</div>
+<div>++DOMWINDOW == 3 (0x1221cc400) [pid = 1029] [serial = 3] [outer = 0x0]</div>
+<div>++DOMWINDOW == 4 (0x11cf4e800) [pid = 1029] [serial = 4] [outer = 0x1221cc400]</div>
+<div>[1029] WARNING: Loaded script chrome://global/content/printUtils.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Loaded script chrome://global/content/viewZoomOverlay.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Loaded script chrome://browser/content/places/browserPlacesViews.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Loaded script chrome://browser/content/browser.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Loaded script chrome://browser/content/downloads/downloads.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Failed to retarget HTML data delivery to the parser thread.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/parser/html/nsHtml5StreamParser.cpp, line 951</div>
+<div>[1029] WARNING: Loaded script chrome://browser/content/downloads/indicator.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9710'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9710'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9710'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9710'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[1029] WARNING: Loaded script chrome://browser/content/customizableui/panelUI.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>[1029] WARNING: Loaded script chrome://global/content/viewSourceUtils.js twice (bug 392650): file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/nsXULPrototypeCache.cpp, line 216</div>
+<div>++DOCSHELL 0x125321000 == 3 [pid = 1029] [id = 3]</div>
+<div>++DOMWINDOW == 5 (0x125338400) [pid = 1029] [serial = 5] [outer = 0x0]</div>
+<div>++DOCSHELL 0x125321800 == 4 [pid = 1029] [id = 4]</div>
+<div>++DOMWINDOW == 6 (0x125338800) [pid = 1029] [serial = 6] [outer = 0x0]</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateQueryProcessorRDF.cpp, line 226</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp, line 1341</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp, line 1239</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateQueryProcessorRDF.cpp, line 226</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp, line 1341</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xul/templates/nsXULTemplateBuilder.cpp, line 1239</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp, line 268</div>
+<div>++DOCSHELL 0x126172000 == 5 [pid = 1029] [id = 5]</div>
+<div>++DOMWINDOW == 7 (0x125338000) [pid = 1029] [serial = 7] [outer = 0x0]</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp, line 268</div>
+<div>++DOMWINDOW == 8 (0x126306c00) [pid = 1029] [serial = 8] [outer = 0x125338000]</div>
+<div>[1029] WARNING: Subdocument container has no frame: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 2512</div>
+<div>++DOMWINDOW == 9 (0x12610e400) [pid = 1029] [serial = 9] [outer = 0x125338400]</div>
+<div>[1029] WARNING: Subdocument container has no frame: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 2512</div>
+<div>++DOMWINDOW == 10 (0x12610ec00) [pid = 1029] [serial = 10] [outer = 0x125338800]</div>
+<div>++DOMWINDOW == 11 (0x126111400) [pid = 1029] [serial = 11] [outer = 0x125338000]</div>
+<div>[1029] WARNING: NS_ENSURE_TRUE(mTextInputHandler) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsChildView.mm, line 5248</div>
+<div>[1029] WARNING: Enabling vsync compositor</div>
+<div>: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/layers/ipc/CompositorParent.cpp, line 484</div>
+<div>[1029] WARNING: sRGB_framebuffer marked as unsupported: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/gl/GLContextFeatures.cpp, line 768</div>
+<div>[1029] WARNING: depth_texture marked as unsupported: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/gfx/gl/GLContextFeatures.cpp, line 768</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/events/ContentEventHandler.cpp, line 110</div>
+<div>[1029] WARNING: NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp, line 4595</div>
+<div>[1031] WARNING: XPCOM objects created/destroyed from static ctor/dtor: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp, line 148</div>
+<div>[1031] WARNING: XPCOM objects created/destroyed from static ctor/dtor: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp, line 148</div>
+<div>[1031] WARNING: XPCOM objects created/destroyed from static ctor/dtor: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp, line 148</div>
+<div>[1031] WARNING: XPCOM objects created/destroyed from static ctor/dtor: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp, line 148</div>
+<div>[1031] WARNING: XPCOM objects created/destroyed from static ctor/dtor: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/nsTraceRefcnt.cpp, line 148</div>
+<div>[Parent 1029] WARNING: No docshells for remote frames!: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameLoader.cpp, line 492</div>
+<div>Shumway is registered</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_TRUE(mCallback) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsFrameMessageManager.cpp, line 741</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_TRUE(mTextInputHandler) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsChildView.mm, line 5248</div>
+<div>[Child 1031] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/toolkit/xre/nsXREDirProvider.cpp, line 1369</div>
+<div>2015-05-04 15:11:34.206 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x1078029f0 of class NSCFDictionary autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:34.209 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x1078108e0 of class NSCFData autoreleased with no pool in place - just leaking</div>
+<div>[Child 1031] WARNING: nsWindow::GetNativeData not implemented for this type: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/PuppetWidget.cpp, line 1102</div>
+<div>++DOCSHELL 0x11f703800 == 1 [pid = 1031] [id = 1]</div>
+<div>++DOMWINDOW == 1 (0x11b295c00) [pid = 1031] [serial = 1] [outer = 0x0]</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(domDoc &amp;&amp; target) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsContentUtils.cpp, line 3622</div>
+<div>[Child 1031] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80070057: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/base/nsContentUtils.cpp, line 3677</div>
+<div>[Child 1031] WARNING: Enabling vsync refresh driver</div>
+<div>: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsRefreshDriver.cpp, line 862</div>
+<div>++DOMWINDOW == 2 (0x11f79c000) [pid = 1031] [serial = 2] [outer = 0x11b295c00]</div>
+<div>[Parent 1029] WARNING: Could not get disk information from DiskSpaceWatcher: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/storage/DOMStorageIPC.cpp, line 319</div>
+<div>[Child 1031] WARNING: '!editorRectEvent.mSucceeded', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/PuppetWidget.cpp, line 815</div>
+<div>[Parent 1029] WARNING: Could not get disk status from nsIDiskSpaceWatcher: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/uriloader/prefetch/nsOfflineCacheUpdateService.cpp, line 321</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>++DOMWINDOW == 3 (0x11faac400) [pid = 1031] [serial = 3] [outer = 0x11b295c00]</div>
+<div>[Parent 1029] WARNING: 'NS_FAILED(rv)', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/indexedDB/ActorsParent.cpp, line 8644</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9710'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(startupCache) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xbl/nsXBLDocumentInfo.cpp, line 237</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(startupCache) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/dom/xbl/nsXBLDocumentInfo.cpp, line 305</div>
+<div>__metrics    Screen width/height:1600/1200</div>
+<div>    colorDepth:24</div>
+<div>    Browser inner width/height: 1024/689</div>
+<div>__metrics</div>
+<div>[Child 1031] ###!!! ASSERTION: consider quit stopper out of bounds: 'mConsiderQuitStopper > 0', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/toolkit/components/startup/nsAppStartup.cpp, line 528</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(node) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/layout/base/nsDocumentViewer.cpp, line 3545</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp, line 4595</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(mDocShell) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp, line 332</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(domWindow) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp, line 86</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp, line 4595</div>
+<div>[Parent 1029] WARNING: RemoveObserver() called for unregistered observer: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp, line 205</div>
+<div>[Parent 1029] WARNING: RemoveObserver() called for unregistered observer: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp, line 205</div>
+<div>[Parent 1029] WARNING: RemoveObserver() called for unregistered observer: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/hal/Hal.cpp, line 205</div>
+<div>[Child 1031] WARNING: nsAppShell::Exit() called redundantly: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/widget/cocoa/nsAppShell.mm, line 669</div>
+<div>[Child 1031] WARNING: '!mMainThread', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp, line 395</div>
+<div>[Child 1031] WARNING: 'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime, aDesc))', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp, line 760</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(inBrowser) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp, line 82</div>
+<div>[Child 1031] WARNING: 'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime, aDesc))', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp, line 760</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(mDocShell) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp, line 332</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(mDocShell) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsWebBrowser.cpp, line 332</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(domWindow) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp, line 86</div>
+<div>[Child 1031] WARNING: NS_ENSURE_TRUE(inBrowser) failed: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/embedding/browser/nsDocShellTreeOwner.cpp, line 82</div>
+<div>--DOMWINDOW == 2 (0x11b295c00) [pid = 1031] [serial = 1] [outer = 0x0] [url = http://localhost:15707/getInfo.html]</div>
+<div>--DOMWINDOW == 1 (0x11f79c000) [pid = 1031] [serial = 2] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 0 (0x11faac400) [pid = 1031] [serial = 3] [outer = 0x0] [url = http://localhost:15707/getInfo.html]</div>
+<div>[Child 1031] WARNING: '!mMainThread', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp, line 395</div>
+<div>--DOCSHELL 0x11f703800 == 0 [pid = 1031] [id = 1]</div>
+<div>[Child 1031] WARNING: '!mMainThread', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/threads/nsThreadManager.cpp, line 395</div>
+<div>2015-05-04 15:11:37.653 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fafa220 of class NSFont autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.654 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff709f3588 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.654 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fafa220 of class NSFont autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.655 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff709f3588 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.656 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fafa220 of class NSFont autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.656 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff709f3588 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.657 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc073c0 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.657 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07400 of class NSButtonImageSource autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.658 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff709f3588 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.658 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc078c0 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.659 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07900 of class NSButtonImageSource autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.659 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff709f3588 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.660 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07e40 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.660 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07e40 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.661 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x7fff70a1c988 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.661 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07ec0 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.662 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07f40 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.662 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x10626ae10 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.663 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fafa7f0 of class NSFont autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.664 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11fc07dc0 of class NSImage autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.664 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x1067609b0 of class __NSFastEnumerationEnumerator autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.665 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x106760a20 of class __NSFastEnumerationEnumerator autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.666 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x107800c70 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.667 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x10781ebb0 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.668 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x106535320 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.669 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x106519000 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.677 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x10781ec00 of class NSCFArray autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.678 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11f803a80 of class NSScrollView autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.679 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x11f803a80 of class NSScrollView autoreleased with no pool in place - just leaking</div>
+<div>2015-05-04 15:11:37.680 plugin-container[1031:903] *** __NSAutoreleaseNoPool(): Object 0x10626ae10 of class NSCFString autoreleased with no pool in place - just leaking</div>
+<div>++DOCSHELL 0x129087000 == 6 [pid = 1029] [id = 6]</div>
+<div>++DOMWINDOW == 12 (0x12639dc00) [pid = 1029] [serial = 12] [outer = 0x0]</div>
+<div>++DOMWINDOW == 13 (0x1290d8400) [pid = 1029] [serial = 13] [outer = 0x12639dc00]</div>
+<div>[Child 1031] WARNING: 'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime, aDesc))', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp, line 760</div>
+<div>[Child 1031] WARNING: 'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime, aDesc))', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp, line 760</div>
+<div>[Child 1031] WARNING: 'NS_FAILED(DebuggerOnGCRunnable::Enqueue(aRuntime, aDesc))', file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/xpcom/base/CycleCollectedJSRuntime.cpp, line 760</div>
+<div>nsStringStats</div>
+<div> => mAllocCount:          13858</div>
+<div> => mReallocCount:          133</div>
+<div> => mFreeCount:           13858</div>
+<div> => mShareCount:           9633</div>
+<div> => mAdoptCount:            837</div>
+<div> => mAdoptFreeCount:        837</div>
+<div> => Process ID: 1031, Thread ID: 140735089175744</div>
+<div>++DOMWINDOW == 14 (0x1269ec400) [pid = 1029] [serial = 14] [outer = 0x12639dc00]</div>
+<div>++DOCSHELL 0x129085800 == 7 [pid = 1029] [id = 7]</div>
+<div>++DOMWINDOW == 15 (0x1269f4400) [pid = 1029] [serial = 15] [outer = 0x0]</div>
+<div>++DOMWINDOW == 16 (0x1269f3800) [pid = 1029] [serial = 16] [outer = 0x1269f4400]</div>
+<div>++DOMWINDOW == 17 (0x1221c3400) [pid = 1029] [serial = 17] [outer = 0x1269f4400]</div>
+<div>--DOCSHELL 0x125321800 == 6 [pid = 1029] [id = 4]</div>
+<div>--DOCSHELL 0x125321000 == 5 [pid = 1029] [id = 3]</div>
+<div>--DOCSHELL 0x126172000 == 4 [pid = 1029] [id = 5]</div>
+<div>--DOCSHELL 0x12236c800 == 3 [pid = 1029] [id = 2]</div>
+<div>--DOMWINDOW == 16 (0x126306c00) [pid = 1029] [serial = 8] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 15 (0x125338000) [pid = 1029] [serial = 7] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 14 (0x1290d8400) [pid = 1029] [serial = 13] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 13 (0x1269f3800) [pid = 1029] [serial = 16] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 12 (0x126111400) [pid = 1029] [serial = 11] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 11 (0x12610ec00) [pid = 1029] [serial = 10] [outer = 0x125338800] [url = about:blank]</div>
+<div>--DOMWINDOW == 10 (0x12610e400) [pid = 1029] [serial = 9] [outer = 0x125338400] [url = about:blank]</div>
+<div>--DOMWINDOW == 9 (0x125338400) [pid = 1029] [serial = 5] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 8 (0x125338800) [pid = 1029] [serial = 6] [outer = 0x0] [url = about:blank]</div>
+<div>--DOMWINDOW == 7 (0x1221cc400) [pid = 1029] [serial = 3] [outer = 0x0] [url = chrome://browser/content/browser.xul]</div>
+<div>--DOMWINDOW == 6 (0x11cf4e800) [pid = 1029] [serial = 4] [outer = 0x0] [url = about:blank]</div>
+<div>++DOMWINDOW == 7 (0x1220c7800) [pid = 1029] [serial = 18] [outer = 0x1269f4400]</div>
+<div><br/></div>
+<div>--DOMWINDOW == 6 (0x1221c3400) [pid = 1029] [serial = 17] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x1247e9bd0'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div>++DOMWINDOW == 7 (0x123858800) [pid = 1029] [serial = 19] [outer = 0x1269f4400]</div>
+<div>--DOMWINDOW == 6 (0x1220c7800) [pid = 1029] [serial = 18] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div><br/></div>
+<div>++DOMWINDOW == 7 (0x1221cb800) [pid = 1029] [serial = 20] [outer = 0x1269f4400]</div>
+<div>--DOMWINDOW == 6 (0x123858800) [pid = 1029] [serial = 19] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div>++DOMWINDOW == 7 (0x12450bc00) [pid = 1029] [serial = 21] [outer = 0x1269f4400]</div>
+<div>--DOMWINDOW == 6 (0x1221cb800) [pid = 1029] [serial = 20] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp, line 4595</div>
+<div>--DOCSHELL 0x129087000 == 2 [pid = 1029] [id = 6]</div>
+<div>[Parent 1029] WARNING: NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr) failed with result 0x80040111: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/docshell/base/nsDocShell.cpp, line 4595</div>
+<div>--DOCSHELL 0x129085800 == 1 [pid = 1029] [id = 7]</div>
+<div>--DOMWINDOW == 5 (0x1269f4400) [pid = 1029] [serial = 15] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div>--DOMWINDOW == 4 (0x12639dc00) [pid = 1029] [serial = 12] [outer = 0x0] [url = data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/>]</div>
+<div>--DOMWINDOW == 3 (0x12450bc00) [pid = 1029] [serial = 21] [outer = 0x0] [url = about:neterror?e=connectionFailure&amp;u=https%3A//127.0.0.1/selfsupport-dummy/&amp;c=UTF-8&amp;f=regular&amp;d=Firefox%20can%27t%20establish%20a%20connection%20to%20the%20server%20at%20127.0.0.1.]</div>
+<div>--DOMWINDOW == 2 (0x1269ec400) [pid = 1029] [serial = 14] [outer = 0x0] [url = data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/>]</div>
+<div>[Parent 1029] WARNING: 1 sort operation has occurred for the SQL statement '0x125352370'.  See https://developer.mozilla.org/En/Storage/Warnings details.: file /builds/slave/m-cen-m64-st-an-d-000000000000/build/src/storage/src/mozStoragePrivateHelpers.cpp, line 115</div>
+<div><br/></div>
+<div>
+<div><span title="Monday, May 04, 2015 3:22:21 PM">3:22 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: ping</div>
+<div><span style=""><span title="Monday, May 04, 2015 3:26:09 PM">3:26 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: what's up?</div>
+<div><span title="Monday, May 04, 2015 3:26:53 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: hi! I'm working on figuring out why talos tests are hanging on shutdown on OS X. I just reproduced it locally with a debug build, and here's what I saw in the output:</div>
+<div><span title="Monday, May 04, 2015 3:26:59 PM">3:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: <a href="https://pastebin.mozilla.org/8832370" rel="noreferrer" target="_blank">https://pastebin.mozilla.org/8832370</a></div>
+<div><span title="Monday, May 04, 2015 3:27:03 PM">3:27 PM</span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-quidrk.east.verizon.net)">mccr8</a> quit (<a href="mailto:mccr8@moz-quidrk.east.verizon.net">mccr8@moz-quidrk.east.verizon.net</a>) Quit: quit</div>
+<div><span title="Monday, May 04, 2015 3:27:17 PM">3:27 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: uh, hold on - that got truncated</div>
+<div><span title="Monday, May 04, 2015 3:27:18 PM">3:27 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> one sec</div>
+<div><span title="Monday, May 04, 2015 3:27:39 PM">3:27 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> fitzgen: ^^ looks like this might be you</div>
+<div><span title="Monday, May 04, 2015 3:28:09 PM">3:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: NS_FAILED(DebberOnGCRunnable::Enqueue.. looks highly suspicious</div>
+<div><span title="Monday, May 04, 2015 3:28:23 PM">3:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> ah, ok - so it didn't get truncated. phew</div>
+<div><span title="Monday, May 04, 2015 3:28:30 PM">3:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: yeah, I thought that might be related</div>
+<div><span title="Monday, May 04, 2015 3:28:44 PM">3:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: when I sample the process periodically, I see it attempting (I think) to dump the heap</div>
+<div><span title="Monday, May 04, 2015 3:28:52 PM">3:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> and then it just starts spinning the event loop</div>
+<div><span title="Monday, May 04, 2015 3:29:02 PM">3:29 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> until I kill the process. Almost as if the window closed, but the shutdown was aborted.</div>
+<div><span title="Monday, May 04, 2015 3:29:02 PM">3:29 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mrgiggles" title="mrgiggles (mrgiggles@moz-cfhap5.mtv2.mozilla.com)">mrgiggles</a>> the mozilla-inbound tree is now open</div>
+<div><span title="Monday, May 04, 2015 3:29:12 PM">3:29 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: odd!</div>
+<div><span title="Monday, May 04, 2015 3:29:41 PM">3:29 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: the only interaction we have with the event loop is to post the stats and debugger events</div>
+<div><span title="Monday, May 04, 2015 3:29:42 PM">3:29 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: if this is indeed a CC/GC thing... who would I talk to about it? Are you the right person? Or should I be bugging fitzgen?</div>
+<div><span title="Monday, May 04, 2015 3:30:15 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: the new runnable is fitzgen, so I'd see if teh intermittent failures correspond to when that all landed</div>
+<div><span title="Monday, May 04, 2015 3:30:33 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: do you remember the bug number for it?</div>
+<div><span title="Monday, May 04, 2015 3:30:48 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: err.. not of hand.. closed that tab a couple weeks ago</div>
+<div><span title="Monday, May 04, 2015 3:30:54 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> heh, ok</div>
+<div><span title="Monday, May 04, 2015 3:30:57 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> fitzgen: ping</div>
+<div><span title="Monday, May 04, 2015 3:31:09 PM">3:31 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: which file should I look at the log of? Can you give me a hint about what the commit message would have looked like?</div>
+<div><span title="Monday, May 04, 2015 3:31:12 PM">3:31 PM</span>  → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/hubutm20" title="hubutm20 (hubutm20@moz-f5g.tl9.114.79.IP)">hubutm20</a> joined  ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/AlexanderSalas" title="AlexanderSalas (Instantbird@moz-u4s.32h.82.200.IP)">AlexanderSalas</a> quit  </div>
+<div><span title="Monday, May 04, 2015 3:34:37 PM">3:34 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: his bugzilla status says he's on vacation until the 17th :-(</div>
+<div><span title="Monday, May 04, 2015 3:34:38 PM">3:34 PM</span> → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/scientes" title="scientes (scientes@moz-l6hdmu.wa.comcast.net)">scientes</a> joined (<a href="mailto:scientes@moz-l6hdmu.wa.comcast.net">scientes@moz-l6hdmu.wa.comcast.net</a>)</div>
+<div><span title="Monday, May 04, 2015 3:34:50 PM">3:34 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley: let me dig up the bug and we can see who reviewed</div>
+<div><span title="Monday, May 04, 2015 3:34:57 PM">3:34 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: thanks, I appreciate it. :)</div>
+<div><span style=""><span title="Monday, May 04, 2015 3:37:09 PM">3:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sfink" title="sfink (chatzilla@moz-vi8qu5.sntcca.sbcglobal.net)">sfink</a>> that's my review, I'm pretty sure</div>
+<div><span title="Monday, May 04, 2015 3:37:17 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sfink" title="sfink (chatzilla@moz-vi8qu5.sntcca.sbcglobal.net)">sfink</a>> well, of the SM side of things</div>
+<div><span title="Monday, May 04, 2015 3:37:25 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/terrence" title="terrence (terrence@moz-4opk9i.sd.cox.net)">terrence</a>> mconley, sfink: bug 1150253</div>
+<div><span title="Monday, May 04, 2015 3:37:28 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/firebot" title="firebot (firebot@moz-pku4c8.glob.com.au)">firebot</a>> <a href="https://bugzil.la/1150253" rel="noreferrer" target="_blank">https://bugzil.la/1150253</a> — FIXED, <a href="mailto:nfitzgerald@mozilla.com" rel="noreferrer" target="_blank">nfitzgerald@mozilla.com</a> — [jsdbg2] Post a runnable to fire the onGarbageCollection hook</div>
+</div>
+<div><span title="Monday, May 04, 2015 3:37:47 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> terrence: wicked, thanks. Let me rollback to before that patch landed to see if I can just dismiss it as the culprit.</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div>Something in bug 1150253 caused this.</div>
+<div><br/></div>
+<div><b>FALSE.</b> Tested the build from before that patch landed.</div>
+<div><br/></div>
+<div>It looks like the main lock-up occurs when the initial profile is created and the browser is initialized for the first time, and then quit, before any of the tests operate.</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div><b><br/></b></div>
+<div>Something is cancelling during quit-application-requested.</div>
+<div><br/></div>
+<div>No - goQuitApplication checks that first.</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div><br/></div>
+<div>Somehow appService.quit(forceQuit) is not succeeding.</div>
+<div><br/></div>
+<div>Huh… mRunning is apparently false when nsAppStartup::Quit is finishing off… what the hell?</div>
+<div><br/></div>
+<div>Ah… ok, so this getInfo.html thing is like… trying to quit, but the goQuitApplication is running in the content process, which closes the window, and then the parent process tries to determine if we should be quitting...</div>
+<div><br/></div>
+<div>"</div>
+<div>I think I've figured this out.<br/>
+<br/>
+We have this getInfo.html page that loads before some (all?) tests are run in order to get the screen dimensions and browser dimensions, which it then dumps into a log that (I assume) Talos consumes to make decisions on how tests should operate under those conditions.<br/>
+<br/>
+One of the last things that getInfo.html does is call goQuitApplication(); and window.close();. goQuitApplication() is defined in talos/page_load_test/quit.js. goQuitApplication() uses special privileges and calls nsIAppStartup::Quit passing in nsIAppStartup.eForceQuit.<br/>
+<br/>
+That getInfo.html page is being loaded in the content process when the --e10s flag is set.<br/>
+<br/>
+When the content process calls goQuitApplication(), the content process successfully shuts down, which effectively closes the window. On Windows and Linux, this closing of the last window results in the parent process also shutting down.<br/>
+<br/>
+On OS X, however, a process still runs even if all of the windows are closed. You can reproduce this in Firefox today - just close all of your windows by pressing the little red button in the top-left corner on OS X. The Firefox process will keep running, and Firefox will be available in the dock. When you click on the dock icon, a new Firefox window opens.<br/>
+<br/>
+So that's why this is happening - forceQuit is happening in the content process and not the parent, and the parent can keep running without any windows.<br/>
+<br/>
+This also means that when talos tests do run (when I manually quit the getInfo.html process), that Talos is killing the parent process after each test because it hits the time out, since (again) the parent process is just hanging out since the quit didn't occur properly.<br/>
+<br/>
+What I suggest is that we have getInfo.html (and any other content that tries to make use of quit) send a message up to the parent to cause the quit.<br/>
+<br/></div>
+<div>jmaher - where would be a good place to put a message handler for that quit message? Ideally it'd be in an add-on somewhere... is pageloader the right place to put that kind of general Talos utility for quitting?"</div>
+<div><br/></div>
+<div>Woo - created talos-powers default add-on. This seems to work, and jmaher likes it. Landed!</div>
+<div><br/></div>
+<div>Huh… this breaks cart for some reason. Let me try to reproduce.</div>
+<div><br/></div>
+</body></html>

@@ -1,0 +1,43 @@
+---
+layout: post
+title:  "Bug 1136478 - [e10s] pagehide/show events not fired when swapping remote browsers"
+date:   2015-06-09
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1136478">
+ Bug 1136478 - [e10s] pagehide/show events not fired when swapping remote browsers
+</a>
+<div>
+ This is tricky. Initially, I thought maybe we could send messages down to browser-child.js, and have them trigger the pageshow/pagehide events. I don't think that's sufficient though… I actually need something to called nsDocument::OnPageShow and nsDocument::OnPageHide.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So maybe add something to PBrowser.ipdl to indicate that we're switching… and then, like, recursively fire OnPageShow and OnPageHide in the proper places.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Is there some common code that both nsFrameLoader and TabChild call into? Or does TabChild call into nsFrameLoader at all? nsContentUtils might make the most sense.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's try that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yep. Works. Let's see what smaug thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ He likes it! Aaaaand landed. \o/
+</div>

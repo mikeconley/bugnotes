@@ -1,0 +1,88 @@
+---
+layout: post
+title:  "Bug 1132006 - &quot;Restore all crashed tabs&quot; doesn&apos;t restore all tabs in all windows"
+date:   2015-06-09
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1132006">
+ Bug 1132006 - "Restore all crashed tabs" doesn't restore all tabs in all windows
+</a>
+<div>
+ <div>
+  STR:
+  <br/>
+  <br/>
+  1) Install TabCrasher[1] or CrashMe[2] to get tab crashing powers
+  <br/>
+  2) Open two windows, and add tabs in each browsed to some web content
+  <br/>
+  3) In one of the windows, crash the tabs (both add-ons add buttons to crash the content process)
+  <br/>
+  4) In one of the crashed windows, choose "Restore All Crashed Tabs"
+  <br/>
+  <br/>
+  ER:
+  <br/>
+  <br/>
+  All crashed tabs across all windows should be restored
+  <br/>
+  <br/>
+  AR:
+  <br/>
+  <br/>
+  Only the crashed tabs in the window where the user clicked "Restore All Crashed Tabs" are restored.
+  <br/>
+  <br/>
+  <br/>
+  [1]:
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/tab-crasher/">
+   https://addons.mozilla.org/en-US/firefox/addon/tab-crasher/
+  </a>
+  <br/>
+  [2]:
+  <a href="http://people.mozilla.org/%7Etmielczarek/crashme/">
+   http://people.mozilla.org/~tmielczarek/crashme/
+  </a>
+  <br/>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem here appears to be that the crashed browsers for the non-selected window don't have &lt;xul:browser&gt;'s where the permanent key is in the WeakSet. What the hell?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And when I try to Restore All Crashed Tabs in the second window, THEN the permanentKeys are in there. WHAT?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ There should only be one SessionStore.jsm. Only one. What is going on here?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WeakSet's don't allow me to easily inspect these things… so I'll switch to a standard Set for now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah - I see what was going on. Despite iterating over all windows, we only iterated over the tabs of the currently selected window for restoration.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fixed!
+</div>

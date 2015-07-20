@@ -1,0 +1,842 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.13 (451655)"/><meta name="keywords" content="M6, Needs export"/><meta name="author" content="dc2511"/><meta name="created" content="2014-07-18 17:11:12 +0000"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146"/><meta name="updated" content="2015-05-19 02:16:56 +0000"/><title>Bug 1025146 - [e10s] Make it so that we can view document source without hitting the network</title></head><body style="word-wrap: break-word; -webkit-nbsp-mode: space; -webkit-line-break: after-white-space;">
+<div><a shape="rect" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146" target="_blank">https://bugzilla.mozilla.org/show_bug.cgi?id=1025146</a><br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Q: Do I understand what's going wrong here? Re-examine my notes in <a shape="rect" href="https://bugzilla.mozilla.org/show_bug.cgi?id=988133" target="_blank">https://bugzilla.mozilla.org/show_bug.cgi?id=988133</a><br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>nsIWebPageDescriptor being passed to nsDocShell::LoadPage is a CPOW because the document is remote.<br clear="none"/></div>
+<div><br clear="none"/>
+We QI the nsIWebPageDescriptor CPOW to an nsSHEntry, and then clone it, which (you guessed it), returns a CPOW.</div>
+<div><br clear="none"/></div>
+<div>We assign that nsSHEntry to mLSHE.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>In the nsDocShell::Embed function, we pass mLSHE over to ReattachEditorToWindow, and then execute this line: http://hg.mozilla.org/mozilla-central/file/48eee276b1ee/docshell/base/nsDocShell.cpp#l7468<br clear="none"/>
+<br clear="none"/>
+Remember, aSHEntry is a CPOW. We call ForgetEditorData on that CPOW, and that function is noscript. Either because it's noscript, or because it's ridiculous for a CPOW to return a pointer (which ForgetEditorData is supposed to do), what we get back is NS_ERROR_FAILURE, which we set to mEditorData.<br clear="none"/>
+<br clear="none"/>
+We then call mEditorData->ReattachToWindow, where mEditorData points to NS_ERROR_FAILURE (0x80004005), and kaboom.</div>
+<div><br clear="none"/></div>
+<div>Ok, mystery solved. So if getting the history entry is the _only_ reason to pass in the nsIWebPageDescriptor, maybe we can pass in something else to get the nsSHEntry on the parent process's side. I'm looking into that now.</div>
+<div><br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Q: What is mLSHE<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>HistoryEntry <code>-</code> Reference to the nsISHEntry for this docshell until the page is loaded. "SessionHistoryEntry", and I guess "L" is for Loading?<br clear="none"/></div>
+<div><br clear="none"/>
+Hypothesis - this is the Session History Entry that we hold on to until the next time that the document loads.<br clear="none"/>
+<br clear="none"/>
+nsISHENtry:<br clear="none"/>
+<br clear="none"/>
+/**<br clear="none"/>
+ * The interface to nsISHentry. Each document or subframe in<br clear="none"/>
+ * Session History will have a nsISHEntry associated with it which will<br clear="none"/>
+ * hold all information required to recreate the document from history<br clear="none"/>
+ *<br clear="none"/>
+ */<br clear="none"/>
+<br clear="none"/>
+Q: Can we somehow get the _real_, non CPOW'd nsISHEntry on the parent side instead?<br clear="none"/>
+<br clear="none"/>
+I know that nsISHEntry have numeric identifiers that we can query for via nsISessionHistory...<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Can we get that numeric identifier from the CPOW, and then retrieve the non-CPOW'd nsISHEntry on the parent side with it?<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Q: How does nsISHistory retrieve IDs for nsISHEntry?<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Yikes - takes some nsISHEntry, and then does a raw equivalence check against each element in an internal array, and returns the index if and when it matches. I don't think this is going to work, since the comparison will fail with a CPOW.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>Q: How does nsISHistory and nsISHEntry's work in the child process?<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>AH, ok - so nsISHistory is _per tab_. It's the thing that manages Back&lt;-->Forward.  It is _NOT_ Places.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>So passing the ID back to the parent makes NO SENSE, because the parent does not share the history.<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>(48:05)<br clear="none"/></div>
+<div><br clear="none"/></div>
+<div>(On pause while I take care of higher priority work).<br clear="none"/></div>
+<div><br/></div>
+<div>AAAAAND we're back.</div>
+<div><br/></div>
+<div>So, is it possible to open the view source browser remotely, and have it be opened in the same process of the browser whose document is being seen? Hrm. Sounds somewhat related to my work in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=989501">bug 989501</a>.</div>
+<div><br/></div>
+<div>One of the challenges will be to go from document to browser. Another will be to get the old view source code to actually open a remote browser…</div>
+<div><br/></div>
+<div>Hm… viewSourceUtils.js uses openDialog… </div>
+<div><br/></div>
+<div>#0     0x000000010505d108 in nsWindowWatcher::OpenWindowInternal(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsIArray*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/src/nsWindowWatcher.cpp:434</div>
+<div>#1     0x000000010505fffc in nsWindowWatcher::OpenWindow2(nsIDOMWindow*, char const*, char const*, char const*, bool, bool, bool, nsITabParent*, nsISupports*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/src/nsWindowWatcher.cpp:419</div>
+<div>#2     0x00000001050600fe in _ZThn8_N15nsWindowWatcher11OpenWindow2EP12nsIDOMWindowPKcS3_S3_bbbP12nsITabParentP11nsISupportsPS1_ at /Users/mikeconley/Projects/mozilla-central/obj-debug/embedding/components/windowwatcher/src/Unified_cpp_windowwatcher_src0.cpp:420</div>
+<div>#3     0x0000000102bdbb2e in nsGlobalWindow::OpenInternal(nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, bool, bool, bool, bool, bool, nsIArray*, nsISupports*, nsIPrincipal*, JSContext*, nsIDOMWindow**) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:11775</div>
+<div>#4     0x0000000102bdca68 in nsGlobalWindow::OpenDialog(JSContext*, nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, mozilla::dom::Sequence&lt;JS::Value> const&amp;, mozilla::ErrorResult&amp;) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7704</div>
+<div>#5     0x0000000102bdc82b in nsGlobalWindow::OpenDialog(JSContext*, nsAString_internal const&amp;, nsAString_internal const&amp;, nsAString_internal const&amp;, mozilla::dom::Sequence&lt;JS::Value> const&amp;, mozilla::ErrorResult&amp;) at /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp:7682</div>
+<div>#6     0x000000010369c8bf in mozilla::dom::WindowBinding::openDialog(JSContext*, JS::Handle&lt;JSObject*>, nsGlobalWindow*, JSJitMethodCallArgs const&amp;) at /Users/mikeconley/Projects/mozilla-central/obj-debug/dom/bindings/./WindowBinding.cpp:4804</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">already_AddRefed&lt;nsIDOMWindow><br/>
+nsGlobalWindow::OpenDialog(JSContext* aCx, const nsAString&amp; aUrl,<br/>
+                           const nsAString&amp; aName, const nsAString&amp; aOptions,<br/>
+                           const Sequence&lt;JS::Value>&amp; aExtraArgument,<br/>
+                           ErrorResult&amp; aError)</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">from DOM binding.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">I think this is the DOM binding?:</span><a href="http://hg.mozilla.org/mozilla-central/file/0c7eb00d3ef6/dom/webidl/Window.webidl#l363">http://hg.mozilla.org/mozilla-central/file/0c7eb00d3ef6/dom/webidl/Window.webidl#l363</a></div>
+<div><br/></div>
+<div>Wait wait wait wait wait - I'm going about this all wrong. I don't want to make the viewSource.xul window remote. I want to make the browser inside the viewSource.xul window remote. And I want it to somehow be associated with the browser of the document that we're viewing the source of.</div>
+<div><br/></div>
+<div>Tricky.</div>
+<div><br/></div>
+<div>Well, actually not, since we're only using 1 process. Maybe it's really that simple for shipping this first version - if we're spawned from a remote tab, make the browser remote.</div>
+<div><br/></div>
+<div>I think the viewSource code is really, really tightly coupled to the content. I might have to add messaging and stuff in here.</div>
+<div><br/></div>
+<div>But let's see how it currently works…</div>
+<div><br/></div>
+<div>XUL Loads, and that calls onLoadViewSource in viewSource.js when it's ready. (the javascript I start talking about is all in viewSource.js)</div>
+<div><br/></div>
+<div>From there, we immediately call into the viewSource method, and it's passed a URL. We prefix the url with "view-source:".</div>
+<div><br/></div>
+<div>Does view-source: even work from a remote tab? Yes it does, but still seems to hit the network. The nsIWebPageDescriptor isn't used (obviously) when I put view-source into the awesomebar manually.</div>
+<div><br/></div>
+<div>Ok, so we have a view-source prefixed URL. Now what? Ah - so, we start looking at the arguments passed to the window… and we we call gPageLoader.loadPage with the page descriptor (if any) that is passed in, with DISPLAY_AS_SOURCE passed as the second parameter to loadPage.</div>
+<div><br/></div>
+<div>Ah… so, one reason why just setting remote on the viewSource browser isn't working is because the webNavigation member of the remote browser does not QI properly to an nsIWebPageDescriptor.</div>
+<div><br/></div>
+<div>Ok… but what about the browser-child? I assume it has access to these things… yes it does. But browser-child.js isn't for toolkit.</div>
+<div><br/></div>
+<div>
+<div>browser-child.js - one per remote-browser <b>(e10s-only)</b></div>
+<div>content.js - toolkit-level <b>(both)</b></div>
+<div>browser-content.js - browser-level <b>(both)</b></div>
+</div>
+<div><b><br/></b></div>
+<div>So really, nsIWebPageDescriptor is just the interface for passing around nsISHEntries, it seems. Strangely, it's also the interface for a thing that can load a page from one of these nsISHEntries.</div>
+<div><br/></div>
+<div>Wait…no, that's not right. It's more like this:</div>
+<div><br/></div>
+<div>Something that implements nsIWebPageDescriptor provides access to an nsISupports that represents a web page. That nsISupports can then be passed to loadPage, which'll load the page. The nsISupports in this case happens to be an nsISHEntry.</div>
+<div><br/></div>
+<div>The thing is, the CPOW for the nsISHEntry might die before it ever gets handled. That doesn't feel good. There must be a way of keeping that in the content somehow…</div>
+<div><br/></div>
+<div>It's a matter of moving a page from one window to another. Doesn't tabbrowser do this already? Hrm… that seems to be about _swapping_ docshells, and not sharing them. Also, I'm not 100% sure that'll work right now.</div>
+<div><br/></div>
+<div>bfcache = back/forward cache.</div>
+<div><br/></div>
+<div>Ok, how about this:</div>
+<div><br/></div>
+<div>We want to view the source of some document. We find the browser that the document is in, and get some unique identifier for that document's history entry. Do that with some browser-content.js messaging. I can't do that synchronously, I don't think. :/</div>
+<div><br/></div>
+<div>We open a view source window, and make sure the browser is created such that it's in the same process as the browser that was originally viewing the page. That's gonna be hard.</div>
+<div><br/></div>
+<div>Then, pass it the ID of the history entry via message manager, and have it load the document source.</div>
+<div><br/></div>
+<div>Maybe? Maybe.</div>
+<div><br/></div>
+<div>The thing is, I can pass objects around from window to window in the parent process willy-nilly like we've always done, and the object I pass can have a message manager for the browser whose document we're interested in.</div>
+<div><br/></div>
+<div>Honestly, the hardest part might be the future bit, where the newly opened view source window browser needs to be initialized such that it exists in the same process as the browser whose document's source we want. I don't believe there are APIs for that sort of thing just yet. We'll probably have to build one once we start doing > 1 content process.</div>
+<div><br/></div>
+<div><a href="https://developer.mozilla.org/en-US/docs/Working_with_BFCache">https://developer.mozilla.org/en-US/docs/Working_with_BFCache</a><br/></div>
+<div><br/></div>
+<div><a href="https://developer.mozilla.org/en-US/docs/Using_Firefox_1.5_caching">https://developer.mozilla.org/en-US/docs/Using_Firefox_1.5_caching</a><br/></div>
+<div><br/></div>
+<div>Ok, another idea (maybe very similar to the last):</div>
+<div><br/></div>
+<div>Choose to view source of some document. browser.js calls viewSourceUtils.js passing not only the document CPOW, but also the browser that the document is a child of (remote or not).</div>
+<div><br/></div>
+<div>We pass the browser, document CPOW, NOT the nsIWebPageDescription, over to viewSource.js which is being opened in a new window (but the same parent process).</div>
+<div><br/></div>
+<div>The new window needs to know to turn the browser to a remote one. In the future, it'll need to look at the browser being passed in, and make sure that this new remote browser content runs in the same process.</div>
+<div><br/></div>
+<div>We use the message manager of the viewSource.xul browser, and pass it the document. Because the document is from the same process, it's not a CPOW on the content side of things.</div>
+<div><br/></div>
+<div>The viewSource.xul browser's content script receives the document, grabs the nsIWebPageDescriptor descriptor from it…, and loads it in the docshell of the viewSource.xul browser. Done.</div>
+<div><br/></div>
+<div>Making sure the viewSource.xul browser is in the same process is kinda out of scope. For the purposes of shipping the first version of e10s, it should be a binary choice - either it's in the parent process, or it's in the content process. We should maybe add some fresh asserts for that.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>See if it's possible to pass a document from one remote browser to another, and then manipulate it (IE - get down to the nsIWebPageDescriptor descriptor, and have it not be a CPOW).<br/></div>
+<div><br/></div>
+<div style="font-size: 14px;"><b>Experiment</b></div>
+<div style="font-size: 14px;"><b><br/></b></div>
+<div style="">To test if I can pass a document CPOW to another browser in the same content process and get a non-CPOW document on the other side, I will do the following as throwaway / prototype code:</div>
+<div style=""><input checked="true" type="checkbox"/>Make the viewSource.xul browser remote<br/></div>
+<div style=""><input checked="true" type="checkbox"/>Hook up a content script and message manager in viewSource.js<br/></div>
+<div style=""><input checked="true" type="checkbox"/>Have viewSource.js message the content script with the document CPOW.<br/></div>
+<div style=""><input checked="true" type="checkbox"/>Have the content script in the view source browser receive the document and run Cu.isCrossProcessWrapper(aDocument) on it. This should return false.<br/></div>
+<div style=""><input checked="true" type="checkbox"/>Then see if we can get an nsIWebPageDescriptor descriptor from it. If so, success!<br/></div>
+<div><br/></div>
+<div>Ok, so what's interesting is that the document that ends up in the content script (actually, a frame script!) for the view source browser only has a location property on it. It looks like a super-stripped down kinda-clone of the document. WTF?</div>
+<div><br/></div>
+<div>This reminds me of the bholley membrane stuff. I'm currently talking with him about this.</div>
+<div><br/></div>
+<div>OH, I was screwing it up! I have to pass objects as the third argument to sendAsyncMessage. This worked! I got the nsIWebPageDescriptor descriptor!</div>
+<div><br/></div>
+<div>\o/</div>
+<div><br/></div>
+<div><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c1">I've posted my plan in the bug</a>, and <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c2">asked for feedback from billm</a>. While I'm waiting, let's see if I can figure out how to re-organize this old view source code…<br/></div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>Reorganizing view source code...</b></div>
+<div><br/></div>
+<div>So currently, we have a number of consumers of viewsource from toolkit:</div>
+<div>
+<ul>
+<li>Firefox</li>
+<li>Thunderbird</li>
+<li>DOM Inspector</li>
+<li>Sea Monkey</li>
+</ul>
+</div>
+<div>And I see a variety of uses - some of them use viewSourceUtils.js, and others open viewSource.xul directly.</div>
+<div><br/></div>
+<div>Ok, idea one - have viewSource.xul optionally just take a single argument, which can be a JS object that can have named attributes.</div>
+<div><br/></div>
+<div>Have viewSourceUtils make use of that, and pass it the document.</div>
+<div><br/></div>
+<div>viewSource.js needs to set up a frame script on the browser, and needs to know when to go remote.</div>
+<div><br/></div>
+<div>The loadPage needs to occur in the frame script.</div>
+<div><br/></div>
+<div>The viewSource function in viewSource.js is where I'm focusing, but there are lots of other functions in here… like, event handlers. I wonder if I'll need to hook these up to the frame script too.</div>
+<div><br/></div>
+<div>I should do an audit of all of the functions in this file first, and document what they do before I begin. Heck, we might even get some documented code out of this.</div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>viewSource.js</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="">We've got gPageLoader, which is a global representing the nsIWebPageDescriptor of the browser docshell, and that's just not going to fly since remote browsers don't expose their docshells to the parent. So gPageLoader needs to be excised. We're going to have to replace those with message manager messages instead, I think.</div>
+<div style=""><br/></div>
+<div style="">gSelectionListener… this thing listens to selections on the content, and will update the status bar with things like Line 14, Col 27</div>
+<div style=""><br/></div>
+<div style="">Ugh, getSelectionController - that's a thing that also depends on access to docshell. That'll need to be replaced with message manager messages.</div>
+<div style=""><br/></div>
+<div style="">viewSource is the main function that kicks off loading the source of the page. This parses the arguments passed into the window. Sets up pageshow, pagehide, and click event handlers on the browser… not sure what those do yet.</div>
+<div style=""><br/></div>
+<div style="">onLoadContent is a handler for the pageshow event. That event fires if we've loaded a page off the network OR loaded it out of the bfcache. It handles what occurs immediately after, like heading off to a particular line of code, and other after-load-initty things. It also hooks up gSelectionListener, and updates back/forward commands.</div>
+<div><br/></div>
+<div>onUnloadContent is the counterpart to onLoadcontent and is fired on the pagehide event, which is when we browse away from a page to another one. We batten down the hatches here until the next page is loaded.</div>
+<div><br/></div>
+<div>onClickContent is the click event listener, and … wow, seems to only care about error dialogs. I think this'll need to be handled in the framescript as well.</div>
+<div><br/></div>
+<div>HandleAppCommandEvent… what the hell is AppCommand? From jimm and <a href="http://hg.mozilla.org/mozilla-central/file/bf27e27c994d/widget/windows/nsWindowDefs.h#l120">from here</a>: <span style="font-size: 13px;">// App Command messages for IntelliMouse and Natural Keyboard Pro </span>These messages are not included in Visual C++ 6.0, but are in 7.0+. Oh… so these are like… special hardware buttons or something. </div>
+<div><br/></div>
+<div>HandleSwipeGesture… uh, handles swipe gestures I guess, for browsing forward and back, as well as quickly getting to top or bottom.</div>
+<div><br/></div>
+<div>ViewSourceClose just closes the window.</div>
+<div><br/></div>
+<div>ViewSourceReload reloads the source, but from the network, bypassing cache and proxy.</div>
+<div><br/></div>
+<div>ViewSourceSavePage calls internalSave, passing the url and the window.content.document, as well as the gPageLoader. That's… that's gonna break. Might be fixable once <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=903022">bug 903022</a> gets fixed.</div>
+<div><br/></div>
+<div>PrintPreviewListener… gah, printing.</div>
+<div><br/></div>
+<div>getWebNavigation is a shortcut to the view source browser's webNavigation field, which it won't have if remote. This'll need fixing.</div>
+<div><br/></div>
+<div>ViewSourceGoToLine opens an input dialog that asks the user which line to go to, and then browses to the line the user enters.</div>
+<div><br/></div>
+<div>goToLine… this will need to be remoted, I think. Examines document body and scrolls selections into view.</div>
+<div><br/></div>
+<div>updateStatusBar, updates the status bar with selection point.</div>
+<div><br/></div>
+<div style="font-size: 15px;"><b>> 1 MONTH LATER</b></div>
+<div style="font-size: 15px;"><b><br/></b></div>
+<div style="">And we're back! This is an M4 bug, and I've reached the point where my M3s are pretty much clear.</div>
+<div style=""><br/></div>
+<div style="">SOOOOO…. how's this going to work? billm thinks that maybe if the view source browser is remote, this'll all just work. Is that possible?</div>
+<div style=""><br/></div>
+<div style="">It is oooooooh so tempting to rebuild view source. So tempting.</div>
+<div style=""><br/></div>
+<div style="">However. Time… right? Time is a factor. What is the shortest path to success that doesn't plant a footgun down the road?</div>
+<div style=""><br/></div>
+<div style="">Suppose we just made the view source browser remote. Yes, this doesn't solve the multi-content-process problem, but let's ignore that for now. Suppose we do that - what would prevent view source from working?</div>
+<div style=""><br/></div>
+<div style="">The first thing is that viewSource.js QI's the nsIWebNavigation of the remote browser to an nsIWebPageDescriptor - and RemoteWebNavigation doesn't currently implement that interface. So I'd need to extend RemoteWebNavigation to implement nsIWebPageDescriptor…</div>
+<div style=""><br/></div>
+<div style="">Then.. this might just work? Let's do a test to find out. How hard is it to implement nsIWebPageDescriptor? From what I recall, it's a super-tiny interface.</div>
+<div style=""><br/></div>
+<div style="">Yeah, it has two bits:</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;"> /**<br/>
+  * Tells the object to load the page specified by the page descriptor<br/>
+  *<br/>
+  * @throws NS_ERROR_FAILURE -<br/>
+  */<br/>
+  void loadPage(in nsISupports aPageDescriptor, in unsigned long aDisplayType);<br/>
+<br/>
+<br/>
+ /**<br/>
+  * Retrieves the page descriptor for the curent document.<br/>
+  */<br/>
+  readonly attribute nsISupports currentDescriptor;</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">The currentDescriptor could… be a CPOW, I guess. Like, that's what we're gonna get. Then loadPage could just forward the message down to the child. I guess?</div>
+<div style=""><br/></div>
+<div style="">Huh. And now I get a crash because gBrowser.sessionHistory doesn't work - I filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1077587">bug 1077587</a> for that.</div>
+<div style=""><br/></div>
+<div style="">Let's sidestep that, and just ignore mucking about with history. I've successfully sent down the CPOW'd pageDescriptor down to the content process, and sent it to the right loadPage, but nothing is showing up.</div>
+<div style=""><br/></div>
+<div style="">What the hell?</div>
+<div style=""><br/></div>
+<div style="">What's interesting is that… like, when I float my mouse over the window, my mouse cursor changes to the text selector in ways that makes me think that at least <i>part</i> of platform thinks there's a document there, but nothing is showing up. I'm not sure where to start.</div>
+<div style=""><br/></div>
+<div style="">Well, that's not true - I have an idea. When this works, the title of the window gets set to "Source of: " and then the document URI. That's not working here - unsurprising, since the content process has no access to the window. I'll be something in there is breaking down silently. Let me see if I can work backwards and see how normally we get to set that title in the good case, and then find out where we diverge.</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">nsHtml5StreamParser::SetViewSourceTitle looks interesting. How does this work?</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">In the content process, the owner of nsDocShell's is nsDocShellTreeOwner.cpp.</div>
+<div style=""><br/></div>
+<div style="">Let me see if I can figure out how view-source works at the deepest levels. Like, I understand how the front-end bits work, but not how the back-end bits work. Let's see if I can sort that out right now.</div>
+<div style=""><br/></div>
+<div style="">My approach: find a piece of code with <a href="http://dxr.mozilla.org/mozilla-central/source/">dxr</a> that sounds related to view source. Open debug build of Firefox and attach my debugger. Set breakpoint at that interesting piece of code, and view source. See if I hit it. If so, survey and report what's going on, and explore the rabbit hole. If not, go back to the dxr step.</div>
+<div style=""><br/></div>
+<div style="">Here goes.</div>
+<div style=""><br/></div>
+<div style="">parser/html/nsHtml5ViewSourceUtils.cpp sounds interesting.</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">nsHtml5TreeBuilder::StartPlainTextViewSource in </span>parser/html/nsHtml5TreeBuilderCppSupplement.h also sounds interesting.<br/></div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">nsHtml5StreamParser::OnStartRequest calls </span><span style="font-size: 13px;">nsHtml5TreeBuilder::StartPlainTextViewSource. Ok, I think I'm in the</span> pocket here.</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">netwerk/protocol/viewsource/nsViewSourceHandler.cpp is also interesting</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">Stack for setting the title on the view source page:</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">* thread #1: tid = 0x44f39, 0x000000010539e395 XUL`nsContentTreeOwner::SetTitle(this=0x000000011ab0c590, aTitle=0x00007fff5fbfd008) + 37 at nsContentTreeOwner.cpp:729, queue = 'com.apple.main-thread', stop reason = breakpoint 8.1<br/>
+  * frame #0: 0x000000010539e395 XUL`nsContentTreeOwner::SetTitle(this=0x000000011ab0c590, aTitle=0x00007fff5fbfd008) + 37 at nsContentTreeOwner.cpp:729<br/>
+    frame #1: 0x000000010539ec8f XUL`_ZThn8_N18nsContentTreeOwner8SetTitleEPKDs(this=0x000000011ab0c598, aTitle=0x00007fff5fbfd008) + 47 at Unified_cpp_xpfe_appshell0.cpp:816<br/>
+    frame #2: 0x00000001052db92e XUL`nsDocShell::SetTitle(this=0x0000000119153800, aTitle=0x00007fff5fbfd008) + 222 at nsDocShell.cpp:6176<br/>
+    frame #3: 0x00000001052dbbbf XUL`_ZThn440_N10nsDocShell8SetTitleEPKDs(this=0x00000001191539b8, aTitle=0x00007fff5fbfd008) + 47 at nsDocShell.cpp:6198<br/>
+    frame #4: 0x00000001041db4a4 XUL`nsDocument::DoNotifyPossibleTitleChange(this=0x00000001183b1800) + 356 at nsDocument.cpp:6895<br/>
+    frame #5: 0x0000000104204658 XUL`nsRunnableMethodImpl&lt;void (this=0x0000000115c547f0)(), void, false>::Run() + 152 at nsThreadUtils.h:388<br/>
+    frame #6: 0x00000001016e1c46 XUL`nsThread::ProcessNextEvent(this=0x00000001006157c0, aMayWait=false, aResult=0x00007fff5fbfd2e3) + 2086 at nsThread.cpp:830<br/>
+    frame #7: 0x0000000101738a3b XUL`NS_ProcessPendingEvents(aThread=0x00000001006157c0, aTimeout=20) + 171 at nsThreadUtils.cpp:207<br/>
+    frame #8: 0x00000001040cfdd9 XUL`nsBaseAppShell::NativeEventCallback(this=0x000000011271fba0) + 201 at nsBaseAppShell.cpp:98<br/>
+    frame #9: 0x000000010414e881 XUL`nsAppShell::ProcessGeckoEvents(aInfo=0x000000011271fba0) + 433 at <a href="http://nsAppShell.mm:374">nsAppShell.mm:374</a><br/>
+    frame #10: 0x00007fff81e00b31 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17<br/>
+    frame #11: 0x00007fff81e00455 CoreFoundation`__CFRunLoopDoSources0 + 245<br/>
+    frame #12: 0x00007fff81e237f5 CoreFoundation`__CFRunLoopRun + 789<br/>
+    frame #13: 0x00007fff81e230e2 CoreFoundation`CFRunLoopRunSpecific + 290<br/>
+    frame #14: 0x00007fff87e37eb4 HIToolbox`RunCurrentEventLoopInMode + 209<br/>
+    frame #15: 0x00007fff87e37c52 HIToolbox`ReceiveNextEventCommon + 356<br/>
+    frame #16: 0x00007fff87e37ae3 HIToolbox`BlockUntilNextEventMatchingListInMode + 62<br/>
+    frame #17: 0x00007fff83ccd533 AppKit`_DPSNextEvent + 685<br/>
+    frame #18: 0x00007fff83cccdf2 AppKit`-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] + 128<br/>
+    frame #19: 0x000000010414d517 XUL`-[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:](self=0x0000000115bd7a10, _cmd=0x00007fff844fb404, mask=18446744073709551615, expiration=0x422d63c37f00000d, mode=0x00007fff705041c0, flag='\x01') + 119 at <a href="http://nsAppShell.mm:129">nsAppShell.mm:129</a><br/>
+    frame #20: 0x00007fff83cc41a3 AppKit`-[NSApplication run] + 517<br/>
+    frame #21: 0x000000010414f1f7 XUL`nsAppShell::Run(this=0x000000011271fba0) + 167 at <a href="http://nsAppShell.mm:647">nsAppShell.mm:647</a><br/>
+    frame #22: 0x00000001056cf7cc XUL`nsAppStartup::Run(this=0x0000000115bd9ba0) + 156 at nsAppStartup.cpp:280<br/>
+    frame #23: 0x0000000105774b74 XUL`XREMain::XRE_mainRun(this=0x00007fff5fbff210) + 6020 at nsAppRunner.cpp:4154<br/>
+    frame #24: 0x00000001057753bf XUL`XREMain::XRE_main(this=0x00007fff5fbff210, argc=5, argv=0x00007fff5fbffb80, aAppData=0x00007fff5fbff518) + 735 at nsAppRunner.cpp:4227<br/>
+    frame #25: 0x000000010577585d XUL`XRE_main(argc=5, argv=0x00007fff5fbffb80, aAppData=0x00007fff5fbff518, aFlags=0) + 77 at nsAppRunner.cpp:4441<br/>
+    frame #26: 0x0000000100002b14 firefox`do_main(argc=5, argv=0x00007fff5fbffb80, xreDirectory=0x0000000100613d40) + 1940 at nsBrowserApp.cpp:290<br/>
+    frame #27: 0x0000000100001ee1 firefox`main(argc=5, argv=0x00007fff5fbffb80) + 321 at nsBrowserApp.cpp:655</span><br/></div>
+<div style=""><br/></div>
+<div style="">Does <span style="font-size: 13px;">nsDocShell::ReloadFromHistory play any part in this?</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">COOOOL - I put a frame script into the remote browser and confirmed that the document source IS there, but it's just not getting rendered. Great!</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">So that confirms my suspicions. Now how do I deal with this? At what point do we go from having some DOM nodes to actually rendering a thing on the screen? I think that's where nsIContentViewer probably comes in?</div>
+<div style=""><br/></div>
+<div style="">Hm… visibility on the DocShell is set to true…</div>
+<div style=""><br/></div>
+<div style="">So when does the ContentViewer tell graphics to paint? I guess that's just not happening somehow.</div>
+<div style=""><br/></div>
+<div style="">What ContentViewer class does view source use? Setting a breakpoint in nsDocShell::CreateContentViewer…</div>
+<div style=""><br/></div>
+<div style="">Now I'm in nsContentDLF… what the hell is this? What does "DLF" stand for?</div>
+<div style=""><br/></div>
+<div style="">Ohhhh - Document Loader Factory.</div>
+<div style=""><br/></div>
+<div style="">I think I'm barking up the wrong tree - or at the very least, not looking at the right stuff.</div>
+<div style=""><br/></div>
+<div style="">Ehsan pointed out something interesting to me in the debug output when I open that view source window:</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">[Parent 28055] WARNING: Created child without a matching parent?: file /Users/mikeconley/Projects/mozilla-central/gfx/layers/ipc/CompositorParent.cpp, line 1349</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">Which refers to this function:</div>
+<div style=""><br/></div>
+<div style=""><span style="font-size: 13px;">PLayerTransactionParent*<br/>
+CrossProcessCompositorParent::AllocPLayerTransactionParent(const nsTArray&lt;LayersBackend>&amp;,<br/>
+                                                           const uint64_t&amp; aId,<br/>
+                                                           TextureFactoryIdentifier* aTextureFactoryIdentifier,<br/>
+                                                           bool *aSuccess)<br/>
+{<br/>
+  MOZ_ASSERT(aId != 0);<br/>
+<br/>
+  CompositorParent::LayerTreeState* state = nullptr;<br/>
+  LayerTreeMap::iterator itr = sIndirectLayerTrees.find(aId);<br/>
+  if (sIndirectLayerTrees.end() != itr) {<br/>
+    state = &amp;itr->second;<br/>
+  }<br/>
+<br/>
+  if (state &amp;&amp; state->mLayerManager) {<br/>
+    state->mCrossProcessParent = this;<br/>
+    LayerManagerComposite* lm = state->mLayerManager;<br/>
+    *aTextureFactoryIdentifier = lm->GetCompositor()->GetTextureFactoryIdentifier();<br/>
+    *aSuccess = true;<br/>
+    LayerTransactionParent* p = new LayerTransactionParent(lm, this, aId, mChildProcessId);<br/>
+    p->AddIPDLReference();<br/>
+    sIndirectLayerTrees[aId].mLayerTree = p;<br/>
+    return p;<br/>
+  }<br/>
+<br/>
+  NS_WARNING("Created child without a matching parent?");<br/>
+  // XXX: should be false, but that causes us to fail some tests on Mac w/ OMTC.<br/>
+  // Bug 900745. change *aSuccess to false to see test failures.<br/>
+  *aSuccess = true;<br/>
+  LayerTransactionParent* p = new LayerTransactionParent(nullptr, this, aId, mChildProcessId);<br/>
+  p->AddIPDLReference();<br/>
+  return p;<br/>
+}</span><br/></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">And it looks like we fail the state &amp;&amp; state->mLayerManager conditional, fall through to the warning, and then create a LayerTransactionParent without a layer manager.</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">That doesn't sound like the thing we want to do.</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style=""><span style="font-size: 13px;">So, a few questions;</span></div>
+<div style=""><span style="font-size: 13px;"><br/></span></div>
+<div style="">
+<ol>
+<li>How are we failing that conditional? Is state falsey, or is state->mLayerManager falsey?</li>
+<li>How is sIndirectLayerTrees initialized and populated for normal browser windows?</li>
+</ol>
+</div>
+<div style=""><br/></div>
+<div style="">Answers:</div>
+<div style="">
+<ol>
+<li>state is falsey, because it's never set after it is initialized at nullptr!</li>
+</ol>
+<div><span style="font-size: 13px;">  CompositorParent::LayerTreeState* state = nullptr;<br/>
+  LayerTreeMap::iterator itr = sIndirectLayerTrees.find(aId);<br/>
+  if (sIndirectLayerTrees.end() != itr) {<br/>
+    state = &amp;itr->second;<br/>
+  }</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">So when we try to find(aId), we get sIndirectLayerTrees.end(), which means that aId doesn't have an entry in sIndirectLayerTrees.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Ok, that's useful! Where do we set things in this map? That's probably not happening, or is happening at the wrong time.</div>
+<div><br/></div>
+<div>I think what's happening is that we never receive the "NotifyChildCreated" message from the child for the view source window. Let me see if I can figure out why…</div>
+<div><br/></div>
+<div>When we open a new remote tab and browse to a page, we TabChild::InitRenderingState… which calls SendPRenderFrameConstructor…which gets the layer manager for the associated mFrameManager, which has the correct backend type. Simple. (?)</div>
+<div><br/></div>
+<div>When we open view source, the same thing occurs, but the mFrameLoader has a layer manager with the basic backend type.</div>
+<div><br/></div>
+<div>This seems to be related to the fact that we return false for ShouldUseOffMainThreadCompositing and ComputeShouldAccelerate for nsChildView.</div>
+<div><br/></div>
+<div><span style="font-size: 13px;">RenderFrameParent::RenderFrameParent seems to be where we skip stuff - BASIC_LAYERS is what we get back from lm->GetBackendType() for the view source window, and so we skip the part where we send the notification that the child was created.</span><br/></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Hypothesis - the window that we start setting transparency on is actually the window we're switching from.</div>
+<div><br/></div>
+<div>Browser window: self     ToolbarWindow *     0x11605b760     <b>0x000000011605b760</b></div>
+<div>View source window: self     ToolbarWindow *     0x116059d60     0x0000000116059d60</div>
+<div>mWindow     ToolbarWindow *     0x11605b760     <b>0x000000011605b760</b></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Yes, that's what's happening. I wonder if perhaps I'm setting remote="true" to early on the browser, and I should do it after the first reflow of the document.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Let's try that.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div><span style="font-size: 13px;">Yes! That fixes it. Having a browser have remote="true" immediately isn't something we currently support. We have to remove the browser element, set the remote attribute, then re-bind to the document. Seems silly, but that solves the problem.</span></div>
+<div><span style="font-size: 13px;"><br/></span></div>
+<div>Ok, so this is pretty workable, but I've also noticed that we're often <b style="font-size: 13px;">not</b> hitting the network when viewing the source. Like, even without the nsIWebPageDescriptor stuff… we're not hitting the network. What the hell? How does that even work?</div>
+</div>
+<div style=""><br/></div>
+<div style="">From felipe:</div>
+<div style=""><br/></div>
+<div style="">"My guess is that what we're bypassing is the bfcache, but we still end up loading the page from the network cache. Did you test setting the http Cache-Control heads on the page? I think you mentioned you did, but there are so many values for it that mean different things, so maybe the combination wasn't enough.
+<div><br/></div>
+<div>one way to test this would be to change the LOAD_FLAGS_NONE to LOAD_FLAGS_BYPASS_CACHE here: <a href="http://mxr.mozilla.org/mozilla-central/source/toolkit/components/viewsource/content/viewSource.js#177">mxr.mozilla.org/mozilla-central/source/toolkit/components/viewsource/content/viewSource.js#177</a>"</div>
+</div>
+<div><br/></div>
+<div><b>MANY MONTHS PASS</b></div>
+<div><b><br/></b></div>
+<div>Ok, finally back at this. I'm older. Wiser. Better. Faster. Stronger.</div>
+<div><br/></div>
+<div>Renamed bug from [e10s] Find out why bypassing the nsIWebPageDescriptor loadPage for view source doesn't cause us to hit the network to  [e10s] Never load the source off of the network when viewing source, because <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c11">nemo gave me a mechanism</a> for bypassing some level of caching I was hitting before.</div>
+<div><br/></div>
+<div>So it looks like I had a patch in here that kinda did the right thing. Let's see if it still applies.</div>
+<div><br/></div>
+<div>Mostly. Had to de-bitrot some stuff.</div>
+<div><br/></div>
+<div>Suppose we have a viewSource-content.js.</div>
+<div><br/></div>
+<div>And suppose we only passed around outerWindowIDs.</div>
+<div><br/></div>
+<div><b>Attack plan</b></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Modern usage does not pass around nsIDOMWindows - passes around outerWindowIDs instead. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1146454">Update Mossop's WIP here</a> to add outerWindowID to context menu data.</div>
+<div><input checked="true" type="checkbox"/>How do the Browser Console and the other devtools open up viewSource? What functions do they call to do that, and how does my work impact them?</div>
+<div><br/></div>
+<div><a href="https://hg.mozilla.org/mozilla-central/file/da2f28836843/browser/devtools/webconsole/hudservice.js#l435">https://hg.mozilla.org/mozilla-central/file/da2f28836843/browser/devtools/webconsole/hudservice.js#l435</a></div>
+<div><br/></div>
+<div>Looks like it just calls into viewSourceUtils. So we need to support the old mechanism for devtools as well as other XUL apps.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Adjust viewSourceUtils.viewSource to take an optional object as first argument - this signifies modern usage.</div>
+<div><br/></div>
+<ul>
+<li>URL</li>
+<li>lineNumber</li>
+<li>browser that contains the document that we're viewing the source of… at the very least, to know that the browser in the view source window should be made remote.</li>
+<li>outerWindowID</li>
+</ul>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Account for the case where document is not being passed to ViewSourceUtils.viewSource</div>
+<div><input checked="true" type="checkbox"/>Land context menu patch with gabor's r+</div>
+<div><br/></div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:23 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: ping</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:24 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smacleod: hey - do you know if I can somehow go from an nsISHEntry to the content window for a page if I know the page is loaded?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:25 </span><span style="color: rgb(0, 136, 68);">(smaug) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: pong</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: hey - hope you don't mind, I'm streaming this conversation on Air Mozilla. :) If that's a problem, please let me know - no worries in that case.</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:25 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>no problem</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:25 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: otherwise - do you know if it's possible to work backwards from an nsISHEntry to an nsIDOMWindow if I know that the page is loaded?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>I thought I could get there via contentViewer on the nsISHEntry, but it's strangely null, even though the page is loaded</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:26 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>and I wanted to ask before I dove into the nsSHEntry.cpp stuff.</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>are you asking the case when the page is in bfcache</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:27 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>since in that case contentviewer should be non-null</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:30 </span><span style="color: rgb(0, 136, 0);">satdav has left IRC (Quit: Connection closed for inactivity)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:31 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: This is for the view source work - we use the nsISupports currentDescriptor (which is an nsISHEntry) from nsIWebPageDescriptor to load from the bfcache. In the situation I'm in, someone has passed me an nsISHEntry</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:31 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>when restoring the presentation, we call <a href="http://mxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp#8644" style="word-break: break-all;">http://mxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp#8644</a></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:31 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: and I want to work my way up to getting the outerWindowID of the content window that's loaded the document, if possible.</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:32 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>ok, I understand why the contentViewer would be null in this case then - the document is currently loaded and being displayed.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:34 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>so, all you get is an nsISHEntry object?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:34 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>you don't even know for which docshell tree it is meant for?</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:37 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: in this case, no - someone has called openDialog for viewSource.xul, and passed in the nsISHEntry as an argument</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:37 </span><span style="color: rgb(0, 136, 68);">(smaug) </span>I don't really see any easy way from shentry to the window in that case</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:37 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking </span><span style="color: rgb(0, 136, 0);">sighs</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);"><span style="color: rgb(0, 68, 136);">15:37 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>OK</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">15:38 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>I guess I have to handle the compatibility / legacy case a little more heavy-handed then</div>
+</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+<div><span style="color: rgb(0, 68, 136);">15:38 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>smaug: thanks!</div>
+</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Have viewSource.xul get opened with serialized arguments - keep compatibility in mind, but otherwise accept object as first argument.</div>
+<div><input checked="true" type="checkbox"/>Load viewSource-content.js in the browser</div>
+<div><input checked="true" type="checkbox"/>If remote, set browser to be remote (make sure to add remote-browser.xml binding). Do this after the XUL has loaded.</div>
+<div><input checked="true" type="checkbox"/>Ensure that if the view source browser switches from non-remote to remote that we don't need to re-introduce the frame script</div>
+<div>It doesn't. We need to reload the script. :(</div>
+<div><br/></div>
+<div>NEWS: <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1067325">Bug 1067325 - Add an option to view html source in a tab</a></div>
+<div><br/></div>
+<div><img src="Bug%201025146%20-%20%5Be10s%5D%20Make%20it%20so%20that%20we%20can%20view%20document%20source%20without%20hitting%20the%20network.resources/83967910-A038-45C8-8036-0101C980CECC.gif" height="240" width="320"/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Find out why we're still hitting the network. :((((((</div>
+<div><br/></div>
+<div>[Child 77801] WARNING: NS_ENSURE_TRUE(isFileURI) failed: file /Users/mikeconley/Projects/mozilla-central/dom/base/ThirdPartyUtil.cpp, line 368</div>
+<div><br/></div>
+<div>Hypothesis: in nsDocShell::LoadPage, we are not prefixing the URI with view-source as we should be. FALSE. We were indeed.</div>
+<div><br/></div>
+<div>And it looks like that NS_ENSURE_TRUE(isFileURI) warning is a wild goosechase - we hit that in the parent process as well when viewing the source in a non-e10s window, which works properly.</div>
+<div><br/></div>
+<div>The problem appears to be in nsDocShell::DoURILoad, particularly, here:</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo"> </span> <span style="font: 11.0px Menlo; color: #008400">//</span><span style="font: 11.0px Menlo"><br/>
+ </span> <span style="font: 11.0px Menlo; color: #008400">// If this is a HTTP channel, then set up the HTTP specific information</span><span style="font: 11.0px Menlo"><br/>
+ </span> <span style="font: 11.0px Menlo; color: #008400">// (ie. POST data, referrer, ...)</span><span style="font: 11.0px Menlo"><br/>
+ </span> <span style="font: 11.0px Menlo; color: #008400">//</span><span style="font: 11.0px Menlo"><br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(httpChannel) {<br/>
+    nsCOMPtr&lt;nsICachingChannel> cacheChannel(do_QueryInterface(httpChannel));<br/>
+   </span> <span style="font: 11.0px Menlo; color: #008400">/* Get the cache Key from SH */</span><span style="font: 11.0px Menlo"><br/>
+    nsCOMPtr&lt;nsISupports> cacheKey;<br/>
+   </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(mLSHE) {<br/>
+      mLSHE->GetCacheKey(getter_AddRefs(cacheKey));<br/>
+    }</span> <span style="font: 11.0px Menlo; color: #bb2ca2">else</span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(mOSHE) { </span> <span style="font: 11.0px Menlo; color: #008400">// for reload cases</span><span style="font: 11.0px Menlo"><br/>
+      mOSHE->GetCacheKey(getter_AddRefs(cacheKey));</span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">    }</span></span></div>
+<div><br/></div>
+<div>The cacheKey is defined properly in single-process mode, but in the content process, when I try to load the source, it is nullptr! Why is that?</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Why is the cacheKey nullptr in the content process case?</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo">NS_IMETHODIMP nsSHEntry::GetCacheKey(nsISupports** aResult)<br/>
+{<br/>
+  *aResult = mShared->mCacheKey;<br/>
+  NS_IF_ADDREF(*aResult);<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">return</span> <span style="font: 11.0px Menlo">NS_OK;</span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">}</span></span></div>
+<div><br/></div>
+<div>So, what is mShared, and why doesn't it have a cache key?</div>
+<div><br/></div>
+<div>Hypothesis - in the single-process case, we Duplicate an nsSHEntryShared entry. In the content process case, we do not.</div>
+<div><br/></div>
+<div><b>FALSE.</b> We do Duplicate an nsSHEntryShared entry, because we do enter the method.</div>
+<div><br/></div>
+<div>Hypothesis - we Duplicate an nsSHEntryShared entry, but that entry does not have a cacheKey.</div>
+<div><br/></div>
+<div><b>TRUE.</b> The passed in nsSHEntryShared has no cacheKey.</div>
+<div><br/></div>
+<div><input type="checkbox"/>Why doesn't the nsSHEntryShared have a cacheKey when passed to nsSHEntryShared::Duplicate?</div>
+<div><br/></div>
+<div>Hypothesis - nsDocShell never calls SetCacheKey on the nsSHEntry that is eventually passed in to the view source window.</div>
+<div><br/></div>
+<div>TRUE, but that's also true for the single-process case. The problem is in creation, in nsDocShell::AddToSessionHistory</div>
+<div><br/></div>
+<div><span style="font: 11.0px Menlo"> </span> <span style="font: 11.0px Menlo; color: #008400">// Get the post data &amp; referrer</span><span style="font: 11.0px Menlo"><br/>
+  nsCOMPtr&lt;nsIInputStream> inputStream;<br/>
+  nsCOMPtr&lt;nsIURI> referrerURI;<br/>
+  uint32_t referrerPolicy = mozilla::net::RP_Default;<br/>
+  nsCOMPtr&lt;nsISupports> cacheKey;<br/>
+  nsCOMPtr&lt;nsISupports> owner = aOwner;<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">bool</span> <span style="font: 11.0px Menlo">expired =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">false</span><span style="font: 11.0px Menlo">;<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">bool</span> <span style="font: 11.0px Menlo">discardLayoutState =</span> <span style="font: 11.0px Menlo; color: #bb2ca2">false</span><span style="font: 11.0px Menlo">;<br/>
+  nsCOMPtr&lt;nsICachingChannel> cacheChannel;<br/>
+ </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(aChannel) {<br/>
+    cacheChannel = do_QueryInterface(aChannel);<br/>
+<br/>
+   </span> <span style="font: 11.0px Menlo; color: #008400">/* If there is a caching channel, get the Cache Key and store it<br/>
+     * in SH.<br/>
+     */</span><span style="font: 11.0px Menlo"><br/>
+   </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(cacheChannel) {<br/>
+      cacheChannel->GetCacheKey(getter_AddRefs(cacheKey));<br/>
+    }<br/>
+    nsCOMPtr&lt;nsIHttpChannel> httpChannel(do_QueryInterface(aChannel));<br/>
+<br/>
+   </span> <span style="font: 11.0px Menlo; color: #008400">// Check if the httpChannel is hiding under a multipartChannel</span><span style="font: 11.0px Menlo"><br/>
+   </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(!httpChannel) {<br/>
+      GetHttpChannel(aChannel, getter_AddRefs(httpChannel));<br/>
+    }<br/>
+   </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(httpChannel) {<br/>
+      nsCOMPtr&lt;nsIUploadChannel> uploadChannel(do_QueryInterface(httpChannel));<br/>
+     </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(uploadChannel) {<br/>
+        uploadChannel->GetUploadStream(getter_AddRefs(inputStream));<br/>
+      }<br/>
+      httpChannel->GetReferrer(getter_AddRefs(referrerURI));<br/>
+      httpChannel->GetReferrerPolicy(&amp;referrerPolicy);<br/>
+<br/>
+      discardLayoutState = ShouldDiscardLayoutState(httpChannel);<br/>
+    }<br/>
+    aChannel->GetOwner(getter_AddRefs(owner));<br/>
+   </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(!owner) {<br/>
+      nsCOMPtr&lt;nsILoadInfo> loadInfo;<br/>
+      aChannel->GetLoadInfo(getter_AddRefs(loadInfo));<br/>
+     </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(loadInfo) {<br/>
+       </span> <span style="font: 11.0px Menlo; color: #008400">// For now keep storing just the principal in the SHEntry.</span><span style="font: 11.0px Menlo"><br/>
+       </span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(loadInfo->GetLoadingSandboxed()) {<br/>
+          owner = nsNullPrincipal::CreateWithInheritedAttributes(<br/>
+            loadInfo->LoadingPrincipal());<br/>
+          NS_ENSURE_TRUE(owner, NS_ERROR_FAILURE);<br/>
+        }</span> <span style="font: 11.0px Menlo; color: #bb2ca2">else</span> <span style="font: 11.0px Menlo; color: #bb2ca2">if</span> <span style="font: 11.0px Menlo">(loadInfo->GetForceInheritPrincipal()) {<br/>
+          owner = loadInfo->TriggeringPrincipal();<br/>
+        }<br/>
+      }<br/>
+    }<br/>
+  }<br/>
+<br/>
+ </span> <span style="font: 11.0px Menlo; color: #008400">// Title is set in nsDocShell::SetTitle()</span><span style="font: 11.0px Menlo"><br/>
+  entry->Create(aURI,             </span> <span style="font: 11.0px Menlo; color: #008400">// uri</span><span style="font: 11.0px Menlo"><br/>
+                EmptyString(),    </span> <span style="font: 11.0px Menlo; color: #008400">// Title</span><span style="font: 11.0px Menlo"><br/>
+                inputStream,      </span> <span style="font: 11.0px Menlo; color: #008400">// Post data stream</span><span style="font: 11.0px Menlo"><br/>
+               </span> <span style="font: 11.0px Menlo; color: #bb2ca2">nullptr</span><span style="font: 11.0px Menlo">,          </span> <span style="font: 11.0px Menlo; color: #008400">// LayoutHistory state</span><span style="font: 11.0px Menlo"><br/>
+                cacheKey,         </span> <span style="font: 11.0px Menlo; color: #008400">// CacheKey</span><span style="font: 11.0px Menlo"><br/>
+                mContentTypeHint, </span> <span style="font: 11.0px Menlo; color: #008400">// Content-type</span><span style="font: 11.0px Menlo"><br/>
+                owner,            </span> <span style="font: 11.0px Menlo; color: #008400">// Channel or provided owner</span><span style="font: 11.0px Menlo"><br/>
+                mHistoryID,</span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">                mDynamicallyCreated);</span></span></div>
+<div><br/></div>
+<div>cacheChannel is nullptr because HttpChannelChild does not implement nsICachingChannel!</div>
+<div><br/></div>
+<div>
+<div><span title="Thursday, April 16, 2015 3:30:25 PM">3:30 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: hi! I'm working on a bug for e10s where we want to load the page source out of the HTTP cache if possible - this after a POST request.</div>
+<div><span title="Thursday, April 16, 2015 3:32:01 PM">3:32 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: but in the e10s-case, the nsISHEntry for the nsIWebNavigation doesn't have a cacheKey - presumably because the nsIChannel passed to nsDocShell::AddToSessionHistory is HttpChannelChild, which doesn't implement nsICachingChannel</div>
+<div><span title="Thursday, April 16, 2015 3:32:33 PM">3:32 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: so how does one go about retrieving the document from the network cache from the content process?</div>
+<div><span title="Thursday, April 16, 2015 3:33:01 PM">3:33 PM</span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/valentin" title="valentin (icecold@moz-7pj.d10.25.188.IP)">valentin</a> quit (icecold@moz-7pj.d10.25.188.IP) Ping timeout: 121 seconds</div>
+<div><span title="Thursday, April 16, 2015 3:36:31 PM">3:36 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: for context, this is for view source</div>
+<div><span title="Thursday, April 16, 2015 3:37:02 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/michal" title="michal (michal@moz-fp4ci6.net.upcbroadband.cz)">michal</a>> mconley: First, it seems to me as a bug, so the right solution is to fix the cache key in the docshell. Anyway, you should be able to get a channel for the URL and set LOAD_FROM_CACHE on it. This should read the data from the cache if it is present. You could also add LOAD_ONLY_FROM_CACHE flag to load only from cache. This will fail if the cache entry cannot be used/found for whatever reason.</div>
+<div><span title="Thursday, April 16, 2015 3:37:44 PM">3:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: just so we're clear, we _do_ want the cacheKey to be available to the nsISHEntry in the content process?</div>
+<div><span title="Thursday, April 16, 2015 3:38:10 PM">3:38 PM</span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sworkman" title="sworkman (sworkman@moz-u3dg2t.sfo1.mozilla.com)">sworkman</a> quit (<a href="mailto:sworkman@moz-u3dg2t.sfo1.mozilla.com">sworkman@moz-u3dg2t.sfo1.mozilla.com</a>) Client exited</div>
+<div><span title="Thursday, April 16, 2015 3:39:23 PM">3:39 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/michal" title="michal (michal@moz-fp4ci6.net.upcbroadband.cz)">michal</a>> mconley: I need to have a look at the code. So how does it exactly work in non-e10s?</div>
+<div><span title="Thursday, April 16, 2015 3:40:44 PM">3:40 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: in non-e10s, because the nsISHEntry for the nsIWebNavigation has a cacheKey, it's able to retrieve the cacheKey here: <a href="https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp?from=nsDocShell::DoURILoad#10715" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp?from=nsDocShell::DoURILoad#10715</a></div>
+<div><span title="Thursday, April 16, 2015 3:41:03 PM">3:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: and then I believe it does the load here: <a href="https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp?from=nsDocShell::DoURILoad#10751" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp?from=nsDocShell::DoURILoad#10751</a></div>
+<div><span title="Thursday, April 16, 2015 3:41:11 PM">3:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> or sorry, sets the flags with the key</div>
+<div><span title="Thursday, April 16, 2015 3:41:37 PM">3:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> and then, boom, we have the document from the cache. I guess.</div>
+<div><span title="Thursday, April 16, 2015 3:48:35 PM">3:48 PM</span> benfrancis → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/benfrancis%7Caway" title="benfrancis|away (uid16068@moz-v6fohe.uxbridge.irccloud.com)">benfrancis|away</a></div>
+<div>
+<hr/>
+<p>New messages</p>
+</div>
+<div><span style=""><span title="Thursday, April 16, 2015 3:57:23 PM">3:57 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/michal" title="michal (michal@moz-fp4ci6.net.upcbroadband.cz)">michal</a>> mconley: I'm not too familiar with this code and I'm not sure how to solve it correctly. AFAICS cacheKey is a simple container of int/string and it shouldn't be a problem to pass it to the content process and back. But check with mayhemer to be sure.</div>
+</div>
+<div><span title="Thursday, April 16, 2015 3:58:00 PM">3:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>> michal: ok, will do. When does mayhemer usually come online?</div>
+<div><br/></div>
+<div>Michal got assigned <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1156493">this bug</a> to set the cacheKey in the child process. With his patch, and my patches on top, I can load the source from the cache! WOOOOOOOO!</div>
+<div><br/></div>
+<div>Now to clean my patches up.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Address brennie's feedback</div>
+<div><input checked="true" type="checkbox"/>Am I causing a crash when we close the view source window? No, that's <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1095496">bug 1095496.</a></div>
+<div><br/></div>
+<div>Assertion failure: mUsedShmems.empty(), at /Users/mikeconley/Projects/mozilla-central/gfx/layers/ipc/ISurfaceAllocator.cpp:53</div>
+<div>#01: mozilla::layers::ISurfaceAllocator::~ISurfaceAllocator()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1641a66]</div>
+<div>#02: mozilla::layers::CompositableForwarder::~CompositableForwarder()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1650f95]</div>
+<div>#03: mozilla::layers::ShadowLayerForwarder::~ShadowLayerForwarder()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1673a77]</div>
+<div>#04: mozilla::layers::ShadowLayerForwarder::~ShadowLayerForwarder()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1673915]</div>
+<div>#05: mozilla::layers::ShadowLayerForwarder::~ShadowLayerForwarder()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x16738e9]</div>
+<div>#06: mozilla::AtomicRefCountedWithFinalize&lt;mozilla::layers::ISurfaceAllocator>::Release()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1533075]</div>
+<div>#07: mozilla::RefPtr&lt;mozilla::layers::CompositableForwarder>::unref(mozilla::layers::CompositableForwarder*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x161ca5c]</div>
+<div>[Parent 77790] WARNING: No docshells for remote frames!: file /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp, line 492</div>
+<div>#08: mozilla::RefPtr&lt;mozilla::layers::CompositableForwarder>::~RefPtr()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x161dd28]</div>
+<div>#09: mozilla::RefPtr&lt;mozilla::layers::CompositableForwarder>::~RefPtr()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x161dd05]</div>
+<div>#10: mozilla::layers::TextureChild::~TextureChild()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x161dbeb]</div>
+<div>#11: mozilla::layers::TextureChild::~TextureChild()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1609e75]</div>
+<div>#12: mozilla::layers::TextureChild::~TextureChild()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1609e99]</div>
+<div>#13: mozilla::layers::TextureChild::Release()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x161c8a6]</div>
+<div>#14: mozilla::layers::TextureChild::ReleaseIPDLReference()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x16010f8]</div>
+<div>#15: mozilla::layers::TextureClient::DestroyIPDLActor(mozilla::layers::PTextureChild*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x15e9525]</div>
+<div>#16: mozilla::layers::LayerTransactionChild::DeallocPTextureChild(mozilla::layers::PTextureChild*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1649059]</div>
+<div>#17: mozilla::layers::PLayerTransactionChild::RemoveManagee(int, mozilla::ipc::IProtocol*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x9a9e66]</div>
+<div>#18: non-virtual thunk to mozilla::layers::PLayerTransactionChild::RemoveManagee(int, mozilla::ipc::IProtocol*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x9a9ed5]</div>
+<div>#19: mozilla::layers::PTextureChild::OnMessageReceived(IPC::Message const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xc1e1bd]</div>
+<div>#20: mozilla::layers::PCompositorChild::OnMessageReceived(IPC::Message const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0xd31a63]</div>
+<div>#21: mozilla::ipc::MessageChannel::DispatchAsyncMessage(IPC::Message const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x81de34]</div>
+<div>#22: mozilla::ipc::MessageChannel::DispatchMessage(IPC::Message const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x81d0a9]</div>
+<div>#23: mozilla::ipc::MessageChannel::OnMaybeDequeueOne()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x819582]</div>
+<div>#24: void DispatchToMethod&lt;mozilla::ipc::MessageChannel, bool (mozilla::ipc::MessageChannel::*)()>(mozilla::ipc::MessageChannel*, bool (mozilla::ipc::MessageChannel::*)(), Tuple0 const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x8391c3]</div>
+<div>#25: RunnableMethod&lt;mozilla::ipc::MessageChannel, bool (mozilla::ipc::MessageChannel::*)(), Tuple0>::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x8390be]</div>
+<div>#26: mozilla::ipc::MessageChannel::RefCountedTask::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x83c5e8]</div>
+<div>#27: mozilla::ipc::MessageChannel::DequeueTask::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x83c5b4]</div>
+<div>#28: MessageLoop::RunTask(Task*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x794050]</div>
+<div>#29: MessageLoop::DeferOrRunPendingTask(MessageLoop::PendingTask const&amp;)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x7945cf]</div>
+<div>#30: MessageLoop::DoWork()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x7947f4]</div>
+<div>#31: mozilla::ipc::DoWorkRunnable::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x820f70]</div>
+<div>#32: nsThread::ProcessNextEvent(bool, bool*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x188e06]</div>
+<div>#33: NS_ProcessPendingEvents(nsIThread*, unsigned int)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x1e386b]</div>
+<div>#34: nsBaseAppShell::NativeEventCallback()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x38dc9b9]</div>
+<div>#35: nsAppShell::ProcessGeckoEvents(void*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3959161]</div>
+<div>#36: __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x12b31]</div>
+<div>#37: __CFRunLoopDoSources0[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x12455]</div>
+<div>#38: __CFRunLoopRun[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x357f5]</div>
+<div>#39: CFRunLoopRunSpecific[/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation +0x350e2]</div>
+<div>#40: RunCurrentEventLoopInMode[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5feb4]</div>
+<div>#41: ReceiveNextEventCommon[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5fc52]</div>
+<div>#42: BlockUntilNextEventMatchingListInMode[/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox +0x5fae3]</div>
+<div>#43: _DPSNextEvent[/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x155533]</div>
+<div>#44: -[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:][/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x154df2]</div>
+<div>#45: -[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:][/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3957d97]</div>
+<div>#46: -[NSApplication run][/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit +0x14c1a3]</div>
+<div>#47: nsAppShell::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x3959b07]</div>
+<div>#48: XRE_RunAppShell[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4936a89]</div>
+<div>#49: mozilla::ipc::MessagePumpForChildProcess::Run(base::MessagePump::Delegate*)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x8211d4]</div>
+<div>#50: MessageLoop::RunInternal()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x793f35]</div>
+<div>#51: MessageLoop::RunHandler()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x793e45]</div>
+<div>#52: MessageLoop::Run()[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x793ded]</div>
+<div>#53: XRE_InitChildProcess[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/XUL +0x4936273]</div>
+<div>#54: content_process_main(int, char**)[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/plugin-container.app/Contents/MacOS/plugin-container +0x211b]</div>
+<div>#55: main[/Users/mikeconley/Projects/mozilla-central/obj-debug/dist/NightlyDebug.app/Contents/MacOS/plugin-container.app/Contents/MacOS/plugin-container +0x2212]</div>
+<div>[Parent 77790] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80040111: file /Users/mikeconley/Projects/mozilla-central/dom/events/ContentEventHandler.cpp, line 110</div>
+<div>[Parent 77790] WARNING: No docshells for remote frames!: file /Users/mikeconley/Projects/mozilla-central/dom/base/nsFrameLoader.cpp, line 492</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Find a graceful way to load the script into the browser that we create, and only have to do it once.</div>
+<div><input checked="true" type="checkbox"/>Make sure that forced character set stuff is still supported by moving it into a framescript.</div>
+<div><input checked="true" type="checkbox"/>Send message down to viewSource-content.js with all of our wacky information. Check that we're not remote, and only then use compatibility values.</div>
+<div><input checked="true" type="checkbox"/>Document ViewSourceUtils.js</div>
+<div><input checked="true" type="checkbox"/>Fix goToLine for non-e10s</div>
+<div><input checked="true" type="checkbox"/>Test warning page</div>
+<div><input type="checkbox"/>Organize viewsource.js better, but keep global function hooks around because of addons… *sigh*</div>
+<div><br/></div>
+<div>Ok, let's audit viewsource.js to see what was globally available.</div>
+<div><br/></div>
+<ul>
+<li>gLastLineFound - the last line number found (HTML Validator - 68,574)</li>
+<li>gGoToLine - the line that we should be going to next (HTML Validator - 68,574)</li>
+<li>gBrowser - the content</li>
+<li>gViewSourceBundle - the view source string bundle</li>
+<li>gContextMenu - the context menu element</li>
+<li>getBrowser(), which returns gBrowser. This is used by viewZoomOverlay.js</li>
+<li>gPageLoader, which is the nsIWebPageDescriptor off of the nsIWebNavigation</li>
+<li>gSelectionListener - the selection listener.</li>
+<li>onLoadViewSource - the main entry point.</li>
+<li>isHistoryEnabled - whether or not gBrowser has the disablehistory attribute set.</li>
+<li>getSelectionController - gets the nsISelectionController off of the browser's currently loaded docShell</li>
+<li>viewSource(url) - parses a bunch of arguments while it's at it. Jesus.</li>
+<li>onLoadContent - called when the pageshow event is fired</li>
+<li>onUnloadContent - called when the pagehide event is fired</li>
+<li>onClickContent - called when the click event is fired</li>
+<li>HandleAppCommandEvent - handles things like special buttons on keyboards</li>
+<li>HandleSwipeGesture - handles things like swipe gestures… duh.</li>
+<li>ViewSourceClose - closes the window</li>
+<li>ViewSourceReload - reloads the contents of the browser with flags.</li>
+<li>ViewSourceSavePage - attempts to save the current source</li>
+<li>PrintPreviewListener - used for doing print preview in the view source window.</li>
+<li>getWebNavigation() - returns the gBrowser's webNavigation</li>
+<li>ViewSourceGoToLine - goes to a particular line in view source, prompting the user</li>
+<li>goToLine - goes to a particular line</li>
+<li>updateStatusBar - updates the status bar with relevant information, like cursor position, etc.</li>
+<li>findLocation - bigass utility function.</li>
+<li>wrapLongLines - toggles long-line wrapping...</li>
+<li>highlightSyntax - toggles syntax highlighting</li>
+<li>BrowserCharsetReload - reload after a change to character encoding</li>
+<li>BrowserSetCharacterSet - sets the character set.</li>
+<li>BrowserForward - moves the browser forward in history</li>
+<li>BrowserBack - moves the browser back in history</li>
+<li>UpdateBackForwardCommands - updates the state of the commands</li>
+<li>contextMenuShowing - sets up the state of things in the context menu</li>
+<li>contextMenuCopyLinkOrEmail - copy the link or email that we're context-ing.</li>
+</ul>
+<div><br/></div>
+<div>Hrm… need to make sure I don't break viewPartialSource.xul / .js, which seems to depend on viewsource.js… shit.</div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Make sure we always check for the URL in the view source framescript</div>
+<div><input checked="true" type="checkbox"/>Make the status bar work</div>
+<div><input checked="true" type="checkbox"/>When flipping remoteness make sure to re-add browser to DOM in the same place it was removed from.</div>
+<div><input type="checkbox"/>Why don't we have contentWindowAsCPOW and contentDocumentAsCPOW on the gBrowser?</div>
+<div><br/></div>
+<div><s>Because we don't have a docShell, I think.</s></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/><s>Why don't we have a docShell on the gBrowser?</s></div>
+<div><br/></div>
+<div>No, that's not true. Every remote browser is missing the docShell - we don't CPOW it.</div>
+<div><br/></div>
+<div>So why don't we have contentWindowAsCPOW? How does contentWindowAsCPOW even work?</div>
+<div><br/></div>
+<div>Ah, it's in RemoteWebProgress.jsm where it gets set:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier"> receiveMessage</span><span style="font: 12.0px Courier; color: #797979">:</span> <span style="font: 12.0px Courier; color: #008f00"><b>function</b></span> <span style="font: 12.0px Courier">(aMessage) {<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>let</b></span> <span style="font: 12.0px Courier">json</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">aMessage.json;<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>let</b></span> <span style="font: 12.0px Courier">objects</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">aMessage.objects;<br/>
+<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>let</b></span> <span style="font: 12.0px Courier">webProgress</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier; color: #008f00"><b>null</b></span><span style="font: 12.0px Courier">;</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">    <span style="font: 12.0px Courier; color: #008f00"><b>let</b></span> <span style="font: 12.0px Courier">isTopLevel</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">json.webProgress</span> <span style="font: 12.0px Courier; color: #797979">&amp;&amp;</span> <span style="font: 12.0px Courier">json.webProgress.isTopLevel;</span></span></span></div>
+<div><font face="Courier" size="2">    // … snip … </font></div>
+<div><span style="font: 12.0px Courier">   </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(isTopLevel) {<br/>
+     </span> <span style="font: 12.0px Courier; color: #008f00"><b>this</b></span><span style="font: 12.0px Courier">._browser._contentWindow</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">objects.contentWindow;</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">      <span style="font: 12.0px Courier; color: #008f00"><b>this</b></span><span style="font: 12.0px Courier">._browser._documentContentType</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">json.documentContentType;</span></span></span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">    }</span></span></div>
+<div><br/></div>
+<div>Hypothesis - the view source browser isn't getting this message.</div>
+<div><br/></div>
+<div>This is true - the RemoteWebProgress is lazy loaded, so if nobody access it, </div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Make printing work again.</div>
+<div><input checked="true" type="checkbox"/>Add OpenURL stuff to the ViewSource.js script</div>
+<div><input checked="true" type="checkbox"/>Add compatibility for other XUL apps and deprecation warnings.</div>
+<div><input checked="true" type="checkbox"/>Make sure we can still accept dropped links onto the view source window</div>
+<div><br/></div>
+<div>This works with non-e10s, but is busted for e10s. I don't think we can make use of the droppedLinkHandler thing on the browser like we used to. See <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=936092">this bug</a>, which added link drag / drop capabilities.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Account for the case where nsISHEntry is being passed to viewSource.xul as an argument.</div>
+<div><input checked="true" type="checkbox"/>Make the browser optional if we're just loading the URI.</div>
+<div><input checked="true" type="checkbox"/>Fix browser_contextmenu.js test</div>
+<div><input checked="true" type="checkbox"/>Fix browser_gotoline.js</div>
+<div><input checked="true" type="checkbox"/>Fix browser_viewsourceprefs_nonhtml.js</div>
+<div><input checked="true" type="checkbox"/>Make sure view partial source still works.</div>
+<div><input checked="true" type="checkbox"/>Add documentation to viewSourceUtils that the outerWindowID is optional if you don't care about loading off the network.</div>
+<div><input checked="true" type="checkbox"/>Add documentation to say that lineNumber is optional in ViewSourceUtils</div>
+<div><br/></div>
+<div>Ok, let's see what jryans thinks!</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=51ffe5d50665">Try push.</a></div>
+<div><br/></div>
+<div>Woo! We've got r+!</div>
+<div><br/></div>
+<div>But bug 1156493 is still waiting on review… so we're blocked for now.</div>
+<div><br/></div>
+<div>Things to do:</div>
+<div><input checked="true" type="checkbox"/>Populate <a href="https://developer.mozilla.org/en-US/Add-ons/Code_snippets/ViewSource">https://developer.mozilla.org/en-US/Add-ons/Code_snippets/ViewSource</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to make link drop work with e10s. <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1158377">Bug 1158377</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to fix the window title thing that jryans points out here: <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c54">https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c54</a>. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1163686">bug 1163686</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to support external editor view source with e10s. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1163701">bug 1163701</a></div>
+<div><input checked="true" type="checkbox"/>When flipping remoteness set the background colour of the view source window to avoid flicker. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1163704">bug 1163704</a></div>
+<div><input checked="true" type="checkbox"/>File a bug to update other Toolkit-using apps to the new ViewSourceUtils API. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1163707">bug 1163707</a></div>
+<div><br/></div>
+</body></html>

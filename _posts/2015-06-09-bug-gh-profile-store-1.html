@@ -1,0 +1,166 @@
+---
+layout: post
+title:  "Store larger profiles from Cleopatra in the profile store"
+date:   2015-06-09
+tags:
+---
+
+<a href="https://github.com/jrmuizel/profile-store/issues/1">
+ Store larger profiles from Cleopatra in the profile store
+</a>
+<div>
+ <a href="https://github.com/jrmuizel/profile-store/issues/1">
+  Oooooh - my first GitHub issue bugnote!
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So here's the problem that we're trying to solve:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When a user is viewing a profile in Cleopatra, and they click on "Share", Cleopatra opens up an XHR request and POSTs the blob up to this appengine server.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The appengine server is then responsible for compressing the profile, and then saving it to storage.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that for large profiles, this whole compression thing fails because the appengine runs out of memory.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the proposed solution is to have the client compress the profile, and then send the compressed profile to appengine.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ According to mstange, there's an endpoint exposed at
+ <a href="https://profile-store.appspot.com/test-store">
+  https://profile-store.appspot.com/test-store
+ </a>
+ to post at...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Waaaaaait...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://github.com/jrmuizel/profile-store/commit/c994728c8746ee8f9de5744af2e11f2a94556936#diff-5bc02cefb3ea9e27f1a6776eabd1935dR68">
+  Here's where that endpoint was added...
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That still looks like its compressing server side.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh… what's interesting is that this endpoint seems to echo back the compressed data back to the user. Huh, ok.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Thursday, April 30, 2015 11:41:15 AM">
+   11:41 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; jrmuizel: what was the profile-store endpoint I was supposed to hit again? compressed something?
+ </div>
+ <div>
+  <span title="Thursday, April 30, 2015 11:41:16 AM">
+   11:41 AM
+  </span>
+  →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/sotaro" title="sotaro (sotaro@moz-i5m.05u.207.66.IP)">
+   sotaro
+  </a>
+  joined  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/gerard-majax" title="gerard-majax (Alexandre@moz-all720.lmuk.1rfi.0450.2001.IP)">
+   gerard-majax
+  </a>
+  quit  •  national →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jobyna" title="jobyna (catlee@moz-pmmb41.cpe.netcabo.pt)">
+   jobyna
+  </a>
+ </div>
+</div>
+<div>
+ <span title="Thursday, April 30, 2015 11:45:31 AM">
+  11:45 AM
+ </span>
+ &lt;
+ <span title="Ops">
+  @
+ </span>
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jrmuizel" title="jrmuizel (jrmuizel@moz-dp2oet.ckpj.s0pt.0450.2001.IP)">
+  jrmuizel
+ </a>
+ &gt; mconley: /compressed-store
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://github.com/kripken/zee.js">
+  https://github.com/kripken/zee.js
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This looks handy...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="http://jsbin.com/qaxekeqike/1/edit?html,js,output">
+  http://jsbin.com/qaxekeqike/1/edit?html,js,output
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Was the test script we used to exercise the changes to profile-store
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Whoa! Deployed!
+</div>

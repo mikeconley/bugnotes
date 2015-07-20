@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.0.13 (451655)"/><meta name="keywords" content="M7, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-05-07 20:52:46 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=863515"/><meta name="updated" content="2015-05-15 13:57:18 +0000"/><title>Bug 863515 - Electrolysis: Make content.opener work</title></head><body>
+<div>content.opener… what the hell is this and why do we use it?</div>
+<div><br/></div>
+<div>Oh, I guess we want to know if the browser was opened by way of some other browser.</div>
+<div><br/></div>
+<div>I don't think I want to expose the opener to the parent process. Instead, I could expose a boolean on the &lt;xul:browser> on whether or not it has an opener.</div>
+<div><br/></div>
+<div>I think we're just doing presence checks anyway.</div>
+<div><br/></div>
+<div>Ok, so I couldn't send up the opener info on Browser:Init because it's not set yet - it's done in nsWindowWatcher::ReadyOpenedDocShellItem, which happens after browser-child.js executes, it seems.</div>
+<div><br/></div>
+<div>So I have to set a load listener and send up information then. I'll only do the first load.</div>
+<div><br/></div>
+<div>Patch posted, try push out.</div>
+<div><br/></div>
+<div>Hrm. So with my current patch, there's this little window of time where hasContentOpener might not be true. I think I need to make sure we never hit that window...</div>
+<div><br/></div>
+<div>Boo. :(</div>
+<div><br/></div>
+<div>So I've added a throw when in the indeterminate state, and I'll do a try build to see if we hit it.</div>
+<div><br/></div>
+<div>Garrr… this isn't going to work. I'm getting the throw. :(</div>
+<div><br/></div>
+<div>I've asked smaug whether or not we can somehow move assigning the opener earlier, so that we can access it at the Browser:init point in browser-child.js.</div>
+<div><br/></div>
+<div>smaug says yes it can be done, but it needs to be done before we add &lt;xul:browser> to the document, it think.</div>
+<div><br/></div>
+<div>So my new plan is to expose a bool on nsITabParent that says whether a TabParent had a content opener, and set that to true in TabParent when responding to the create window message.</div>
+<div><br/></div>
+<div>smaug likes it! Just need to remember to bump the uuid of the IDL next time.</div>
+<div><br/></div>
+</body></html>

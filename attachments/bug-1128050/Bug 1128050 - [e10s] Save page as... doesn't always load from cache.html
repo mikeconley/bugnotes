@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1128050 - [e10s] Save page as... doesn't always load from cache</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnoteshttp://people.mozilla.org/%7Emconley2/bugnotes/bug-1128050.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201128050%20-%20%5Be10s%5D%20Save%20page%20as...%20doesn%27t%20always%20load%20from%20cache_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://people.mozilla.org/%7Emconley2/bugnotes/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://people.mozilla.org/%7Emconley2/bugnotes/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1128050 - [e10s] Save page as... doesn't always load from cache</h1>
+    <p class="meta">Jun 9, 2015</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1128050">
+ Bug 1128050 - [e10s] Save page as... doesn't always load from cache
+</a>
+<div>
+ Let's trace where Save Page As operates...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So this looks like it's in the same vein&nbsp;as
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146">
+  bug 1025146
+ </a>
+ ...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   function
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  saveDocument(aDocument, aSkipPrompt)
+  <br>
+  {
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  aDocument)
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   throw
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "Must have a document when calling saveDocument"
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br>
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // We want to use cached data because the document is currently visible.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   var
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ifreq
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+  aDocument.defaultView
+  <br>
+  .QueryInterface(Components.interfaces.nsIInterfaceRequestor);
+  <br>
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   var
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  contentDisposition
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   try
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  {
+  <br>
+  contentDisposition
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+  ifreq.getInterface(Components.interfaces.nsIDOMWindowUtils)
+  <br>
+  .getDocumentMetadata(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "content-disposition"
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br>
+  }
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   catch
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (ex) {
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Failure to get a content-disposition is ok
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  }
+  <br>
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   var
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  cacheKey
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   try
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  {
+  <br>
+  cacheKey
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+  ifreq.getInterface(Components.interfaces.nsIWebNavigation)
+  <br>
+  .QueryInterface(Components.interfaces.nsIWebPageDescriptor);
+  <br>
+  }
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   catch
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (ex) {
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // We might not find it in the cache.&nbsp; Oh, well.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  }
+  <br>
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (cacheKey
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  Components.utils.isCrossProcessWrapper(cacheKey)) {
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Don't use a cache key from another process. See bug 1128050.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  cacheKey
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br>
+  }
+  <br>
+  <br>
+  internalSave(aDocument.location.href, aDocument,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  , contentDisposition,
+  <br>
+  aDocument.contentType,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   false
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ,
+  <br>
+  aDocument.referrer
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ?
+ </span>
+ <span style="font: 12.0px Courier">
+  makeURI(aDocument.referrer)
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  :
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   null
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ,
+  <br>
+  aDocument, aSkipPrompt, cacheKey);
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That last bit - we eliminate the cacheKey if the cacheKey came from the
+ content process. Welp, boom, there's our problem right there. And 
+smacks of
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146">
+  bug 1025146.
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So…&nbsp;how does network caching work with e10s? Does it even work? I 
+don't think I can wait for mayhemer to come&nbsp;online. I have to 
+figure this out myself.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <span title="Monday, April 20, 2015 4:03:55 PM">
+   4:03 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;mconley: pong
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:04:33 PM">
+   4:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;jduell: hiya! was wondering if you knew the answer to (or knew someone who might know the answer to) this question:
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c14" rel="noreferrer" target="_blank">
+   https://bugzilla.mozilla.org/show_bug.cgi?id=1025146#c14
+  </a>
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:04:52 PM">
+   4:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;jduell: I haven't seen mayhemer online, unfortunately. :/
+ </div>
+ <div>
+  <span style="">
+   <span title="Monday, April 20, 2015 4:05:26 PM">
+    4:05 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;:michal is the other likely person to be able to answer.
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:05:38 PM">
+   4:05 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;I'm guessing he's asleep now despite being logged into IRC.
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:05:51 PM">
+   4:05 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;mconley: I'll needinfo him too
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:06:06 PM">
+   4:06 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;jduell: unfortunately, michal referred me to mayhemer. :/
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:06:14 PM">
+   4:06 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;meh
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:08:19 PM">
+   4:08 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;mconley: ok, let's see if we can figure this out
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:08:22 PM">
+   4:08 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;so...
+ </div>
+ <div>
+  <span title="Monday, April 20, 2015 4:08:38 PM">
+   4:08 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+   jduell
+  </a>
+  &gt;&nbsp;nsICachingChannel has too many things in the interface to export it fully to the child
+ </div>
+</div>
+<div>
+ <span title="Monday, April 20, 2015 4:09:00 PM">
+  4:09 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jduell" title="jduell (jduell@moz-c1m.mpt.251.50.IP)">
+  jduell
+ </a>
+ &gt;&nbsp;instead we split out a subset (nsICacheInfoChannel) of the fields and implement only that on the child
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1128050#c2">
+  My comments in the bug:
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "So bug 1058251 was the original bug for making "Save Page As" work, 
+and what happened was that a band-aid fix was landed to get basic 
+functionality, and bug 1101100 was spun out to do the more hardcore 
+permanent fix.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The bandaid fix allows us to save pages in the e10s case, but we still 
+hit the network to do it in at least some cases. Bug 1101100 is the 
+long-term fix for this, as it will move all of the document walking into
+ the content process, and just blast up information to the parent to 
+write to disk.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Bug 1101100 is currently M8, so it's clear that full Save As 
+functionality isn't a priority. But this bug is M6 meaning that we want 
+the bandaid fix to be able to work with at least some caching.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So I guess I need to document which cases we hit the network on in the 
+e10s case when saving pages, and try to come up with some workarounds 
+until bug 1101100 is all set."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "I forgot to mention - one thing that we might want to do is to grab 
+and serialize the cache key from the nsISHEntry of the loaded document 
+from the content process, and re-attempt to use it in the parent. That 
+might be a potential workaround.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That would require bug 1156493."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Cases to test:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save a basic page
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Not exactly the same… why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save a page I got to via POST
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Completely busted with e10s.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Re-requests with non-e10s.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save a page with assets
+</div>
+<div>
+ <br>
+</div>
+<div>
+ e10s:&nbsp;Images&nbsp;are linked to
+</div>
+<div>
+ non-e10s: Images are downloaded, document is updated
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save a frame
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save Link As...
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save an image
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Seems to work...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Save Page As when the page is an image.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Seems to work...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ My report:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Ok, I did (what I think to be) a reasonably thorough examination of 
+the Save Page As, and comparison between e10s and non-e10s.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ My findings:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Basic page (no image, script or style assets, just text with some links):
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Saving a basic page works mostly the same. In e10s, we don't resolve 
+relative URLs in anchors to absolute URLs, whereas we do with non-e10s.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # A page reached via a POST request
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This is busted with e10s - we throw a 
+NS_ERROR_XPC_CANT_PASS_CPOW_TO_NATIVE when calling 
+nsIWebBrowserPersist.savePrivacyAwareURI.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Saving a page with image, script, style assets
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We just save the document with e10s. In non-e10s, we save a folder full
+ of assets (css files, script files, images, subframes, and assets for 
+those subframes).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ As with the basic page, the e10s case doesn't resolve relative URLs to absolutes.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Save a frame.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Same behaviour as when saving a page with assets.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Save Link As
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This seems to work the same between e10s and non-e10s. That's not too 
+surprising, because I think the e10s case is using the Save Link As 
+mechanism as part of its "bandaid" fix.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Save image as
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This seems to work the same between e10s and non-e10s, and seems to 
+properly request assets from the cache. The Browser Toolbox did not 
+record any network activity when saving images in either case.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ # Save Page As when the page is an image
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Same as above."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ and:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "It seems to me that all of the above will be fixed with bug 1101100 fixed.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Probably the most serious part of this is the total failure to save the
+ page if we reached it by way of a POST request. This is just flat-out 
+broken.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I assume if the rest of the "bandaid" fix was acceptable, and the 
+proper fix is milestoned at M8, then we're OK to keep the above 
+behaviour with the exception of the POST case.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, until I hear otherwise, I will be attempting to make the Save Page 
+As case work in the POST case - though it might have the same 
+deficiencies as the rest of the Save Page As behaviour in e10s (no 
+assets, no absolute URLs)."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Plan:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Extract the nsISHEntry as the "cache key" instead of the 
+pageDescriptor. It looks like&nbsp;nsWebBrowserPersist::SaveURIInternal 
+will accept that:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <pre><code>   <a>nsCOMPtr</a>&lt;<a>nsISupports</a>&gt; <a>cacheKey</a>;</code>
+<code>    if (<a>aCacheKey</a>)</code>
+<code>    {</code>
+<code>        // Test if the cache key is actually a web page descriptor (docshell)</code>
+<code>        // or session history entry.</code>
+<code>        <a>nsCOMPtr</a>&lt;nsISHEntry&gt; <a>shEntry</a> = <a>do_QueryInterface</a>(<a>aCacheKey</a>);</code>
+<code>        if (!<a>shEntry</a>)</code>
+<code>        {</code>
+<code>            <a>nsCOMPtr</a>&lt;nsIWebPageDescriptor&gt; <a>webPageDescriptor</a> =</code>
+<code>                <a>do_QueryInterface</a>(<a>aCacheKey</a>);</code>
+<code>            if (<a>webPageDescriptor</a>)</code>
+<code>            {</code>
+<code>                <a>nsCOMPtr</a>&lt;<a>nsISupports</a>&gt; <a>currentDescriptor</a>;</code>
+<code>                <a>webPageDescriptor</a><a>-&gt;</a>GetCurrentDescriptor(<a>getter_AddRefs</a>(<a>currentDescriptor</a>));</code>
+<code>                <a>shEntry</a> <a>=</a> <a>do_QueryInterface</a>(<a>currentDescriptor</a>);</code>
+<code>            }</code>
+<code>        }</code>
+
+<code>        if (<a>shEntry</a>)</code>
+<code>        {</code>
+<code>            <a>shEntry</a><a>-&gt;</a>GetCacheKey(<a>getter_AddRefs</a>(<a>cacheKey</a>));</code>
+<code>        }</code>
+<code>        else</code>
+<code>        {</code>
+<code>            // Assume a plain cache key</code>
+<code>            <a>cacheKey</a> <a>=</a> <a>aCacheKey</a>;</code>
+<code>        }</code>
+<code>    }</code>
+</pre>
+</div>
+<div>
+ And then run it through a utility function to be added to BrowserUtils&nbsp;- make SHEntry from CPOW.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ In that function, extract the postData from the CPOW, and set it on the newly created nsISHEntry.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Then, in contentAreaUtils, instead of getting the postData from the document, get it from the nsISHEntry.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Profit?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, let's lay it out:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  Add makeSHEntryFromCPOW, with postData copying powers.
+ </s>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gah… this might not work. I can't find a nice way of doing this without passing a CPOW to native code, which is not allowed. :(
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ <s>
+  Have contentAreaUtils call that&nbsp;function with the nsISHEntry gotten from the document&nbsp;if the document is a CPOW.
+ </s>
+</div>
+<div>
+ <s>
+  <input type="checkbox">
+  Have contentAreaUtils get the postData from the nsISHEntry to pass to the&nbsp;nsIWebBrowserPersist
+ </s>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, new plan. Alter the saveDocument function signature to take the 
+browser (and optional outerWindowID) as well. Then, if the document is a
+ CPOW, send a message down to get a serialized version of the nsISHEntry
+ sent back up, which we deserialize, reconstruct, and pass (along with 
+the CPOW&nbsp;document) to internalSave.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It doesn't look like the nsISHEntry serialization / deserialization 
+that SessionHistory offers will serialize or deserialize the postData. 
+Maybe I should add that.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Copy serializeEntry and deserializeEntry to BrowserUtils. Probably will
+ have to move anything they call too, like serializeOwner.
+</div>
+<div>
+ <input type="checkbox">
+ Have contentAreaUtils send a message down to the child if the document 
+is a CPOW, requesting a serialized nsISHEntry. Adds a listener for a 
+response from the child, which takes the serialized nsISHEntry, 
+deserializes it, and then passes that along to internalSave 
+asynchronously.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <s>
+   <input type="checkbox">
+   Add postData support to serializeSHEntry and deserializeSHEntry
+  </s>
+ </div>
+ <div>
+  <s>
+   <br>
+  </s>
+ </div>
+ <div>
+  <s>
+   There is example code being used in browser.js that I can work off of.
+  </s>
+ </div>
+ <div>
+  <s>
+   <br>
+  </s>
+ </div>
+ <div>
+  <s>
+   <br>
+  </s>
+ </div>
+ <div>
+  <s>
+   <br>
+  </s>
+ </div>
+ <div>
+  <s>
+   To convert string data back into an nsIInputStream:
+  </s>
+ </div>
+ <div>
+  <pre><s><code>function getPostDataStream(aStringData, aKeyword, aEncKeyword, aType) {</code>
+<code>  var dataStream = Cc["@<a href="http://mozilla.org/io/string-input-stream;1">mozilla.org/io/string-input-stream;1</a>"].</code>
+<code>                   createInstance(Ci.nsIStringInputStream);</code>
+<code>  aStringData = aStringData.replace(/%s/g, aEncKeyword).replace(/%S/g, aKeyword);</code>
+<code>  dataStream.data = aStringData;</code>
+
+<code>  var mimeStream = Cc["@<a href="http://mozilla.org/network/mime-input-stream;1">mozilla.org/network/mime-input-stream;1</a>"].</code>
+<code>                   createInstance(Ci.nsIMIMEInputStream);</code>
+<code>  mimeStream.addHeader("Content-Type", aType);</code>
+<code>  mimeStream.addContentLength = true;</code>
+<code>  mimeStream.setData(dataStream);</code>
+<code>  return mimeStream.QueryInterface(Ci.nsIInputStream);</code>
+<code>}</code>
+</s>
+</pre>
+ </div>
+</div>
+<div>
+ Oh, snap!&nbsp;Here's the start of the implementation&nbsp;for nsIMIMEInputStream:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <pre><code>using namespace <a>mozilla</a>::<a>ipc</a>;</code>
+
+<code>class <a>nsMIMEInputStream</a> : public nsIMIMEInputStream,</code>
+<code>                          public nsISeekableStream,</code>
+<code>                          public <a>nsIIPCSerializableInputStream</a></code>
+<code>{</code>
+</pre>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ nsIIPCSerializableInputStream…. that's... that's exactly what I need.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So maybe I can just send this over the wire in the JSON group? Maybe?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Testing...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Whoa. Seems to work. \o/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But wait… when I examine&nbsp;the postData in the parent process… it's just an Object. So this is actually not working. :(
+</div>
+<div>
+ <br>
+</div>
+<div>
+ bent says I might be able to just do it through a String buffer.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ahhh - and now Mossop has pointed me to
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1129957">
+  bug 1129957
+ </a>
+ which has everything I need! \o/ ASKING WORKS.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUCK. I can't use nsIScriptableInputStream because I can't read the stream off of the main thread, because it's blocking… bah.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span title="Wednesday, April 29, 2015 5:55:58 PM">
+  5:55 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/michal" title="michal (michal@moz-fp4ci6.net.upcbroadband.cz)">
+  michal
+ </a>
+ &gt;&nbsp;mconley: you should be able to use the stream copier in JS
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hm...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I thought I had this working. But billm has given me a test case that appears to still be busted.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="http://www.cs.tut.fi/%7Ejkorpela/forms/file.html" rel="noreferrer" target="_blank">
+  http://www.cs.tut.fi/~jkorpela/forms/file.html
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Go there. Put in a string and file. Then attempt to save the page. 500. :(
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ohhh - no, this works. I just built wrong. \o/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But for some reason, I can only save once!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ <s>
+  Make it so I can save more than once! Rewind the stream?
+ </s>
+ I can't do that on the main thread. GAHHHH
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ return new Promise((resolve, reject) =&gt; {
+</div>
+<div>
+ let postData = aSHEntry.postData;
+</div>
+<div>
+ //if (!postData || !(postData instanceof Ci.nsICloneableInputStream)) {
+</div>
+<div>
+ return resolve(entry);
+</div>
+<div>
+ //}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ // This function is called from the content process, which means
+</div>
+<div>
+ // that the postData nsIInputStream can't be read off of the main
+</div>
+<div>
+ // thread. We have to do some gymnastics to extract the data as
+</div>
+<div>
+ // a string to send up to the parent.
+</div>
+<div>
+ //
+</div>
+<div>
+ // This is all kind of depressing, since the data was in the parent
+</div>
+<div>
+ // to begin with. This will all get torn out when bug 1128050 is fixed.
+</div>
+<div>
+ let ss = Cc["@mozilla.org/storagestream;1"]
+</div>
+<div>
+ .createInstance(Ci.nsIStorageStream);
+</div>
+<div>
+ ss.init(1024, postData.available(), null);
+</div>
+<div>
+ <br>
+</div>
+<div>
+ let outStream = ss.getOutputStream(0);
+</div>
+<div>
+ let streamClone = postData.clone();
+</div>
+<div>
+ NetUtil.asyncCopy(streamClone, outStream, (result) =&gt; {
+</div>
+<div>
+ if (!Components.isSuccessCode(result)) {
+</div>
+<div>
+ return reject(result);
+</div>
+<div>
+ }
+</div>
+<div>
+ let inStream = ss.newInputStream(0);
+</div>
+<div>
+ let str = NetUtil.readInputStreamToString(inStream, inStream.available());
+</div>
+<div>
+ entry.postData = str;
+</div>
+<div>
+ return resolve(entry);
+</div>
+<div>
+ });
+</div>
+<div>
+ });
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ return new Promise((resolve, reject) =&gt; {
+</div>
+<div>
+ let postData = aSHEntry.postData;
+</div>
+<div>
+ if (!postData || !(postData instanceof Ci.nsISeekableStream)) {
+</div>
+<div>
+ return resolve(entry);
+</div>
+<div>
+ }
+</div>
+<div>
+ <br>
+</div>
+<div>
+ // This function is called from the content process, which means
+</div>
+<div>
+ // that the postData nsIInputStream can't be read off of the main
+</div>
+<div>
+ // thread. We have to do some gymnastics to extract the data as
+</div>
+<div>
+ // a string to send up to the parent.
+</div>
+<div>
+ //
+</div>
+<div>
+ // This is all kind of depressing, since the data was in the parent
+</div>
+<div>
+ // to begin with. This will all get torn out when bug 1128050 is fixed.
+</div>
+<div>
+ let ss = Cc["@mozilla.org/storagestream;1"]
+</div>
+<div>
+ .createInstance(Ci.nsIStorageStream);
+</div>
+<div>
+ ss.init(1024, postData.available(), null);
+</div>
+<div>
+ <br>
+</div>
+<div>
+ let outStream = ss.getOutputStream(0);
+</div>
+<div>
+ <br>
+</div>
+<div>
+ let copier = Cc["@mozilla.org/network/async-stream-copier;1"]
+</div>
+<div>
+ .createInstance(Ci.nsIAsyncStreamCopier2);
+</div>
+<div>
+ // Don't close the source so we can rewind it when we're done.
+</div>
+<div>
+ copier.init(postData, outStream, null, 0, false, true);
+</div>
+<div>
+ copier.asyncCopy({
+</div>
+<div>
+ onStartRequest(aRequest, aContext) {},
+</div>
+<div>
+ onStopRequest(aRequest, aContext, aStatusCode) {
+</div>
+<div>
+ if (!Components.isSuccessCode(aStatusCode)) {
+</div>
+<div>
+ return reject(aStatusCode);
+</div>
+<div>
+ }
+</div>
+<div>
+ let inStream = ss.newInputStream(0);
+</div>
+<div>
+ let str = NetUtil.readInputStreamToString(inStream, inStream.available());
+</div>
+<div>
+ entry.postData = str;
+</div>
+<div>
+ postData.seek(Ci.nsISeekableStream.NS_SEEK_SET, 0);
+</div>
+<div>
+ return resolve(entry);
+</div>
+<div>
+ },
+</div>
+<div>
+ }, null);
+</div>
+<div>
+ });
+</div>
+<div>
+ <br>
+</div>
+<div>
+ billm's idea of just grabbing the cache key from the CPOW, converting 
+it to an integer in the parent, and passing that to nsIWebBrowserPersist
+ is way better - way simpler too.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <b>
+   Follow-ups:
+  </b>
+ </div>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a bug for the POST page after cache cleared&nbsp;problem -
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1163642">
+  bug&nbsp;1163642
+ </a>
+</div>
+<div>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

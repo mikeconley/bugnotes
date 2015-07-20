@@ -1,0 +1,1352 @@
+---
+layout: post
+title:  "Bug 1146955 - Make GMP plugin crash reporting UI work in e10s"
+date:   2015-06-09
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1146955">
+ Bug 1146955 - Make GMP plugin crash reporting UI work in e10s
+</a>
+<div>
+ Let me copy the salient bits from my notes for
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1110887">
+  bug 1110887
+ </a>
+ .
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <b>
+   <span style="font-size: 18px;">
+    GMP
+   </span>
+  </b>
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ Both of the GMP cases rely on the gmp-plugin-crashed observer notification firing in the same process that content is running in, which is not going to work in e10s land, but I don't need to worry about that. It should still work properly for the non-e10s case, assuming the PluginCrashed event handler doesn't change behaviour too much.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ <span style="font-size: 18px;">
+  <b>
+   GMP + WebRTC case
+  </b>
+ </span>
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  <img height="218" src="assets/1146955-EB5F748B-67BD-41CD-BD2E-5D54CB570472.png" width="1664"/>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1057908">
+  Here's the bug for GMP e10s support.
+ </a>
+ This has landed!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think I might need the "runId" thing for GMP's as well, but this might be far simpler because PGMPService.ipdl's LoadGMP will return a processID - I can probably pass a run ID back too.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Node ID isn't what we want. According to
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1060179#c3">
+   this
+  </a>
+  , node ID distinguishes as follows:
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  "... site A.com running EME in an &lt;iframe&gt; from CDN.com will be considered a different node id than B.com running EME in an &lt;iframe&gt; from CDN.com."
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  GMPProcessParent might need to be able to get at our static run ID counter. Is there some common place where it makes sense for GMP and PluginModuleChromeParent to get the static counter? Or should they not use the same counter?
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ So, facts:
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <ol>
+  <li>
+   GMP already uses the PluginCrashed event, but sets the gmpPlugin property to true on it to differentiate and are dispatched on the document itself.
+  </li>
+  <li>
+   There doesn't seem to be a way of iterating GMP's for some document like there is for NPAPI plugins. I guess that makes sense - GMP's are deep in the plumbing and aren't actually represented in the DOM anywhere
+  </li>
+ </ol>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Suppose we have each GMP process have a gmpRunId. On crash, parent gets observer notification, right?
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  If so, send message down to the child saying, "Hey yo, we heard a crash with such and such a GMP run ID".
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Child hears it, and checks to see if it's ever seen a PluginCrashed event for a gmpPlugin with that run ID. If so, sends a message up saying so. Otherwise, adds the run ID to a set of crashed GMP run IDs until pagehide.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  If a GMP PluginCrashed event is seen, check to see if there is a run ID being stored that matches, and send up a message immediately saying, "Hey, I was using that GMP when it crashed". Otherwise, toss the run ID into the same set so that we can send a message back up immediately when we get the message from the parent.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Whoa whoa whoa whoa whoa. It looks like the PluginCrashed event is fired from dom/media/PeerConnection.js. I need to understand this thing more.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ Hm… this is going to break PeerConnections.js crash handling model. Like, it's not going to get, as far as I can tell, the observer notification in the content process that it currently uses to bubble up the PluginCrashed events.
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Ok, so suppose the parent process hears this observer notification (which it will), and then what it does is (like the NPAPI case), messages all browsers that the GMP with run ID X crashed.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Then somehow I need to be able to identify which browsers are making use of a GMP to know whether or not to display the notification bar. Maybe have PeerConnection.js add a message listener to the child process message manager.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Hears the message, then for each PeerConnection implementation that it's tracking, it calls pluginCrash, passing down the GMP run ID. Wait… how is it supposed to match run IDs to running PeerConnection instances? Fuck.
+ </div>
+ <div>
+  <br/>
+ </div>
+ <div>
+  Maybe expose the run ID on PeerConnectionImpl.webidl? Then when we hear the message, PeerConnection.js iterates the list of all active peer connections, queries the PeerConnectionImpl's for matching run IDs, and if they match, calls PluginCrash on it. That causes the PluginCrash event to be bubbled up on the active document in the window that owns the PeerConnection.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ That's when PluginContent.jsm picks it up. Notices that it's a gmpPlugin and shunts it accordingly - will sent a message directly to the parent to show the notification bar.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span style="font-family: 'Andale Mono';">
+   <span style="">
+    <span title="Tuesday, April 14, 2015 4:02:40 PM">
+     4:02 PM
+    </span>
+   </span>
+   &lt;
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+    mconley
+   </a>
+   &gt; billm: suppose I wanted GMP's and NPAPI plugins to use the same counter for their process run IDs. Is there a good place to put that common counter? Or do you think it makes more sense to keep GMP's absolutely separate, having their own run ID counter?
+  </span>
+ </div>
+ <div>
+  <span style="font-family: 'Andale Mono';">
+   <span style="">
+    <span title="Tuesday, April 14, 2015 4:03:56 PM">
+     4:03 PM
+    </span>
+   </span>
+   &lt;
+   <span title="Admins">
+    &amp;
+   </span>
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-639u58.mh2d.1ibb.0101.2620.IP)">
+    billm
+   </a>
+   &gt; mconley: maybe we could put it in GeckoChildProcessHost?
+  </span>
+ </div>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <span title="Tuesday, April 14, 2015 4:04:03 PM">
+   4:04 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-639u58.mh2d.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: that's the only shared piece I can think of
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ With bug 1057908 landed, how do the PluginCrashed events work? Do they even? I think they probably do… right?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  STR
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Go here:
+ <a href="https://mozilla.github.io/webrtc-landing/pc_test.html">
+  https://mozilla.github.io/webrtc-landing/pc_test.html
+ </a>
+ , start up a camera, crash the plugin-container that gets started up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I think this will require me to dig a bit into GMP / EME, since it looks like all of the crash handling code seemed to assume single process. :(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I need a strategy to break this stuff up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So blassey wrote up a patch that messages the content process when the parent notices a crash… let's examine it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So blassey's patch sends a message down to the content process, which does the job of bubbling up PluginCrashed events.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Is that even necessary? What's necessary here?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the message comes down, child receives in PeerConnection.js, PeerConnection finds each GMP per window and calls PeerConnectionImpl::PluginCrash on each, passing in the plugin ID. Each plugin is responsible for making sure that the plugin ID matches their own, and then dispatches the PluginCrashed event on its Window.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The run ID thing is the first bit. PeerConnection and PeerConnectionImpl should be using that to map crashing to plugins, not the plugin ID.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah… billm writes:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "I'm not familiar with PeerConnection.js at all. But if this is the same plugin ID as appears in the GMP code, then it is already a run ID. That is, we create a new one for each GMPParent instance.
+ <b>
+  So I think it should be fine to use.
+ </b>
+ "
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting. Let's look at where the plugin ID comes from.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's some code from PeerConnection.js:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+  }
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   else
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (topic
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ==
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "gmp-plugin-crash"
+ </span>
+ <span style="font: 12.0px Courier">
+  ) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // a plugin crashed; if it's associated with any of our PCs, fire an
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // event to the DOM window
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  sep
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  data.indexOf(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  ' '
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  pluginId
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  data.slice(
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  , sep);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  rest
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  data.slice(sep
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  +1
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // This presumes no spaces in the name!
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  sep
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  rest.indexOf(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  ' '
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  name
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  rest.slice(
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  , sep);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  crashId
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  rest.slice(sep
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  +1
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   for
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  winId
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   in
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   this
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ._list) {
+  <br/>
+  broadcastPluginCrash(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   this
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ._list, winId, pluginId, name, crashId);
+  <br/>
+  }
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ PeerConnection uses this to fire off the PluginCrashed event. The pluginId is gotten from the observer notification. And who fires that? GMPParent.cpp, it seems...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   static
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  void
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #0433ff">
+  GMPNotifyObservers
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   const
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsACString
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  aPluginId,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   const
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsACString
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  aPluginName,
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   const
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsAString
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  aPluginDumpId)
+  <br/>
+  {
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIObserverService
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  obs
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  mozilla
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  services
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  GetObserverService();
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (obs) {
+  <br/>
+  nsString id;
+  <br/>
+  AppendUTF8toUTF16(aPluginId, id);
+  <br/>
+  id.Append(NS_LITERAL_STRING(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  " "
+ </span>
+ <span style="font: 12.0px Courier">
+  ));
+  <br/>
+  AppendUTF8toUTF16(aPluginName, id);
+  <br/>
+  id.Append(NS_LITERAL_STRING(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  " "
+ </span>
+ <span style="font: 12.0px Courier">
+  ));
+  <br/>
+  id.Append(aPluginDumpId);
+  <br/>
+  obs
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  NotifyObservers(nullptr,
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "gmp-plugin-crash"
+ </span>
+ <span style="font: 12.0px Courier">
+  , id.Data());
+  <br/>
+  }
+  <br/>
+  <br/>
+  nsRefPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  gmp
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  GeckoMediaPluginService
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  service
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  gmp
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  GeckoMediaPluginService
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  GetGeckoMediaPluginService();
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (service) {
+  <br/>
+  service
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  RunPluginCrashCallbacks(aPluginId, aPluginName, aPluginDumpId);
+  <br/>
+  }
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So GMPNotifyObservers gets it, called from:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  void
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  GMPParent
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  ActorDestroy(ActorDestroyReason aWhy)
+  <br/>
+  {
+  <br/>
+  LOGD(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "%s: (%d)"
+ </span>
+ <span style="font: 12.0px Courier">
+  , __FUNCTION__, (
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  int
+ </span>
+ <span style="font: 12.0px Courier">
+  )aWhy);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c98c00">
+  #ifdef MOZ_CRASHREPORTER
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (AbnormalShutdown
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ==
+ </span>
+ <span style="font: 12.0px Courier">
+  aWhy) {
+  <br/>
+  Telemetry
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  Accumulate(Telemetry
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  SUBPROCESS_ABNORMAL_ABORT,
+  <br/>
+  NS_LITERAL_CSTRING(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "gmplugin"
+ </span>
+ <span style="font: 12.0px Courier">
+  ),
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  1
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+  nsString dumpID;
+  <br/>
+  GetCrashID(dumpID);
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // NotifyObservers is mainthread-only
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  NS_DispatchToMainThread(WrapRunnableNM(
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  GMPNotifyObservers,
+  <br/>
+  mPluginId, mDisplayName, dumpID),
+  <br/>
+  NS_DISPATCH_NORMAL);
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So each GMPPluginParent gets an mPluginId. Where is that assigned?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, in the constructor:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+  GMPParent
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  GMPParent()
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  :
+ </span>
+ <span style="font: 12.0px Courier">
+  mState(GMPStateNotLoaded)
+  <br/>
+  , mProcess(nullptr)
+  <br/>
+  , mDeleteProcessOnlyOnUnload(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  false
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  , mAbnormalShutdownInProgress(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  false
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  , mIsBlockingDeletion(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  false
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  , mGMPContentChildCount(
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  , mAsyncShutdownRequired(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  false
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  , mAsyncShutdownInProgress(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  false
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c98c00">
+  #ifdef PR_LOGGING
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier">
+  , mChildPid(
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c98c00">
+  #endif
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier">
+  {
+  <br/>
+  LOGD(
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "GMPParent ctor"
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Use the parent address to identify it.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // We could use any unique-to-the-parent value.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  mPluginId.AppendInt(
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   reinterpret_cast
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  uint64_t
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   this
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ));
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I guess that is sufficient as a run ID. Ok, good.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I can work with this.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have the PluginChromeParent and GMPParent use the GeckoChildProcessHost to host the seed for run IDs.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Change PeerConnectionMedia to use 32-bit pluginID instead of 64-bit.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Only send the pluginID
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Modify blassey's patch to only send the pluginID and name down to the child.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Remove the plugin dump ID from PeerConnectionImpl::PluginCrash
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Have the PeerConnectionImpl set the run ID on the event
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ "PluginContent:ShowGMPCrashedNotification" should only pass the run ID up to browser-plugins.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Now for testing.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+   <span style="color: rgb(0, 68, 136);">
+    13:19
+   </span>
+   <span style="color: rgb(255, 68, 136);">
+    (jesup)
+   </span>
+   <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+    mconley|livehacking:
+   </strong>
+   <a href="https://mozilla.github.io/webrtc-landing/pc_test.html" style="word-break: break-all;">
+    https://mozilla.github.io/webrtc-landing/pc_test.html
+   </a>
+   <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+    and check "Require H.264"
+   </strong>
+  </div>
+  <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+   <span style="color: rgb(0, 68, 136);">
+    13:20
+   </span>
+   <span style="color: rgb(255, 68, 136);">
+    (jesup)
+   </span>
+   that will use GMP for the OpenH264 plugin
+  </div>
+  <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+   <span style="color: rgb(0, 68, 136);">
+    13:20
+   </span>
+   <span style="color: rgb(255, 0, 136);">
+    (felipe)
+   </span>
+   <strong style="color: rgb(255, 0, 255); font-weight: bold;">
+    mconley|livehacking: actually when I worked on that bug the machinery was not fully set up yet, so I don't know that myself either. We implemented the bug assuming the platform would send the expected notification on a crash
+   </strong>
+  </div>
+  <div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px;">
+   <span style="color: rgb(0, 68, 136);">
+    13:20
+   </span>
+   <span style="color: rgb(255, 0, 255); font-weight: bold;">
+    (mconley|livehacking)
+   </span>
+   interesting
+  </div>
+ </div>
+ <div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; background-color: rgb(238, 238, 238);">
+  <div>
+   <span style="color: rgb(0, 68, 136);">
+    13:20
+   </span>
+   <span style="color: rgb(255, 68, 136);">
+    (jesup)
+   </span>
+   there's also a test of the fake GMP plugin in dom/media/tests/mochitest
+  </div>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I want to find a better, cross-app (so non-browser-specific) way of firing the PluginCrashed event in the child process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, got this kinda working. Let's talk to jesup to see if it's sensical.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c284338877b">
+  Try push.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hrm. Crash when I crash the plugin-container with single process Firefox… why?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 11.0px Menlo">
+  * thread #80: tid = 0x6a53c2, 0x0000000105870df1 XUL`webrtc::RtpPacketizerH264::PacketizeFuA(this=0x000000011bd1cf20, fragment_offset=4, fragment_length=1418) + 193 at
+  <a href="http://rtp_format_h264.cc:180">
+   rtp_format_h264.cc:180
+  </a>
+  , name = 'GMPEncoded', stop reason = EXC_BAD_ACCESS (code=1, address=0x116ded004)
+  <br/>
+  * frame #0: 0x0000000105870df1 XUL`webrtc::RtpPacketizerH264::PacketizeFuA(this=0x000000011bd1cf20, fragment_offset=4, fragment_length=1418) + 193 at
+  <a href="http://rtp_format_h264.cc:180">
+   rtp_format_h264.cc:180
+  </a>
+  <br/>
+  frame #1: 0x0000000105870cf2 XUL`webrtc::RtpPacketizerH264::GeneratePackets(this=0x000000011bd1cf20) + 114 at
+  <a href="http://rtp_format_h264.cc:158">
+   rtp_format_h264.cc:158
+  </a>
+  <br/>
+  frame #2: 0x0000000105870c6d XUL`webrtc::RtpPacketizerH264::SetPayloadData(this=0x000000011bd1cf20, payload_data=0x0000000116ded000, payload_size=1419, fragmentation=0x0000000145ee88b8) + 221 at
+  <a href="http://rtp_format_h264.cc:150">
+   rtp_format_h264.cc:150
+  </a>
+  <br/>
+  frame #3: 0x00000001058ab672 XUL`webrtc::RTPSenderVideo::Send(this=0x0000000152b3c800, videoType=kRtpVideoH264, frameType=kVideoFrameDelta, payloadType='~', captureTimeStamp=2025040744, capture_time_ms=0, payloadData=0x0000000116ded000, payloadSize=1419, fragmentation=0x0000000145ee88b8, rtpTypeHdr=0x000000000000000c) + 322 at
+  <a href="http://rtp_sender_video.cc:343">
+   rtp_sender_video.cc:343
+  </a>
+  <br/>
+  frame #4: 0x00000001058a5e8e XUL`webrtc::RTPSenderVideo::SendVideo(this=0x0000000152b3c800, videoType=kRtpVideoH264, frameType=kVideoFrameDelta, payloadType='~', captureTimeStamp=2025040744, capture_time_ms=0, payloadData=0x0000000116ded000, payloadSize=1419, fragmentation=0x0000000145ee88b8, codecInfo=0x0000000000000000, rtpTypeHdr=0x000000000000000c) + 286 at
+  <a href="http://rtp_sender_video.cc:295">
+   rtp_sender_video.cc:295
+  </a>
+  <br/>
+  frame #5: 0x000000010589f9bd XUL`webrtc::RTPSender::SendOutgoingData(this=0x000000014f7fe008, frame_type=kVideoFrameDelta, payload_type='~', capture_timestamp=2025040744, capture_time_ms=0, payload_data=0x0000000116ded000, payload_size=1419, fragmentation=0x0000000145ee88b8, codec_info=0x0000000000000000, rtp_type_hdr=0x000000000000000c) + 1373 at
+  <a href="http://rtp_sender.cc:499">
+   rtp_sender.cc:499
+  </a>
+  <br/>
+  frame #6: 0x000000010589f033 XUL`webrtc::ModuleRtpRtcpImpl::SendOutgoingData(this=0x000000014f7fe000, frame_type=kVideoFrameDelta, payload_type='~', time_stamp=2025040744, capture_time_ms=0, payload_data=0x0000000116ded000, payload_size=1419, fragmentation=0x0000000145ee88b8, rtp_video_hdr=0x0000000000000000) + 387 at
+  <a href="http://rtp_rtcp_impl.cc:519">
+   rtp_rtcp_impl.cc:519
+  </a>
+  <br/>
+  frame #7: 0x000000010589f3fe XUL`webrtc::ModuleRtpRtcpImpl::SendOutgoingData(this=0x000000014f4d0000, frame_type=kVideoFrameDelta, payload_type='~', time_stamp=2025040744, capture_time_ms=0, payload_data=0x0000000116ded000, payload_size=1419, fragmentation=0x0000000145ee88b8, rtp_video_hdr=0x0000000000000000) + 1358 at
+  <a href="http://rtp_rtcp_impl.cc:567">
+   rtp_rtcp_impl.cc:567
+  </a>
+  <br/>
+  frame #8: 0x0000000105a02fd7 XUL`webrtc::ViEEncoder::SendData(this=0x000000013fd121a0, frame_type=kVideoFrameDelta, payload_type='~', time_stamp=2025040744, capture_time_ms=0, payload_data=0x0000000116ded000, payload_size=1419, fragmentation_header=0x0000000145ee88b8, rtp_video_hdr=0x0000000000000000) + 151 at
+  <a href="http://vie_encoder.cc:780">
+   vie_encoder.cc:780
+  </a>
+  <br/>
+  frame #9: 0x0000000105a0305a XUL`_ZThn8_N6webrtc10ViEEncoder8SendDataENS_9FrameTypeEhjxPKhjRKNS_22RTPFragmentationHeaderEPKNS_14RTPVideoHeaderE(this=0x000000013fd121a8, frame_type=kVideoFrameDelta, payload_type='~', time_stamp=2025040744, capture_time_ms=0, payload_data=0x0000000116ded000, payload_size=1419, fragmentation_header=0x0000000145ee88b8, rtp_video_hdr=0x0000000000000000) + 122 at Unified_cpp_webrtc_video_engine0.cpp:788
+  <br/>
+  frame #10: 0x000000010580ffef XUL`webrtc::AudioEncoderPcm::AudioEncoderPcm(this=0x000000013fc27a10, config=0x0000000145ee9000) + 28575 at
+  <a href="http://audio_encoder_pcm.cc:37">
+   audio_encoder_pcm.cc:37
+  </a>
+  <br/>
+  frame #11: 0x000000010286de90 XUL`mozilla::WebrtcGmpVideoEncoder::Encoded(this=0x000000013fc89bc0, aEncodedFrame=0x0000000129abca90, aCodecSpecificInfo=0x000000011c7955d8) + 1584 at WebrtcGmpVideoCodec.cpp:568
+  <br/>
+  frame #12: 0x000000010286e247 XUL`_ZThn16_N7mozilla21WebrtcGmpVideoEncoder7EncodedEP20GMPVideoEncodedFrameRK8nsTArrayIhE(this=0x000000013fc89bd0, aEncodedFrame=0x0000000129abca90, aCodecSpecificInfo=0x000000011c7955d8) + 55 at Unified_cpp_webrtc_signaling0.cpp:572
+  <br/>
+  frame #13: 0x0000000104638396 XUL`mozilla::gmp::EncodedCallback(aCallback=0x000000013fc89bd0, aEncodedFrame=0x0000000129abca90, aCodecSpecificInfo=0x000000011c7955d8, aThread=0x0000000145ee8a40) + 70 at GMPVideoEncoderParent.cpp:291
+  <br/>
+  frame #14: 0x000000010463d8dc XUL`mozilla::runnable_args_nm_4&lt;void (this=0x000000014f2d4a80)(GMPVideoEncoderCallbackProxy*, GMPVideoEncodedFrame*, nsTArray&lt;unsigned char&gt;*, nsCOMPtr&lt;nsIThread&gt;), GMPVideoEncoderCallbackProxy*, mozilla::gmp::GMPVideoEncodedFrameImpl*, nsTArray&lt;unsigned char&gt;*, nsCOMPtr&lt;nsIThread&gt; &gt;::Run() + 108 at runnable_utils_generated.h:325
+  <br/>
+  frame #15: 0x0000000101723a06 XUL`nsThread::ProcessNextEvent(this=0x0000000127019f10, aMayWait=true, aResult=0x0000000145ee8c6e) + 2086 at nsThread.cpp:868
+  <br/>
+  frame #16: 0x000000010177e8d8 XUL`NS_ProcessNextEvent(aThread=0x0000000127019f10, aMayWait=true) + 168 at nsThreadUtils.cpp:265
+  <br/>
+  frame #17: 0x0000000101dbfb47 XUL`mozilla::ipc::MessagePumpForNonMainThreads::Run(this=0x00000001486d5b00, aDelegate=0x000000014d5e0e50) + 951 at MessagePump.cpp:355
+  <br/>
+  frame #18: 0x0000000101d32225 XUL`MessageLoop::RunInternal(this=0x000000014d5e0e50) + 117 at
+  <a href="http://message_loop.cc:233">
+   message_loop.cc:233
+  </a>
+  <br/>
+  frame #19: 0x0000000101d32135 XUL`MessageLoop::RunHandler(this=0x000000014d5e0e50) + 21 at
+  <a href="http://message_loop.cc:226">
+   message_loop.cc:226
+  </a>
+  <br/>
+  frame #20: 0x0000000101d320dd XUL`MessageLoop::Run(this=0x000000014d5e0e50) + 45 at
+  <a href="http://message_loop.cc:200">
+   message_loop.cc:200
+  </a>
+  <br/>
+  frame #21: 0x0000000101721ea6 XUL`nsThread::ThreadFunc(aArg=0x0000000127019f10) + 358 at nsThread.cpp:364
+  <br/>
+  frame #22: 0x0000000101379dcf libnss3.dylib`_pt_root(arg=0x000000013fc27a10) + 463 at ptthread.c:212
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   frame #23: 0x00007fff8c2a9772 libsystem_c.dylib`_pthread_start + 327
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah… heh, ok, that's not my problem. This happens without my patch as well.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think I'm good to land.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Landed and merged!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Unify browser-plugins.js notification bar stuff.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File bug to signal content process to fire PluginCrashed somewhere more sensical - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1161587">
+  bug 1161587
+ </a>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug for the crash. filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1161589">
+  bug 1161589
+ </a>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug for GMP crash reporting (e10s and non-e10s) to work on Windows - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1161814">
+  bug 1161814
+ </a>
+ .
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
