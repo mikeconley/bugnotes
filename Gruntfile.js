@@ -10,7 +10,7 @@ module.exports = function(grunt) {
             prod: {
                 options: {
                     // the dir you want to sync, in this case the current dir
-                    src: './_site/',
+                    src: './site/_site/',
                     // where should it be synced to on the remote host?
                     dest: '~/public_html/bugnotes/',
                     // what's the creds and host
