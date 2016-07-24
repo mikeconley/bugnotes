@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M9, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-02-09 22:30:45 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1246115"/><meta name="updated" content="2016-02-16 18:36:21 +0000"/><title>Bug 1246115 - "This isn't a web forgery…" never appear for webpages detected as forgery</title></head><body>
+<div>Okay! First things first, I needed to check the documentURI and not the currentURI of the selected browser to check for about:blocked and the phishingBlocked bits.</div>
+<div><br/></div>
+<div>So that’s fixed the non-e10s case.</div>
+<div><br/></div>
+<div>The problem right now is that for the e10s case, the documentURI is about:blank, and not about:blocked. WTF?</div>
+<div><b><br/></b></div>
+<div>Why is that?</div>
+<div><br/></div>
+<div>Actually, so this is more mysterious. It looks like when I’m linked to an attack page, the onLocationChange is fired properly and I hear about the about:blocked page, and so I do the right thing in the menu.</div>
+<div><br/></div>
+<div>It’s when I just enter the itsatrap page into the URL bar (regardless of whether or not it’s in a remote or non-remote browser) that we don’t hear about onLocationChange. WTF?</div>
+<div><br/></div>
+<div>It looks like the nsDocument that gets about:blocked?slfdkajsldfkasdf set on it as its documentURI is not the same one that we see when we look at content.document in the onLocationChange handler.</div>
+<div><br/></div>
+<div>Note that onStateChange is fired a bit afterwards, and this one will hear about the documentURI for the right thing, so we could technically send the documentURI up here and update the parent browser. This works, but I’m not sure it’s the right call.</div>
+<div><br/></div>
+<div>Hm… test failures.</div>
+<div><br/></div>
+<div>Okay, rewrote the test:</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b9dba0680daf">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b9dba0680daf</a></div>
+<div><br/></div>
+<div><b>TODO:</b></div>
+<div><b><input checked="true" type="checkbox"/>Find out why my default profile doesn’t show me the big red warning page</b></div>
+<div>I had that pref disabled. Doy!</div>
+<div><input checked="true" type="checkbox"/>Close out the bug, but file a new one to re-enable the test for e10s. Filed <a title="NEW - Fix and re-enable browser_bug415846.js for e10s" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1248632">bug 1248632</a></div>
+</body></html>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-02-19 20:04:58 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1244684"/><meta name="updated" content="2016-02-23 16:58:45 +0000"/><title>Bug 1244684 - FX_TAB_SWITCH_TOTAL_MS is broken</title></head><body>
+<div><a href="http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=4c4f75c20e9b"/><a href="http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=4c4f75c20e9b">http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=4c4f75c20e9b</a></div>
+<div><br/></div>
+<div><a href="http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=cea75ce9a559"/><a href="http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=cea75ce9a559">http://hg.mozilla.org/mozilla-central/pushloghtml?fromchange=7ba8c86f1a56&amp;tochange=cea75ce9a559</a></div>
+<div><br/></div>
+<div>Ah… this was broken with OMTC.</div>
+<div><br/></div>
+<div>Maybe just need to put PostPresent in the right place in ClientLayerManager...</div>
+<div><br/></div>
+<div>BAH, so this isn’t exactly right. We’re measuring the wrong thing - this old way of measuring is getting the amount of time it takes for the parent to update the internal state, and then to paint things, but NOT to upload the painted textures nor to composite them.</div>
+<div><br/></div>
+<div>What we really want to do is measure from the point where the tab selection starts, to the point where we get the next MozAfterPaint. That captures tab selection, painting, and compositing.</div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

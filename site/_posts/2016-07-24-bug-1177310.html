@@ -1,0 +1,311 @@
+---
+layout: post
+title:  "Bug 1177310 - [e10s] Stop using CPOWs on application shutdown"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1177310">
+ Bug 1177310 - [e10s] Stop using CPOWs on application shutdown
+</a>
+<div>
+ Alright, this will build off of the work I did in bug 1171708.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, patch up for review.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ can you try a test where you load a page that spins in JS and then quit the browser? I'm curious what happens.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What happens is that the windows stick around. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What about at quit-application? Or profile-change-teardown? Or profile-before-change?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Idea: Have TabStateFlusher expose a Promise that will resolve when all pending TabStateFlusher flushes are resolved?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How that’d work:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ For every flush (window or browser), before we return the Promise to the caller, add the Promise to an Array. When the Promise is resolved, have it be removed from the Array.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Have TabStateFlusher.pendingFlushesDone return a Promise.all for that Array.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  let sleeps = [];
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  function sleep(aMs) {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  let promise = new Promise(resolve =&gt; {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  setTimeout(function() {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  console.log("Done sleeping for " + aMs + " ms");
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  let index = sleeps.indexOf(promise);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleeps.splice(index, 1);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  resolve();
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }, aMs);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  });
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleeps.push(promise);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  return promise;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(100);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(200);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(1000);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(2000);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(2500);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  sleep(5000);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  setTimeout(function() {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  Promise.all(sleeps).then(() =&gt; {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  console.log("All done: " + sleeps.length);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  });
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }, 1500);
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ^— This seems to suggest that my plan should technically work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But… I can’t just close the windows. SessionStore will interpret that as the user actually having chosen to close the window. I have to flush them. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It’d be great if I could flush them just before or just after the XUL windows start coming down
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How are windows destroyed when the application is coming down? I think I can figure that out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Some kind of nsCloseEvent is fired inside nsGlobalWindow, and that does the job of destroying the nsXULWindow.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Solution?
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  At quit-application-granted (which flips off the RunState), flush the windows
+ </li>
+ <li>
+  Close the windows
+ </li>
+ <li>
+  Wait for the flushes to complete
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ So this only kinda works. There is at least one test in sessionstore/test/ that intentionally never sends up an :update, so we have this dangling flush that never completes. What do we do about that?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ billm seems to think it’s okay to resolve in that case, though perhaps with some kind of way of detecting “not so great” flush resolutions. Like passing a success and message to the resolve method.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Add quit-application-granted to the AsyncShutdown phase list
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TabStateFlusher flush Promises should always resolve, but some resolve in better ways than others
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Keep a Set of active flush Promises in the TabStateFlusher, and expose a Promise that resolves when they all resolve. Add documentation about how these should always resolve, even if the content process crashes.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Get the AsyncShutdown code in there
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Figure out if we need to really resolve the flushes inside the cleanUpWindow method
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ At quit-application-granted, flush the windows and close immediately then wait for the flush to complete (so we can record the progress), then wait for all remaining pending flushes to complete.
+</div>
+<div>
+ <input type="checkbox"/>
+ Look at shutdown tests in bug 923606
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push with talos other:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e258f88bb41d">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e258f88bb41d">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e258f88bb41d
+ </a>
+</div>
+<div>
+ Compare:
+ <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=fx-team&amp;originalRevision=17edd5432965&amp;newProject=try&amp;newRevision=e258f88bb41d">
+  https://treeherder.mozilla.org/perf.html#/compare?originalProject=fx-team&amp;originalRevision=17edd5432965&amp;newProject=try&amp;newRevision=e258f88bb41d
+ </a>
+</div>

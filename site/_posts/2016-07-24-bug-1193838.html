@@ -1,0 +1,853 @@
+---
+layout: post
+title:  "Bug 1193838 - Make it possible to gather profiles from processes that have exited"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1193838">
+ Bug 1193838 - Make it possible to gather profiles from processes that have exited
+</a>
+<div>
+ <div>
+  It looks like the tps profiles aren't being gathered because the content process exits before we send a message down to gather the profiles.
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ General idea:
+</div>
+<div>
+ <div>
+  <br/>
+ </div>
+ <ul>
+  <li>
+   Tie lifetime of ProfileGatherer in the parent to the window of time in which we're profiling.
+  </li>
+  <li>
+   If a ContentParent starts up while we're already profiling, grab a reference to the ProfileGatherer
+  </li>
+  <li>
+   If a ContentParent notices that we've stopped profiling, have it drop the reference to ProfileGatherer.
+  </li>
+  <li>
+   If a ContentParent notices that we've started profiling, have it grab a reference to the ProfileGatherer.
+  </li>
+  <li>
+   If a ContentChild is shutting down and we're profiling, blast up a profile to the parent, and have ContentParent notify the ProfileGatherer.
+  </li>
+  <li>
+   Extend ProfileGatherer so that it can accept an array of ended-process profiles. Have a 5 profile cap on this.
+  </li>
+  <li>
+   When the actual gathering starts, have ProfileGatherer dump out the ended-process profiles as well as the ones for already-existing profiles, and then drop the ended-process profiles.
+   <ul>
+    <li>
+     Alternatively, smartly drop any profiles that are outside of our sampling window.
+    </li>
+   </ul>
+  </li>
+  <li>
+   <br/>
+  </li>
+ </ul>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Make ProfileGatherer be alive during the profiling window
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Currently, ProfileGatherer is held onto by GeckoSampler. There's no direct access to GeckoSampler.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Have GeckoSampler instantiate and hold a ref-counted reference to a ProfileGatherer on construction.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Expose ProfileGatherer as an nsISupports on nsIProfiler
+</div>
+<div>
+ <input type="checkbox"/>
+ Make new ContentParents and PluginModuleParents get a reference to the ProfileGatherer on instantiation.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GAHHHH - I feel like I've got drywall spackle all over the place. This feels sloppy once placed on top of the "start profiling if the parent is profiling" stuff, because I've got all of these gatherers getting assigned in a shit tonne of places.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, focus FOCUS - how should this work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The profiler is either off, or on. There is no third state. A process comes in and out of existence. The first can occur at any time. I need to make sure that a ContentParent / ContentChild pair are ready and able to profile (and the parent ready to gather) any time the parent is told to profile, and a content process is around (or comes around).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So how should it work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How many states are there? I think there are 16:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is off, content process does not exist
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ No problem, run like normal.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is turned on, content process does not exist
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Profiler goes into active state. That is all.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is on, content process does not exist
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Profiler is in active state. That is all.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned off, content process does not exist
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Profiler is put into inactive state, that is all.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is off, content process starting up
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process starts up normally.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned on, content process starting up
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think what should happen is that the ContentParent should init, realize we're profiling, and inform the child to start profiling with the right settings. This is not what we're currently doing in my patch set, so I've got some re-work there.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ At this point, the ContentParent should also get and hold a reference to a ProfileGatherer.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is turned off, content process starting up
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ If we ever had a reference to the ProfileGatherer, we should drop it. We tell the content process to stop profiling, regardless of whether or not we'd originally told it to profile.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is off, content process starting up
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Content process starts normally.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Profiler is off, content process is running
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process running normally.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned on, content process is running
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process is informed to start profiling.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is on, content process is running
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process is running, should be profiling.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned off, content process is running
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process should be profiling. Parent tells child to stop. Gatherer is dropped in ContentParent.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is off, content process is shutting down
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Content process should shut down normally.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned on, content process is shutting down
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ ContentParent might get a reference to ProfileGatherer, but once the ContentParent actor goes away, we'll, we're done here. It's possible that the ContentChild will send up a profile before the parent completely disappears.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is on, content process is shutting down
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ ContentChild sends up a profile to the parent which gets put onto the ProfileGatherer.
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Profiler is turned off, content process is shutting down
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ProfileGatherer is dropped by ContentParent. Any profiles received from the child are ignored.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so course correction:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Modify my fix for 1103094 so that instead of sending things with the XPCOM Attributes message, we have the ContentParent notice during Init that we're profiling, and send an async message down.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Rebase this patch on top of fix for 1103094, and set a member variable to point to the ProfileGatherer. Same goes for PluginModuleParent.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Abstract the method for sending the async message and setting the member for ProfileGatherer. Hit it not only when profiler-started is seen, but also on ContentParent::Init if we notice we're profiling.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Make the above work for PluginModuleParent as well
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ On profile-stopped have ContentParent and PluginModuleParent drop the reference to ProfileGatherer
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Modify ProfileGatherer to hold onto 5 profiles from dying subprocesses
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Modify ProfileGatherer to accept profiles from dying subprocesses
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Modify ProfileGatherer so that when gathering finishes, we can then sew together all of the dead-process profiles in as well as the other subprocess profiles. (This might involve registering the gatherer as an nsIObserver for the profile-subprocess observer notification)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Current problem: ProfileGatherer::Observe is not being fired. Why not?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Hypothesis 1:
+ </b>
+ The topic is not being fired.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Test
+ </b>
+ : Find another profiler-subprocess topic observer, and see if it gets handled.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Result
+ </b>
+ : It is - this hypothesis is
+ <b>
+  FALSE
+ </b>
+ .
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Hypothesis 2
+ </b>
+ : The topic observer is not being registered properly.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Test
+ </b>
+ : Set a breakpoint where we set the observer, make sure the return code is NS_OK.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I suspect this is actually the case - I wasn't able to inspect the return value, but I'm pretty sure I'm passing the wrong third argument to AddObserver because ProfileGatherer does not support being held with a weak reference.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's set that third argument to false then, and see if that helps.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  YES IT DOES HELP. Things appear to be working!
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GAHHHHHHHH. Why aren't we getting our content process profiles when running with talos? What the dealio?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So the problem with gathering talos profiles from tps is that the tps test causes finishTest to run too early. This means that the profile that we dump out is for loading the test.html document, and nothing else! That's no good.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How does TART do this? TART uses the same pageloader mechanism to get started up, but I guess it doesn't cause finishTest to be called until its ready… how is that so?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks like we're profiling at the wrong times and then attempting to gather the profile at the wrong times. And that sucks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This needs more investigation.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Wednesday, August 19, 2015 3:06:56 PM">
+   3:06 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; avih: so TART is one of those tests that pageloader loads up, but doesn't actually measure or care about the page it loads. Like, it's loading that tart.html page, but it's not considering that "done" and finishing the test when it loads
+ </div>
+ <div>
+  <span title="Wednesday, August 19, 2015 3:07:00 PM">
+   3:07 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; because then TART does its thing
+ </div>
+ <div>
+  <span title="Wednesday, August 19, 2015 3:07:05 PM">
+   3:07 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; and TART tells pageloader when it's done, right?
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:07:20 PM">
+    3:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+   avih
+  </a>
+  &gt; yes
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:07:35 PM">
+    3:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; avih: how do you tell pageloader not to consider the test done when the initial page loads?
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:07:40 PM">
+    3:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; avih: and how do you tell pageloader that you're done?
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:07:58 PM">
+    3:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+   avih
+  </a>
+  &gt; in page loader terminology, it's called "the page does its own measurement"
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:08:17 PM">
+    3:08 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+   avih
+  </a>
+  &gt; mconley: 1. at the manifest you prefix the pages with '%'
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:09:38 PM">
+    3:09 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+   avih
+  </a>
+  &gt; 2. you call a function (tpRecordTime) with the results, where the pageloader addon injects this function into the content such that the content can call it without any special privileges (even if TART specifically does have privs since it's an addon, but the same system also happens with tscrollx and tsvgx which are non privileged pages which still use this system)
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:10:40 PM">
+    3:10 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+   avih
+  </a>
+  &gt; mconley: adding '%' at the page URL at the manifest tells the pageloader addon "don't measure load time, instead wait for tpRecordTime call with the results"
+ </div>
+ <div>
+  <span title="Wednesday, August 19, 2015 3:10:48 PM">
+   3:10 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; avih: ah, I see
+ </div>
+ <div>
+  <span style="">
+   <span title="Wednesday, August 19, 2015 3:10:50 PM">
+    3:10 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; avih: thanks!
+ </div>
+</div>
+<div>
+ <span style="">
+  <span title="Wednesday, August 19, 2015 3:10:54 PM">
+   3:10 PM
+  </span>
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/avih" title="avih (quassel@moz-8fl.sud.210.192.IP)">
+  avih
+ </a>
+ &gt; sure :)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input type="checkbox"/>
+ Consider increasing ContentChild shutdown timeout if parent process notices we're profiling
+</div>
+<div>
+ <input type="checkbox"/>
+ Consider not holding a reference to ProfileGatherer in PluginModuleChromeParent and ContentParent, and just query nsIProfile for the ProfileGatherer every time.
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From BenWa:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "
+ <a href="https://reviewboard.mozilla.org/r/16277/#review23801">
+  https://reviewboard.mozilla.org/r/16277/#review23801
+ </a>
+</div>
+<div>
+ <br/>
+ ::: tools/profiler/core/GeckoSampler.cpp:251
+ <br/>
+ (Diff revision 7)
+ <br/>
+ &gt; +  mGatherer = new mozilla::ProfileGatherer(this);
+ <br/>
+ <br/>
+ This grabs a pointer to this non-reference counted and the ProfileGatherer can live longer than the GeckoSampler.
+ <br/>
+ <br/>
+</div>
+<div>
+ We've talked about a few solutions to this in person. We should fix this before landing this patch."
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ SHIT. He’s right. What should the lifetime of a GeckoSampler be in relationship to a ProfileGatherer, and what occurs during the following scenario:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  User starts profiling
+ </li>
+ <li>
+  User gathers async profile
+ </li>
+ <li>
+  While profile is still profiling, user stops profiling
+ </li>
+ <li>
+  User starts profiling again and gathers a new profile
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ During the above scenario, what happens to the gatherer and the sampler? I already know that the GeckoSampler gets de’ref’d on profiler shutdown… or something like that. Hum.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A process that is still in the midst of sending up a profile will not have heard the stop request before it has finished gathering the profile (since it does that synchronously within its own process).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How about some invariants:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  The Profiler can be started and stopped at any time - even during an async profile gathering
+ </li>
+ <li>
+  A subprocess that is in the process of gathering a profile (whether its started to do so or not), cannot be told about the starting or stopping of the Profiler
+ </li>
+ <li>
+  A parent actor for a subprocess in the above state should not handle starting or stopping of a Profiler
+ </li>
+ <li>
+  The ProfileGatherer and GeckoSampler should keep each other alive until all subprocesses have had their profiles gathered.
+ </li>
+ <li>
+  After a subprocess has finished gathering an async profile, it should check to see if we’re still profiling and act accordingly. (Make sure to see if there’s a new ProfilerGatherer to use next time.)
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ That sounds like good follow-up fodder. For now, let’s just reject the Promise and destroy the ProfileGatherer if we stop sampling while gathering profiles.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ r+!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try build:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=27df9e5d68d2">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=27df9e5d68d2">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=27df9e5d68d2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And another:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=83d7ade77a01">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=83d7ade77a01
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Aaaaaand another:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0396face8d98">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0396face8d98
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Follow-ups:
+ </b>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1193838#c35">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=1193838#c35
+ </a>
+ - filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1229441" title="NEW - Profiler should not cancel gathering asynchronous profiles when stopped">
+  bug 1229441
+ </a>
+</div>

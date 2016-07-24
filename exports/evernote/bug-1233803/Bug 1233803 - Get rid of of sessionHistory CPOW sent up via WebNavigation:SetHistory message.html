@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-01-04 19:08:24 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1233803"/><meta name="updated" content="2016-01-15 18:28:07 +0000"/><title>Bug 1233803 - Get rid of of sessionHistory CPOW sent up via WebNavigation:SetHistory message</title></head><body>
+<div>Roadmap of this bug:</div>
+<div><br/></div>
+<ol>
+<li>Get rid of all in-browser usages of sessionHistory CPOW</li>
+<li>Add guard to prevent new in-browser usages of sessionHistory CPOW</li>
+<li>Add shim to allow add-on (and mochitest) usage of sessionHistory CPOW</li>
+</ol>
+<div><br/></div>
+<div>Eff - test failures:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>TEST-UNEXPECTED-FAIL | toolkit/modules/tests/browser/browser_RemoteWebNavigation.js | Uncaught exception - at chrome://mochitests/content/browser/toolkit/modules/tests/browser/browser_RemoteWebNavigation.js:62 - TypeError: history is null</div>
+<div><input checked="true" type="checkbox"/>TEST-UNEXPECTED-FAIL | toolkit/modules/tests/browser/browser_RemoteWebNavigation.js | Uncaught exception - at chrome://mochitests/content/browser/toolkit/modules/tests/browser/browser_RemoteWebNavigation.js:103 - TypeError: history is null</div>
+<div><input checked="true" type="checkbox"/>TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_687710_2.js | A promise chain failed to handle a rejection: - at chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_687710_2.js:36</div>
+<div><input checked="true" type="checkbox"/>TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug623893.js | uncaught exception - TypeError: gBrowser.sessionHistory is null at chrome://mochitests/content/browser/browser/base/content/test/general/browser_bug623893.js:28</div>
+<div><br/></div>
+<div>Huh… we might want to actually make sure that we keep the RemoteWebNavigation tests for sessionHistory to make sure that accessing the shims still work. So we need to test and address the above.</div>
+<div><br/></div>
+<div>So one thing I wanted to do was add a sessionHistory shim - that was #3. Unfortunately, I ran into issues, stemming from the fact that RemoteWebNavigation is not created like a traditional XPCOM component, but sidesteps the XPCOM stuff because it’s new’d directly from the RemoteWebNavigation infrastructure.</div>
+<div><br/></div>
+<div>So I’d like to try an experiment where we create RemoteWebNavigation’s via createInstance. That, I believe, will let us create shims for it.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>See what else uses RemoteWebNavigation to see what I’ll break</div>
+<div>Pretty much nothing, thank goodness. Belongs to remote-browser.xml, and some tests.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Create some directory under toolkit/components, call it “remotebrowserutils” for now</div>
+<div><input checked="true" type="checkbox"/>Create a unique class ID thing for the remote browser nsIWebNavigation.</div>
+<div><input checked="true" type="checkbox"/>Move the implementation into remotebrowserutils</div>
+<div><input checked="true" type="checkbox"/>Hook up the moz.build stuff and make sure it builds</div>
+<div><input checked="true" type="checkbox"/>Have remote-browser.xml instantiate our RemoteWebNavigation using createInstance</div>
+<div><input checked="true" type="checkbox"/>Have remote-browser.xml call swapBrowser using wrappedJSObject</div>
+<div><input checked="true" type="checkbox"/>Write a simple shim that makes sure we’re using a RemoteWebNavigation, and then gets at the underlying browser, and resolves it to a docShell CPOW using RemoteAddonsParent.browserToGlobal.get(target), and then returns docShell.sessionHistory.</div>
+<div><input checked="true" type="checkbox"/>Run the tests and see if they pass</div>
+<div><br/></div>
+<div>Try build: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a8734df71029"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a8734df71029">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a8734df71029</a></div>
+<div><br/></div>
+<div>BAH - the package-manifest thing wasn’t in there. :/</div>
+<div><br/></div>
+<div>Try AGAIN build: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=908db6ef1d93">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=908db6ef1d93</a></div>
+<div><br/></div>
+<div>BAH - and apparently I need to include .manifest in package-manifest as well. MANIFEST IN YOUR MANIFEST.</div>
+<div><br/></div>
+<div>Ah, and I need to make sure that I swap browsers correctly...</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=56d93535df52">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=56d93535df52</a></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

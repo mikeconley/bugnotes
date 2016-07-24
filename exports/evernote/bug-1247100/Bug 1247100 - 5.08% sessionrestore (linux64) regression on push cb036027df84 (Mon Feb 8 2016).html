@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, perf, regression"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-02-10 15:58:00 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1247100"/><meta name="updated" content="2016-02-22 17:04:42 +0000"/><title>Bug 1247100 - 5.08% sessionrestore (linux64) regression on push cb036027df84 (Mon Feb 8 2016)</title></head><body>
+<div>Delta is ~114ms</div>
+<div><br/></div>
+<div>Welp, let’s get some profiles.</div>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b2b5831cb0f7"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b2b5831cb0f7">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b2b5831cb0f7</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6007945667ce"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6007945667ce">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6007945667ce</a></div>
+<div><br/></div>
+<div>Maybe try deferring the initialization of RefreshBlocker?</div>
+<div><br/></div>
+<div>Okay, here goes...</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6e3bf275ac4d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6e3bf275ac4d</a></div>
+<div>Compare: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=fx-team&amp;originalRevision=dc2c6c1a4fe3&amp;newProject=try&amp;newRevision=6e3bf275ac4d&amp;framework=1">https://treeherder.mozilla.org/perf.html#/compare?originalProject=fx-team&amp;originalRevision=</a><a href="https://hg.mozilla.org/integration/fx-team/rev/c882b4072883" title="Open revision c882b4072883 on https://hg.mozilla.org/integration/fx-team">c882b4072883</a><a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=fx-team&amp;originalRevision=dc2c6c1a4fe3&amp;newProject=try&amp;newRevision=6e3bf275ac4d&amp;framework=1">&amp;newProject=try&amp;newRevision=6e3bf275ac4d&amp;framework=1</a></div>
+<div><br/></div>
+<div>Nope. :/</div>
+<div><br/></div>
+<div>Here are the profiles:</div>
+<div><br/></div>
+<div>Baseline: <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/67debc943a55a36955bd094233c86c8f6d2b998cf1e03a25ca71d2f6e7abd0ead23e96cd57fda2106bcb4b2c3d9cf30af9523f293930176510952cb97dde25e7&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=58520bc1e354c234a75fba114f2b62fde2848537&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1897,%22end%22%3A4259%7D%5D&amp;selection=%22(total)%22,42"/><a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/67debc943a55a36955bd094233c86c8f6d2b998cf1e03a25ca71d2f6e7abd0ead23e96cd57fda2106bcb4b2c3d9cf30af9523f293930176510952cb97dde25e7&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=58520bc1e354c234a75fba114f2b62fde2848537&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1897,%22end%22%3A4259%7D%5D&amp;selection=%22(total)%22,42">http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/67debc943a55a36955bd094233c86c8f6d2b998cf1e03a25ca71d2f6e7abd0ead23e96cd57fda2106bcb4b2c3d9cf30af9523f293930176510952cb97dde25e7&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=58520bc1e354c234a75fba114f2b62fde2848537&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1897,%22end%22%3A4259%7D%5D&amp;selection=%22(total)%22,42</a></div>
+<div><br/></div>
+<div>Regression: <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/01326357b4468bfa96a9e16dafd0cfff6f5863885d9fbf2fbe0703aa26c88af620fa8f1eb16c9fe0a41a38920538e5eb06b7151b78a3fd67d38dc606c4f781d5&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=b292d8eb495cd43b64d47a08f02695ce9983047a&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1934,%22end%22%3A4392%7D%5D&amp;selection=%22(total)%22,935"/><a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/01326357b4468bfa96a9e16dafd0cfff6f5863885d9fbf2fbe0703aa26c88af620fa8f1eb16c9fe0a41a38920538e5eb06b7151b78a3fd67d38dc606c4f781d5&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=b292d8eb495cd43b64d47a08f02695ce9983047a&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1934,%22end%22%3A4392%7D%5D&amp;selection=%22(total)%22,935">http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/01326357b4468bfa96a9e16dafd0cfff6f5863885d9fbf2fbe0703aa26c88af620fa8f1eb16c9fe0a41a38920538e5eb06b7151b78a3fd67d38dc606c4f781d5&amp;pathInZip=profile_sessionrestore/startup/cycle_9.sps#report=b292d8eb495cd43b64d47a08f02695ce9983047a&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A1934,%22end%22%3A4392%7D%5D&amp;selection=%22(total)%22,935</a></div>
+<div><br/></div>
+<div>A bunch appears to be GC...</div>
+<div><br/></div>
+<div>Between firstLoad and session restore done, delta is <b>107</b></div>
+<div><b><br/></b></div>
+<div>And the GC is: 80ms - still need 27...</div>
+<div><br/></div>
+<div>Loading tab-content doubled, it looks like - <b>30ms</b></div>
+<div><b><br/></b></div>
+<div>So that might be our regression right there.</div>
+<div><br/></div>
+<div>Put into JSM:</div>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3b75af5d3d60">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3b75af5d3d60</a></div>
+<div>Patch: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c4222aa717d5">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c4222aa717d5</a></div>
+<div><br/></div>
+<div>Hey! Nice big win! Okay, that helps. Good!</div>
+<div><br/></div>
+<div>Refactor a little...</div>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=mozilla-inbound&amp;revision=d1a4b82b556a"/><a href="https://treeherder.mozilla.org/#/jobs?repo=mozilla-inbound&amp;revision=d1a4b82b556a">https://treeherder.mozilla.org/#/jobs?repo=mozilla-inbound&amp;revision=d1a4b82b556a</a></div>
+<div>Patch:  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cc61830fa5f7"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cc61830fa5f7">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cc61830fa5f7</a></div>
+<div><br/></div>
+<div>Huh. Now the performance win is gone. Wtf. Maybe this win was erased?</div>
+<div><br/></div>
+<div>Welp, closed.</div>
+<div><br/></div>
+</body></html>

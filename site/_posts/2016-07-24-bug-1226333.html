@@ -1,0 +1,1103 @@
+---
+layout: post
+title:  "Bug 1226333 - Add tests for async window flushing"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226333">
+ Bug 1226333 - Add tests for async window flushing
+</a>
+<div>
+ I _think_ this is going to work:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ SHIT. Still failing. Now with logging:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… so for some reason, even after a hard flush, it looks like the loaded page is about:blank and not example.com, even though we received a notification that example.com had loaded. Wat?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hmm… another attempt, this time, more forcefully doing things by setting the state in the parent first:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hey, that worked! WOO!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But we want to understand why. Time to add some logging, yo.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hmmm…. more logging now:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ MMOOOOORE logging:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 15:47:42     INFO -  OKAY - LOADING
+ <a href="http://EXAMPLE.COM">
+  EXAMPLE.COM
+ </a>
+ <br/>
+ 15:47:42     INFO -  History length &gt; 0!
+ <br/>
+ 15:47:42     INFO -  Serialized entry: {
+ <br/>
+ 15:47:42     INFO -     "url": "about:blank",
+ <br/>
+ 15:47:42     INFO -     "charset": "",
+ <br/>
+ 15:47:42     INFO -     "ID": 480,
+ <br/>
+ 15:47:42     INFO -     "docshellID": 490,
+ <br/>
+ 15:47:42     INFO -     "docIdentifier": 480,
+ <br/>
+ 15:47:42     INFO -     "persist": false
+ <br/>
+ 15:47:42     INFO -  }
+ <br/>
+ 15:47:42     INFO -  For-loop exited - data.entries.length is: 1
+ <br/>
+ 15:47:42     INFO -  Saw that we had some entries!
+ <br/>
+ 15:47:42     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 15:47:42     INFO -     "entries": [
+ <br/>
+ 15:47:42     INFO -             {
+ <br/>
+ 15:47:42     INFO -                     "url": "about:blank",
+ <br/>
+ 15:47:42     INFO -                     "charset": "",
+ <br/>
+ 15:47:42     INFO -                     "ID": 480,
+ <br/>
+ 15:47:42     INFO -                     "docshellID": 490,
+ <br/>
+ 15:47:42     INFO -                     "docIdentifier": 480,
+ <br/>
+ 15:47:42     INFO -                     "persist": false
+ <br/>
+ 15:47:42     INFO -             }
+ <br/>
+ 15:47:42     INFO -     ],
+ <br/>
+ 15:47:42     INFO -     "index": 1
+ <br/>
+ 15:47:42     INFO -  }
+ <br/>
+ 15:47:42     INFO -  Sending data to parent: {
+ <br/>
+ 15:47:42     INFO -     "history": {
+ <br/>
+ 15:47:42     INFO -             "entries": [
+ <br/>
+ 15:47:42     INFO -                     {
+ <br/>
+ 15:47:42     INFO -                             "url": "about:blank",
+ <br/>
+ 15:47:42     INFO -                             "charset": "",
+ <br/>
+ 15:47:42     INFO -                             "ID": 480,
+ <br/>
+ 15:47:42     INFO -                             "docshellID": 490,
+ <br/>
+ 15:47:42     INFO -                             "docIdentifier": 480,
+ <br/>
+ 15:47:42     INFO -                             "persist": false
+ <br/>
+ 15:47:42     INFO -                     }
+ <br/>
+ 15:47:42     INFO -             ],
+ <br/>
+ 15:47:42     INFO -             "index": 1
+ <br/>
+ 15:47:42     INFO -     }
+ <br/>
+ 15:47:42     INFO -  }
+ <br/>
+ 15:47:42     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 15:47:42     INFO -     "id": 1,
+ <br/>
+ 15:47:42     INFO -     "data": {
+ <br/>
+ 15:47:42     INFO -             "history": {
+ <br/>
+ 15:47:42     INFO -                     "entries": [
+ <br/>
+ 15:47:42     INFO -                             {
+ <br/>
+ 15:47:42     INFO -                                     "url": "about:blank",
+ <br/>
+ 15:47:42     INFO -                                     "charset": "",
+ <br/>
+ 15:47:42     INFO -                                     "ID": 480,
+ <br/>
+ 15:47:42     INFO -                                     "docshellID": 490,
+ <br/>
+ 15:47:42     INFO -                                     "docIdentifier": 480,
+ <br/>
+ 15:47:42     INFO -                                     "persist": false
+ <br/>
+ 15:47:42     INFO -                             }
+ <br/>
+ 15:47:42     INFO -                     ],
+ <br/>
+ 15:47:42     INFO -                     "index": 1
+ <br/>
+ 15:47:42     INFO -             }
+ <br/>
+ 15:47:42     INFO -     },
+ <br/>
+ 15:47:42     INFO -     "telemetry": {
+ <br/>
+ 15:47:42     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 6
+ <br/>
+ 15:47:42     INFO -     },
+ <br/>
+ 15:47:42     INFO -     "flushID": 205,
+ <br/>
+ 15:47:42     INFO -     "isFinal": false,
+ <br/>
+ 15:47:42     INFO -     "epoch": 0
+ <br/>
+ 15:47:42     INFO -  }
+ <br/>
+ 15:47:42     INFO -  Sending data to parent: {}
+ <br/>
+ 15:47:42     INFO -  ++DOCSHELL 0x7fd1d69af800 == 9 [pid = 2253] [id = 12]
+ <br/>
+ 15:47:42     INFO -  ++DOMWINDOW == 33 (0x7fd1d6524800) [pid = 2253] [serial = 33] [outer = (nil)]
+ <br/>
+ 15:47:42     INFO -  ++DOMWINDOW == 34 (0x7fd1d690a000) [pid = 2253] [serial = 34] [outer = 0x7fd1d6524800]
+ <br/>
+ 15:47:42     INFO -  Pushing history into the message queue
+ <br/>
+ 15:47:43     INFO -  Pushing history into the message queue
+ <br/>
+ 15:47:43     INFO -  ++DOMWINDOW == 35 (0x7fd1d84a2800) [pid = 2253] [serial = 35] [outer = 0x7fd1d6524800]
+ <br/>
+ 15:47:43     INFO -  Pushing history into the message queue
+ <br/>
+ 15:47:43     INFO -  Saw onFrameTreeCollected
+ <br/>
+ 15:47:43     INFO -  Pushing history into the message queue
+ <br/>
+ 15:47:43     INFO -  Saw onFrameTreeCollected
+ <br/>
+ 15:47:43     INFO -  Saw load of: http://example.com/
+ <br/>
+ 15:47:43     INFO -  Apparently, EXAMPLE.COM has loaded now.
+ <br/>
+ 15:47:44     INFO -  History length &gt; 0!
+ <br/>
+ 15:47:44     INFO -  Serialized entry: {
+ <br/>
+ 15:47:44     INFO -     "url": "http://example.com/",
+ <br/>
+ 15:47:44     INFO -     "title": "mochitest index /",
+ <br/>
+ 15:47:44     INFO -     "charset": "UTF-8",
+ <br/>
+ 15:47:44     INFO -     "ID": 14,
+ <br/>
+ 15:47:44     INFO -     "docshellID": 12,
+ <br/>
+ 15:47:44     INFO -     "docIdentifier": 14,
+ <br/>
+ 15:47:44     INFO -     "persist": true
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  For-loop exited - data.entries.length is: 1
+ <br/>
+ 15:47:44     INFO -  Saw that we had some entries!
+ <br/>
+ 15:47:44     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 15:47:44     INFO -     "entries": [
+ <br/>
+ 15:47:44     INFO -             {
+ <br/>
+ 15:47:44     INFO -                     "url": "http://example.com/",
+ <br/>
+ 15:47:44     INFO -                     "title": "mochitest index /",
+ <br/>
+ 15:47:44     INFO -                     "charset": "UTF-8",
+ <br/>
+ 15:47:44     INFO -                     "ID": 14,
+ <br/>
+ 15:47:44     INFO -                     "docshellID": 12,
+ <br/>
+ 15:47:44     INFO -                     "docIdentifier": 14,
+ <br/>
+ 15:47:44     INFO -                     "persist": true
+ <br/>
+ 15:47:44     INFO -             }
+ <br/>
+ 15:47:44     INFO -     ],
+ <br/>
+ 15:47:44     INFO -     "index": 1
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  Sending data to parent: {
+ <br/>
+ 15:47:44     INFO -     "history": {
+ <br/>
+ 15:47:44     INFO -             "entries": [
+ <br/>
+ 15:47:44     INFO -                     {
+ <br/>
+ 15:47:44     INFO -                             "url": "http://example.com/",
+ <br/>
+ 15:47:44     INFO -                             "title": "mochitest index /",
+ <br/>
+ 15:47:44     INFO -                             "charset": "UTF-8",
+ <br/>
+ 15:47:44     INFO -                             "ID": 14,
+ <br/>
+ 15:47:44     INFO -                             "docshellID": 12,
+ <br/>
+ 15:47:44     INFO -                             "docIdentifier": 14,
+ <br/>
+ 15:47:44     INFO -                             "persist": true
+ <br/>
+ 15:47:44     INFO -                     }
+ <br/>
+ 15:47:44     INFO -             ],
+ <br/>
+ 15:47:44     INFO -             "index": 1
+ <br/>
+ 15:47:44     INFO -     },
+ <br/>
+ 15:47:44     INFO -     "pageStyle": null,
+ <br/>
+ 15:47:44     INFO -     "storage": null,
+ <br/>
+ 15:47:44     INFO -     "scroll": null
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 15:47:44     INFO -     "id": 1,
+ <br/>
+ 15:47:44     INFO -     "data": {
+ <br/>
+ 15:47:44     INFO -             "history": {
+ <br/>
+ 15:47:44     INFO -                     "entries": [
+ <br/>
+ 15:47:44     INFO -                             {
+ <br/>
+ 15:47:44     INFO -                                     "url": "http://example.com/",
+ <br/>
+ 15:47:44     INFO -                                     "title": "mochitest index /",
+ <br/>
+ 15:47:44     INFO -                                     "charset": "UTF-8",
+ <br/>
+ 15:47:44     INFO -                                     "ID": 14,
+ <br/>
+ 15:47:44     INFO -                                     "docshellID": 12,
+ <br/>
+ 15:47:44     INFO -                                     "docIdentifier": 14,
+ <br/>
+ 15:47:44     INFO -                                     "persist": true
+ <br/>
+ 15:47:44     INFO -                             }
+ <br/>
+ 15:47:44     INFO -                     ],
+ <br/>
+ 15:47:44     INFO -                     "index": 1
+ <br/>
+ 15:47:44     INFO -             },
+ <br/>
+ 15:47:44     INFO -             "pageStyle": null,
+ <br/>
+ 15:47:44     INFO -             "storage": null,
+ <br/>
+ 15:47:44     INFO -             "scroll": null
+ <br/>
+ 15:47:44     INFO -     },
+ <br/>
+ 15:47:44     INFO -     "telemetry": {
+ <br/>
+ 15:47:44     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 41
+ <br/>
+ 15:47:44     INFO -     },
+ <br/>
+ 15:47:44     INFO -     "flushID": 0,
+ <br/>
+ 15:47:44     INFO -     "isFinal": false,
+ <br/>
+ 15:47:44     INFO -     "epoch": 1
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  Sending data to parent: {}
+ <br/>
+ 15:47:44     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 15:47:44     INFO -     "id": 2,
+ <br/>
+ 15:47:44     INFO -     "data": {},
+ <br/>
+ 15:47:44     INFO -     "telemetry": {
+ <br/>
+ 15:47:44     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 3
+ <br/>
+ 15:47:44     INFO -     },
+ <br/>
+ 15:47:44     INFO -     "flushID": 206,
+ <br/>
+ 15:47:44     INFO -     "isFinal": false,
+ <br/>
+ 15:47:44     INFO -     "epoch": 1
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  TabState has been flushed!
+ <br/>
+ 15:47:44     INFO -  Pushing history into the message queue
+ <br/>
+ 15:47:44     INFO -  History length == 0
+ <br/>
+ 15:47:44     INFO -  URI is: about:blank
+ <br/>
+ 15:47:44     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 15:47:44     INFO -     "entries": [
+ <br/>
+ 15:47:44     INFO -             {
+ <br/>
+ 15:47:44     INFO -                     "url": "about:blank"
+ <br/>
+ 15:47:44     INFO -             }
+ <br/>
+ 15:47:44     INFO -     ],
+ <br/>
+ 15:47:44     INFO -     "index": 1
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  Sending data to parent: {
+ <br/>
+ 15:47:44     INFO -     "history": {
+ <br/>
+ 15:47:44     INFO -             "entries": [
+ <br/>
+ 15:47:44     INFO -                     {
+ <br/>
+ 15:47:44     INFO -                             "url": "about:blank"
+ <br/>
+ 15:47:44     INFO -                     }
+ <br/>
+ 15:47:44     INFO -             ],
+ <br/>
+ 15:47:44     INFO -             "index": 1
+ <br/>
+ 15:47:44     INFO -     }
+ <br/>
+ 15:47:44     INFO -  }
+ <br/>
+ 15:47:44     INFO -  Sending data to parent: {}
+ <br/>
+ 15:47:44     INFO -  TEST-INFO | started process screentopng
+ <br/>
+ 15:47:47     INFO -  TEST-INFO | screentopng: exit 0
+ <br/>
+ 15:47:47     INFO -  176 INFO checking window state
+ <br/>
+ 15:47:47     INFO -  177 INFO Entering test test_add_interesting_window
+ <br/>
+ 15:47:47     INFO -  178 INFO TEST-PASS | browser/components/sessionstore/test/browser_async_window_flushing.js | We should not have added the window to the closed windows array -
+ <br/>
+ 15:47:47     INFO -  179 INFO TEST-PASS | browser/components/sessionstore/test/browser_async_window_flushing.js | We should have added the window to the closed windows array -
+ <br/>
+ 15:47:47     INFO -  180 INFO Leaving test test_add_interesting_window
+ <br/>
+ 15:47:47     INFO -  181 INFO Entering test test_remove_uninteresting_window
+</div>
+<div>
+ 15:47:47     INFO -  182 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_window_flushing.js | We should have added the window to the closed windows array - Got 1, expected 2
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I wonder if we have some kind of sync message / async message mixup happening here? Do we still have this intermittent failure with my SyncHandler removal patch for bug 1195295?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Another try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 10:09:04     INFO -  OKAY - LOADING
+ <a href="http://EXAMPLE.COM">
+  EXAMPLE.COM
+ </a>
+ <br/>
+ 10:09:04     INFO -  History length &gt; 0!
+ <br/>
+ 10:09:04     INFO -  Serialized entry: {
+ <br/>
+ 10:09:04     INFO -     "url": "about:blank",
+ <br/>
+ 10:09:04     INFO -     "charset": "",
+ <br/>
+ 10:09:04     INFO -     "ID": 480,
+ <br/>
+ 10:09:04     INFO -     "docshellID": 490,
+ <br/>
+ 10:09:04     INFO -     "docIdentifier": 480,
+ <br/>
+ 10:09:04     INFO -     "persist": false
+ <br/>
+ 10:09:04     INFO -  }
+ <br/>
+ 10:09:04     INFO -  For-loop exited - data.entries.length is: 1
+ <br/>
+ 10:09:04     INFO -  Saw that we had some entries!
+ <br/>
+ 10:09:04     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 10:09:04     INFO -     "entries": [
+ <br/>
+ 10:09:04     INFO -             {
+ <br/>
+ 10:09:04     INFO -                     "url": "about:blank",
+ <br/>
+ 10:09:04     INFO -                     "charset": "",
+ <br/>
+ 10:09:04     INFO -                     "ID": 480,
+ <br/>
+ 10:09:04     INFO -                     "docshellID": 490,
+ <br/>
+ 10:09:04     INFO -                     "docIdentifier": 480,
+ <br/>
+ 10:09:04     INFO -                     "persist": false
+ <br/>
+ 10:09:04     INFO -             }
+ <br/>
+ 10:09:04     INFO -     ],
+ <br/>
+ 10:09:04     INFO -     "index": 1
+ <br/>
+ 10:09:04     INFO -  }
+ <br/>
+ 10:09:04     INFO -  Sending to parent: {
+ <br/>
+ 10:09:04     INFO -     "id": 1,
+ <br/>
+ 10:09:04     INFO -     "data": {
+ <br/>
+ 10:09:04     INFO -             "history": {
+ <br/>
+ 10:09:04     INFO -                     "entries": [
+ <br/>
+ 10:09:04     INFO -                             {
+ <br/>
+ 10:09:04     INFO -                                     "url": "about:blank",
+ <br/>
+ 10:09:04     INFO -                                     "charset": "",
+ <br/>
+ 10:09:04     INFO -                                     "ID": 480,
+ <br/>
+ 10:09:04     INFO -                                     "docshellID": 490,
+ <br/>
+ 10:09:04     INFO -                                     "docIdentifier": 480,
+ <br/>
+ 10:09:04     INFO -                                     "persist": false
+ <br/>
+ 10:09:04     INFO -                             }
+ <br/>
+ 10:09:04     INFO -                     ],
+ <br/>
+ 10:09:04     INFO -                     "index": 1
+ <br/>
+ 10:09:04     INFO -             }
+ <br/>
+ 10:09:04     INFO -     },
+ <br/>
+ 10:09:04     INFO -     "telemetry": {
+ <br/>
+ 10:09:04     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 6
+ <br/>
+ 10:09:04     INFO -     },
+ <br/>
+ 10:09:04     INFO -     "flushID": 205,
+ <br/>
+ 10:09:04     INFO -     "isFinal": false,
+ <br/>
+ 10:09:04     INFO -     "epoch": 0
+ <br/>
+ 10:09:04     INFO -  }
+ <br/>
+ 10:09:04     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 10:09:04     INFO -     "id": 1,
+ <br/>
+ 10:09:04     INFO -     "data": {
+ <br/>
+ 10:09:04     INFO -             "history": {
+ <br/>
+ 10:09:04     INFO -                     "entries": [
+ <br/>
+ 10:09:04     INFO -                             {
+ <br/>
+ 10:09:04     INFO -                                     "url": "about:blank",
+ <br/>
+ 10:09:04     INFO -                                     "charset": "",
+ <br/>
+ 10:09:04     INFO -                                     "ID": 480,
+ <br/>
+ 10:09:04     INFO -                                     "docshellID": 490,
+ <br/>
+ 10:09:04     INFO -                                     "docIdentifier": 480,
+ <br/>
+ 10:09:04     INFO -                                     "persist": false
+ <br/>
+ 10:09:04     INFO -                             }
+ <br/>
+ 10:09:04     INFO -                     ],
+ <br/>
+ 10:09:04     INFO -                     "index": 1
+ <br/>
+ 10:09:04     INFO -             }
+ <br/>
+ 10:09:04     INFO -     },
+ <br/>
+ 10:09:04     INFO -     "telemetry": {
+ <br/>
+ 10:09:04     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 6
+ <br/>
+ 10:09:04     INFO -     },
+ <br/>
+ 10:09:04     INFO -     "flushID": 205,
+ <br/>
+ 10:09:04     INFO -     "isFinal": false,
+ <br/>
+ 10:09:04     INFO -     "epoch": 0
+ <br/>
+ 10:09:04     INFO -  }
+ <br/>
+ 10:09:04     INFO -  TabState.update received id: 1 and last seen id was: 0
+ <br/>
+ 10:09:04     INFO -  Setting last seen ID to 1
+ <br/>
+ 10:09:04     INFO -  Sending to parent: {
+ <br/>
+ 10:09:04     INFO -     "id": 2,
+ <br/>
+ 10:09:04     INFO -     "data": {},
+ <br/>
+ 10:09:04     INFO -     "telemetry": {
+ <br/>
+ 10:09:04     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 1
+ <br/>
+ 10:09:04     INFO -     },
+ <br/>
+ 10:09:04     INFO -     "flushID": 0,
+ <br/>
+ 10:09:04     INFO -     "isFinal": true,
+ <br/>
+ 10:09:04     INFO -     "epoch": 0
+ <br/>
+ 10:09:04     INFO -  }
+ <br/>
+ 10:09:04     INFO -  ++DOCSHELL 0x7fb0334d3800 == 9 [pid = 2401] [id = 12]
+ <br/>
+ 10:09:04     INFO -  ++DOMWINDOW == 33 (0x7fb032408c00) [pid = 2401] [serial = 33] [outer = (nil)]
+ <br/>
+ 10:09:04     INFO -  ++DOMWINDOW == 34 (0x7fb03342bc00) [pid = 2401] [serial = 34] [outer = 0x7fb032408c00]
+ <br/>
+ 10:09:05     INFO -  Pushing history into the message queue
+ <br/>
+ 10:09:05     INFO -  Pushing history into the message queue
+ <br/>
+ 10:09:05     INFO -  ++DOMWINDOW == 35 (0x7fb03429ac00) [pid = 2401] [serial = 35] [outer = 0x7fb032408c00]
+ <br/>
+ 10:09:06     INFO -  Pushing history into the message queue
+ <br/>
+ 10:09:06     INFO -  Saw onFrameTreeCollected
+ <br/>
+ 10:09:06     INFO -  Pushing history into the message queue
+ <br/>
+ 10:09:06     INFO -  Saw onFrameTreeCollected
+ <br/>
+ 10:09:06     INFO -  Saw load of:
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ <br/>
+ 10:09:06     INFO -  Apparently,
+ <a href="http://EXAMPLE.COM">
+  EXAMPLE.COM
+ </a>
+ has loaded now.
+ <br/>
+ 10:09:06     INFO -  History length &gt; 0!
+ <br/>
+ 10:09:06     INFO -  Serialized entry: {
+ <br/>
+ 10:09:06     INFO -     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 10:09:06     INFO -     "title": "mochitest index /",
+ <br/>
+ 10:09:06     INFO -     "charset": "UTF-8",
+ <br/>
+ 10:09:06     INFO -     "ID": 14,
+ <br/>
+ 10:09:06     INFO -     "docshellID": 12,
+ <br/>
+ 10:09:06     INFO -     "docIdentifier": 14,
+ <br/>
+ 10:09:06     INFO -     "persist": true
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  For-loop exited - data.entries.length is: 1
+ <br/>
+ 10:09:06     INFO -  Saw that we had some entries!
+ <br/>
+ 10:09:06     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 10:09:06     INFO -     "entries": [
+ <br/>
+ 10:09:06     INFO -             {
+ <br/>
+ 10:09:06     INFO -                     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 10:09:06     INFO -                     "title": "mochitest index /",
+ <br/>
+ 10:09:06     INFO -                     "charset": "UTF-8",
+ <br/>
+ 10:09:06     INFO -                     "ID": 14,
+ <br/>
+ 10:09:06     INFO -                     "docshellID": 12,
+ <br/>
+ 10:09:06     INFO -                     "docIdentifier": 14,
+ <br/>
+ 10:09:06     INFO -                     "persist": true
+ <br/>
+ 10:09:06     INFO -             }
+ <br/>
+ 10:09:06     INFO -     ],
+ <br/>
+ 10:09:06     INFO -     "index": 1
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  Sending to parent: {
+ <br/>
+ 10:09:06     INFO -     "id": 1,
+ <br/>
+ 10:09:06     INFO -     "data": {
+ <br/>
+ 10:09:06     INFO -             "history": {
+ <br/>
+ 10:09:06     INFO -                     "entries": [
+ <br/>
+ 10:09:06     INFO -                             {
+ <br/>
+ 10:09:06     INFO -                                     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 10:09:06     INFO -                                     "title": "mochitest index /",
+ <br/>
+ 10:09:06     INFO -                                     "charset": "UTF-8",
+ <br/>
+ 10:09:06     INFO -                                     "ID": 14,
+ <br/>
+ 10:09:06     INFO -                                     "docshellID": 12,
+ <br/>
+ 10:09:06     INFO -                                     "docIdentifier": 14,
+ <br/>
+ 10:09:06     INFO -                                     "persist": true
+ <br/>
+ 10:09:06     INFO -                             }
+ <br/>
+ 10:09:06     INFO -                     ],
+ <br/>
+ 10:09:06     INFO -                     "index": 1
+ <br/>
+ 10:09:06     INFO -             },
+ <br/>
+ 10:09:06     INFO -             "pageStyle": null,
+ <br/>
+ 10:09:06     INFO -             "storage": null,
+ <br/>
+ 10:09:06     INFO -             "scroll": null
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "telemetry": {
+ <br/>
+ 10:09:06     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 40
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "flushID": 0,
+ <br/>
+ 10:09:06     INFO -     "isFinal": false,
+ <br/>
+ 10:09:06     INFO -     "epoch": 1
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 10:09:06     INFO -     "id": 1,
+ <br/>
+ 10:09:06     INFO -     "data": {
+ <br/>
+ 10:09:06     INFO -             "history": {
+ <br/>
+ 10:09:06     INFO -                     "entries": [
+ <br/>
+ 10:09:06     INFO -                             {
+ <br/>
+ 10:09:06     INFO -                                     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 10:09:06     INFO -                                     "title": "mochitest index /",
+ <br/>
+ 10:09:06     INFO -                                     "charset": "UTF-8",
+ <br/>
+ 10:09:06     INFO -                                     "ID": 14,
+ <br/>
+ 10:09:06     INFO -                                     "docshellID": 12,
+ <br/>
+ 10:09:06     INFO -                                     "docIdentifier": 14,
+ <br/>
+ 10:09:06     INFO -                                     "persist": true
+ <br/>
+ 10:09:06     INFO -                             }
+ <br/>
+ 10:09:06     INFO -                     ],
+ <br/>
+ 10:09:06     INFO -                     "index": 1
+ <br/>
+ 10:09:06     INFO -             },
+ <br/>
+ 10:09:06     INFO -             "pageStyle": null,
+ <br/>
+ 10:09:06     INFO -             "storage": null,
+ <br/>
+ 10:09:06     INFO -             "scroll": null
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "telemetry": {
+ <br/>
+ 10:09:06     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 40
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "flushID": 0,
+ <br/>
+ 10:09:06     INFO -     "isFinal": false,
+ <br/>
+ 10:09:06     INFO -     "epoch": 1
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  Sending to parent: {
+ <br/>
+ 10:09:06     INFO -     "id": 2,
+ <br/>
+ 10:09:06     INFO -     "data": {},
+ <br/>
+ 10:09:06     INFO -     "telemetry": {
+ <br/>
+ 10:09:06     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 6
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "flushID": 206,
+ <br/>
+ 10:09:06     INFO -     "isFinal": false,
+ <br/>
+ 10:09:06     INFO -     "epoch": 1
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  Parent received SessionStore:update with data: {
+ <br/>
+ 10:09:06     INFO -     "id": 2,
+ <br/>
+ 10:09:06     INFO -     "data": {},
+ <br/>
+ 10:09:06     INFO -     "telemetry": {
+ <br/>
+ 10:09:06     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 6
+ <br/>
+ 10:09:06     INFO -     },
+ <br/>
+ 10:09:06     INFO -     "flushID": 206,
+ <br/>
+ 10:09:06     INFO -     "isFinal": false,
+ <br/>
+ 10:09:06     INFO -     "epoch": 1
+ <br/>
+ 10:09:06     INFO -  }
+ <br/>
+ 10:09:06     INFO -  TabState.update received id: 2 and last seen id was: 0
+ <br/>
+ 10:09:06     INFO -  Setting last seen ID to 2
+ <br/>
+ 10:09:06     INFO -  TabState has been flushed!
+ <br/>
+ 10:09:07     INFO -  Pushing history into the message queue
+ <br/>
+ 10:09:07     INFO -  History length == 0
+ <br/>
+ 10:09:07     INFO -  URI is: about:blank
+ <br/>
+ 10:09:07     INFO -  Final data being queued to the parent is: {
+ <br/>
+ 10:09:07     INFO -     "entries": [
+ <br/>
+ 10:09:07     INFO -             {
+ <br/>
+ 10:09:07     INFO -                     "url": "about:blank"
+ <br/>
+ 10:09:07     INFO -             }
+ <br/>
+ 10:09:07     INFO -     ],
+ <br/>
+ 10:09:07     INFO -     "index": 1
+ <br/>
+ 10:09:07     INFO -  }
+ <br/>
+ 10:09:07     INFO -  Sending to parent: {
+ <br/>
+ 10:09:07     INFO -     "id": 3,
+ <br/>
+ 10:09:07     INFO -     "data": {
+ <br/>
+ 10:09:07     INFO -             "history": {
+ <br/>
+ 10:09:07     INFO -                     "entries": [
+ <br/>
+ 10:09:07     INFO -                             {
+ <br/>
+ 10:09:07     INFO -                                     "url": "about:blank"
+ <br/>
+ 10:09:07     INFO -                             }
+ <br/>
+ 10:09:07     INFO -                     ],
+ <br/>
+ 10:09:07     INFO -                     "index": 1
+ <br/>
+ 10:09:07     INFO -             }
+ <br/>
+ 10:09:07     INFO -     },
+ <br/>
+ 10:09:07     INFO -     "telemetry": {
+ <br/>
+ 10:09:07     INFO -             "FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS": 9
+ <br/>
+ 10:09:07     INFO -     },
+ <br/>
+ 10:09:07     INFO -     "flushID": 207,
+ <br/>
+ 10:09:07     INFO -     "isFinal": false,
+ <br/>
+ 10:09:07     INFO -     "epoch": 1
+ <br/>
+ 10:09:07     INFO -  }
+ <br/>
+ 10:09:07     INFO -  TEST-INFO | started process screentopng
+ <br/>
+ 10:09:10     INFO -  TEST-INFO | screentopng: exit 0
+ <br/>
+ 10:09:10     INFO -  176 INFO checking window state
+ <br/>
+ 10:09:10     INFO -  177 INFO Entering test test_add_interesting_window
+ <br/>
+ 10:09:10     INFO -  178 INFO TEST-PASS | browser/components/sessionstore/test/browser_async_window_flushing.js | We should not have added the window to the closed windows array -
+ <br/>
+ 10:09:10     INFO -  179 INFO TEST-PASS | browser/components/sessionstore/test/browser_async_window_flushing.js | We should have added the window to the closed windows array -
+ <br/>
+ 10:09:10     INFO -  180 INFO Leaving test test_add_interesting_window
+ <br/>
+ 10:09:10     INFO -  181 INFO Entering test test_remove_uninteresting_window
+ <br/>
+ 10:09:10     INFO -  182 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_window_flushing.js | We should have added the window to the closed windows array - Got 1, expected 2
+</div>
+<div>
+ 10:09:10     INFO -  Stack trace:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AHHH - I UNDERSTAND!!!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that the pref I added has the parent ignore messages from the child
+ <b>
+  but the child still thinks the parent got the message
+ </b>
+ . So the parent is getting a message about example.com being loaded, but because it wasn’t triggered by a flush, it’s being chucked out. Subsequent messages don’t include that example.com history information!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Another try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=16d6e5bee4f1">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=16d6e5bee4f1
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Looking good! Up for review!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hooray, landed!
+</div>

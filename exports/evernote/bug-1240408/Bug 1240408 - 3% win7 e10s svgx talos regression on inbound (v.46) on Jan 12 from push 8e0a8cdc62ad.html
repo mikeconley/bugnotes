@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, Unsolved mysteries"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-02-07 21:09:25 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1240408"/><meta name="updated" content="2016-02-12 23:10:40 +0000"/><title>Bug 1240408 - 3% win7 e10s svgx talos regression on inbound (v.46) on Jan 12 from push 8e0a8cdc62ad</title></head><body>
+<div><b>Testing</b>:</div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35be01a98f23">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35be01a98f23</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c39a1898cfd"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c39a1898cfd">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c39a1898cfd</a></div>
+<div><br/></div>
+<div>Guh, lots of failures attempting to get profiles. Getting this error:</div>
+<div><br/></div>
+<div>20:13:23     INFO -  no such option: --download-cache</div>
+<div>20:13:23  WARNING - Return code: 2</div>
+<div><br/></div>
+<div>Apparently when attempting to install requests.</div>
+<div><br/></div>
+<div>I guess something in our infrastructure changed, and doing old try builds is going to break. Luckily, I found the fix in bug 1240993 - just had to apply <a href="https://hg.mozilla.org/try/rev/1c396281c01b">https://hg.mozilla.org/try/rev/1c396281c01b</a></div>
+<div><br/></div>
+<div><b>Profiles</b>:</div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1b23860b127e">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1b23860b127e</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cd7156cdf85a"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cd7156cdf85a">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cd7156cdf85a</a></div>
+<div><br/></div>
+<div>BWARRRRR - I forgot to hg add TalosParentProfiler.js. :/ Okay, for reals this time.</div>
+<div><br/></div>
+<div><b>Profile builds:</b></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2e8252f137de"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2e8252f137de">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2e8252f137de</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c601c831741"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c601c831741">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3c601c831741</a></div>
+<div><br/></div>
+<div><b>Profile links:</b></div>
+<div>Baseline:<b> </b><a href="https://cleopatra.io/#report=7918d1d0b7de549a888fcc4cd39a00045f1bf466">https://cleopatra.io/#report=7918d1d0b7de549a888fcc4cd39a00045f1bf466</a></div>
+<div>Regression: <a href="https://cleopatra.io/#report=7c9ac843bed630812becdc2d3e313418804e4fd6">https://cleopatra.io/#report=7c9ac843bed630812becdc2d3e313418804e4fd6</a></div>
+<div><br/></div>
+<div>Need a faster sampling rate, I think...</div>
+<div><br/></div>
+<div><b>Profile builds:</b></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fbf532a2c8f0"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fbf532a2c8f0">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fbf532a2c8f0</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=731c301ad5f2"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=731c301ad5f2">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=731c301ad5f2</a></div>
+<div><br/></div>
+<div>Now with SnowWhite Collection logging:</div>
+<div><br/></div>
+<div><b>Profile builds:</b></div>
+<div>Baseline (deaf7c6ca55b<span style="font-size:14.666666666666666px;font-family:Arial;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;">)</span>: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c918a0c82fd1">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c918a0c82fd1</a></div>
+<div>Regression (8e0a8cdc62ad): <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9957c53e7e8d"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9957c53e7e8d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9957c53e7e8d</a></div>
+<div><br/></div>
+<div>Now without pausing profiling in the parent.</div>
+<div><br/></div>
+<div><b>Profile builds:</b></div>
+<div>Baseline (deaf7c6ca55b): <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=28e7948d5ab4"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=28e7948d5ab4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=28e7948d5ab4</a></div>
+<div>Regression (8e0a8cdc62ad): <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78</a></div>
+<div><br/></div>
+<div><b>Profile builds with more instrumentation in NewTabUtils.onLinkChanged:</b></div>
+<div>Baseline (deaf7c6ca55b): <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=06896c166e73">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=06896c166e73</a></div>
+<div>Regression (8e0a8cdc62ad): <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b7ddf5ed2b78</a></div>
+<div><br/></div>
+<div><b>Experiment to remove some setTimeouts:</b></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=782137197fac"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=782137197fac">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=782137197fac</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=38ee2dca5aec">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=38ee2dca5aec</a></div>
+<div>Comparison: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=782137197fac&amp;newProject=try&amp;newRevision=38ee2dca5aec"/><a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=782137197fac&amp;newProject=try&amp;newRevision=38ee2dca5aec">https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=782137197fac&amp;newProject=try&amp;newRevision=38ee2dca5aec</a></div>
+<div><br/></div>
+<div><b>Instrumenting setTimeouts:</b></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cde97ebc080f">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cde97ebc080f</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88e8f35ba27d"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88e8f35ba27d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88e8f35ba27d</a></div>
+<div><br/></div>
+<div>Hum. Regression gone. How about if I bump the sampling rate back up? But keep the instrumentation.</div>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba039985e841">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba039985e841</a></div>
+<div>Regression: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3cc2257a7adc"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3cc2257a7adc">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3cc2257a7adc</a></div>
+<div><br/></div>
+<div><b>Baseline run cycle:</b></div>
+<div>14:35:51     INFO -  PROCESS | 3028 | [#4] composite-scale-rotate-opacity.svg  Cycles:25  Average:22.00  Median:22.00  stddev:1.38 (6.3%)  stddev-sans-first:0.93</div>
+<div>14:35:51     INFO -  PROCESS | 3028 | Values: 27.0  22.0  21.0  22.0  24.0  22.0  22.0  22.0  21.0  21.0  21.0  21.0  23.0  24.0  21.0  22.0  21.0  21.0  22.0  21.0  23.0  21.0  22.0  22.0  21.0</div>
+<div><br/></div>
+<div><b>Regression run cycle:</b></div>
+<div>13:02:51     INFO -  PROCESS | 3000 | [#4] composite-scale-rotate-opacity.svg  Cycles:25  Average:23.00  Median:23.00  stddev:1.35 (5.9%)  stddev-sans-first:1.23</div>
+<div>13:02:51     INFO -  PROCESS | 3000 | Values: 26.0  24.0  24.0  25.0  24.0  24.0  23.0  21.0  21.0  22.0  24.0  23.0  21.0  23.0  21.0  23.0  21.0  22.0  23.0  22.0  24.0  23.0  24.0  24.0  23.0</div>
+<div><br/></div>
+<div>Bah, fuck it. WONTFIX’d.</div>
+</body></html>

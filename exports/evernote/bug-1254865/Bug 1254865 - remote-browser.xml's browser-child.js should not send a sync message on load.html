@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, Needs uplift, perf"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-03-23 08:15:38 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1254865"/><meta name="updated" content="2016-03-24 21:56:18 +0000"/><title>Bug 1254865 - remote-browser.xml's browser-child.js should not send a sync message on load</title></head><body>
+<div>Here’s how I think I want to do this:</div>
+<div><br/></div>
+<div>For disableglobalhistory, I think we want this to be known and set ASAP so that we don’t accidentally load things into history that we don’t want. So let’s send that down with the CreateWindow message.</div>
+<div><br/></div>
+<div>If the parent opens the new browser, then we also need to send down the disableglobalhistory attribute state.</div>
+<div><br/></div>
+<div><s><input type="checkbox"/>For the PBrowser constructor sent from the parent, include a disableglobalhistory argument in the IPDL</s></div>
+<div><s><input type="checkbox"/>Add the disableglobalhistory handling in ContentParent::CreateBrowserOrApp in ContentParent.cpp</s></div>
+<div><s><input type="checkbox"/>Add the disableglobalhistory handling in TabChild.cpp in the constructor</s></div>
+<div><s><input type="checkbox"/>Add the disableglobalhistory argument to the CreateWindow sync message to the parent</s></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Send an async message ASAP after binding to the frame element regarding whether or not to use global history.</div>
+<div><br/></div>
+<div>For initPopup, I think that can go down as a message after the parent has received Browser:Init.</div>
+<div><input checked="true" type="checkbox"/>Send async message down after Browser:Init comes in with autocomplete popup state</div>
+<div><input checked="true" type="checkbox"/>Have browser-child.js receive autocomplete popup state</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Testing? Might need to write a mochitest-chrome test for the disableglobalhistory thing I just added… There are probably some tests for autocomplete.</div>
+<div><br/></div>
+<div>Done! Patches up, waiting on review and try builds to come back.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1946e2e0cb32"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1946e2e0cb32">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1946e2e0cb32</a></div>
+<div><br/></div>
+<div>Hrm, some test failures...</div>
+<div><br/></div>
+<div>links: [</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 400,</div>
+<div>        "lastVisitDate": 1458846436356786,</div>
+<div>        "type": "history",</div>
+<div>        "baseDomain": "mochi.test"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458846440374",</div>
+<div>        "title": "",</div>
+<div>        "frecency": 200,</div>
+<div>        "lastVisitDate": 1458846440424504,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setRedCookie%22%3Atrue%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 200,</div>
+<div>        "lastVisitDate": 1458846439491296,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setGreenCookie%22%3Atrue%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 200,</div>
+<div>        "lastVisitDate": 1458846439323235,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red_scroll.html",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458846440214518,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22wait%22%3A30000%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458846440098505,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22wait%22%3A2002%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458846439775091,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://example.com/",</div>
+<div>        "title": "mochitest index /",</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458846435260328,</div>
+<div>        "type": "history",</div>
+<div>        "baseDomain": "example.com"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://www.example.com/",</div>
+<div>        "title": "mochitest index /",</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458846435130426,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://example.com/redirected",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439968848,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://www.example.com/2",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439893551,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://www.example.com/1",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439750603,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://www.example.com/0",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439726366,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://example.com/1",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439639556,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/browser/base/content/test/general/authenticate.sjs?user=anyone",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846439124153,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://example.com/2",</div>
+<div>        "title": "404 Not Found",</div>
+<div>        "frecency": 0,</div>
+<div>        "lastVisitDate": 1458846438841313,</div>
+<div>        "type": "history"</div>
+<div>    }</div>
+<div>]</div>
+<div>Pinned links: []</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%7D</div>
+<div>Is http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%7D blocked? false pinned?: false</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458846440374</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setRedCookie%22%3Atrue%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setGreenCookie%22%3Atrue%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red_scroll.html</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22wait%22%3A30000%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22wait%22%3A2002%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://example.com/</div>
+<div>Is http://example.com/ blocked? false pinned?: false</div>
+<div>Evaluating http://www.example.com/</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://example.com/redirected</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://www.example.com/2</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://www.example.com/1</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://www.example.com/0</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://example.com/1</div>
+<div>SITE: example.com and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/browser/base/content/test/general/authenticate.sjs?user=anyone</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://example.com/2</div>
+<div>SITE: example.com and sites.has: true</div>
+<div><br/></div>
+<div><br/></div>
+<div>From without the patch:</div>
+<div><br/></div>
+<div>Holy fuck here are our links: [</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458847544471",</div>
+<div>        "title": "",</div>
+<div>        "frecency": 200,</div>
+<div>        "lastVisitDate": 1458847544512450,</div>
+<div>        "type": "history",</div>
+<div>        "baseDomain": "mochi.test"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red_scroll.html",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458847544326607,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setRedCookie%22%3Atrue%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458847543583004,</div>
+<div>        "type": "history"</div>
+<div>    },</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setGreenCookie%22%3Atrue%7D",</div>
+<div>        "title": null,</div>
+<div>        "frecency": 100,</div>
+<div>        "lastVisitDate": 1458847543300521,</div>
+<div>        "type": "history"</div>
+<div>    }</div>
+<div>]</div>
+<div>Pinned links: []</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458847544471</div>
+<div>Is http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458847544471 blocked? false pinned?: false</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red_scroll.html</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setRedCookie%22%3Atrue%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Evaluating http://mochi.test:8888/browser/toolkit/components/thumbnails/test/thumbnails_background.sjs?%7B%22setGreenCookie%22%3Atrue%7D</div>
+<div>SITE: mochi.test and sites.has: true</div>
+<div>Filtered links: [</div>
+<div>    {</div>
+<div>        "url": "http://mochi.test:8888/browser/toolkit/components/thumbnails/test/background_red.html?1458847544471",</div>
+<div>        "title": "",</div>
+<div>        "frecency": 200,</div>
+<div>        "lastVisitDate": 1458847544512450,</div>
+<div>        "type": "history",</div>
+<div>        "baseDomain": "mochi.test"</div>
+<div>    }</div>
+<div>]</div>
+<div><br/></div>
+<div>Ah, okay. We had some browsers out there that didn’t have disableglobalhistory set to true, and they should have. Gonna try to identify them all now.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bb0d94652586">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bb0d94652586</a></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

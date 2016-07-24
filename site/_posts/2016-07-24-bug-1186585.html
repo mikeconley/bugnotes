@@ -1,0 +1,2457 @@
+---
+layout: post
+title:  "Bug 1186585 - 28.2% - 48.5% tps talos regression with e10s enabled"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1186585">
+ Bug 1186585 - 28.2% - 48.5% tps talos regression with e10s enabled
+</a>
+<div>
+ With APZ disabled:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a2937311d493">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a2937311d493">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a2937311d493
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ profiling hacks:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=641e6026a4bf">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=641e6026a4bf">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=641e6026a4bf
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ With shims: 67.33891936518377
+</div>
+<div>
+ Without:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Profile without APZ without e10s enabled:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Profile without APZ with e10s enabled:
+</div>
+<div>
+ <a href="https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;selection=0,5727,5728,5729,5730,5249,5845,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,252">
+ </a>
+ <a href="https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;selection=0,5727,5728,5729,5730,5249,5845,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,252">
+  https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;selection=0,5727,5728,5729,5730,5249,5845,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,252
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Force blank: 95.53232025552467
+</div>
+<div>
+ e10s: 92.54241327988045
+</div>
+<div>
+ non-e10s: 56.89373736918958
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… why does the LayerTransaction take wayyyyy more time with e10s?:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ <a href="https://cleopatra.io/#report=7ec3fe2e552d8c2799eafa494d3317a5fb72e8d2&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A58229,%22end%22%3A59025%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A58337,%22end%22%3A58387%7D%5D&amp;selection=0,7152,7153,7153,7154,7155,7156,7158,1317,1494,1495,1496,1497,7167,7168,7169,7170,7171,7172,7173,7174,7175,7176,7177,7178,7179,7180,7181,7182,7183,7184,7185,7186,1141">
+  https://cleopatra.io/#report=7ec3fe2e552d8c2799eafa494d3317a5fb72e8d2&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A58229,%22end%22%3A59025%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A58337,%22end%22%3A58387%7D%5D&amp;selection=0,7152,7153,7153,7154,7155,7156,7158,1317,1494,1495,1496,1497,7167,7168,7169,7170,7171,7172,7173,7174,7175,7176,7177,7178,7179,7180,7181,7182,7183,7184,7185,7186,1141
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ e10s:
+</div>
+<div>
+ <a href="https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55686,%22end%22%3A55906%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55723,%22end%22%3A55777%7D%5D&amp;selection=0,5245,5246,5246,5247,5248,5249,5251,26,27,5255,5256,5257,5258,5259,5260,5261">
+ </a>
+ <a href="https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55686,%22end%22%3A55906%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55723,%22end%22%3A55777%7D%5D&amp;selection=0,5245,5246,5246,5247,5248,5249,5251,26,27,5255,5256,5257,5258,5259,5260,5261">
+  https://cleopatra.io/#report=39a2e259653bc181bf2790068697c8272c18be9e&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55686,%22end%22%3A55906%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A55723,%22end%22%3A55777%7D%5D&amp;selection=0,5245,5246,5246,5247,5248,5249,5251,26,27,5255,5256,5257,5258,5259,5260,5261
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Is this pattern consistent?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  non-e10s:
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -48 18; ]] [shadow-visible=&lt; (x=230, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -48 18; ]] [effective-transform=[ 1 0; 0 1; -48 18; ]] [bounds=(x=230, y=0, w=1800, h=62)] [visible=&lt; (x=230, y=0, w=1680, h=62); &gt;] [valid=&lt; (x=230, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x16db0e000) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x16db0ec00) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=5346)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1378); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fb6a0)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       ContainerLayerComposite (0x16db0e400) [shadow-visible=&lt; (x=1884, y=706, w=76, h=47); &gt;] [visible=&lt; (x=1884, y=706, w=76, h=47); &gt;] [opacity=0]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         PaintedLayerComposite (0x16db0e800) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=1884, y=548, w=76, h=47); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=1884, y=548, w=76, h=47)] [visible=&lt; (x=1884, y=548, w=76, h=47); &gt;] [valid=&lt; (x=1884, y=548, w=76, h=47); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |           TiledContentHost (0x1552fc420)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x16db0f000) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x16db0f400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc660)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -1076 18; ]] [shadow-visible=&lt; (x=1258, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1076 18; ]] [effective-transform=[ 1 0; 0 1; -1076 18; ]] [bounds=(x=1230, y=0, w=1800, h=62)] [visible=&lt; (x=1258, y=0, w=1680, h=62); &gt;] [valid=&lt; (x=1258, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x132ee0c00) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x13a56a400) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       ColorLayerComposite (0x13a56b000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x13b0ba400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x151fcf800) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc780)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -1030 18; ]] [shadow-visible=&lt; (x=1212, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1030 18; ]] [effective-transform=[ 1 0; 0 1; -1030 18; ]] [bounds=(x=1030, y=0, w=2000, h=62)] [visible=&lt; (x=1212, y=0, w=1680, h=62); &gt;] [valid=&lt; (x=1212, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x132ee0c00) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x13a56a400) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       ColorLayerComposite (0x13a56b000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x13b0ba400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x151fcf800) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc780)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -398 18; ]] [shadow-visible=&lt; (x=580, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -398 18; ]] [effective-transform=[ 1 0; 0 1; -398 18; ]] [bounds=(x=430, y=0, w=2000, h=62)] [visible=&lt; (x=580, y=0, w=1680, h=62); &gt;] [valid=&lt; (x=580, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x132ee0c00) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x13a56a400) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       ColorLayerComposite (0x13a56b000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x13b0ba400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x151fcf800) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc780)
+</div>
+<div>
+ 02:02:01     INFO -  PROCESS | 75400 |
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -40 18; ]] [shadow-visible=&lt; (x=230, y=0, w=1672, h=62); &gt;] [transform=[ 1 0; 0 1; -40 18; ]] [effective-transform=[ 1 0; 0 1; -40 18; ]] [bounds=(x=230, y=0, w=1800, h=62)] [visible=&lt; (x=230, y=0, w=1672, h=62); &gt;] [valid=&lt; (x=230, y=0, w=1672, h=62); &gt;]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x132ee0c00) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x13a56a400) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |       ColorLayerComposite (0x13a56b000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x13b0ba400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x151fcf800) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc780)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  e10s:
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2516 18; ]] [shadow-visible=&lt; (x=2698, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2516 18; ]] [effective-transform=[ 1 0; 0 1; -2516 18; ]] [bounds=(x=2630, y=0, w=1800, h=62)] [visible=&lt; (x=2698, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2630, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=2630, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=2698, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     RefLayerComposite (0x114d05000) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [id=53]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ContainerLayerComposite (0x12deaf400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [effective-transform=[ 1 0; 0 1; 0 158; ]] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |         PaintedLayerComposite (0x12ab12c00) [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |         PaintedLayerComposite (0x12deb0000) [shadow-clip=(x=0, y=0, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=5346)] [visible=&lt; (x=0, y=0, w=2048, h=1379); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=5346); &gt;} [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1378.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=2672.966553)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=689.500000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(255, 255, 255, 1.000000)] [scrollId=36] [rcd] [clip=(x=0, y=0, w=2048, h=1378)] [z=2] }] [valid=&lt; (x=0, y=0, w=2048, h=1379); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |           TiledContentHost (0x12a3d9280)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2902 18; ]] [shadow-visible=&lt; (x=3084, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2902 18; ]] [effective-transform=[ 1 0; 0 1; -2902 18; ]] [bounds=(x=3030, y=0, w=1800, h=62)] [visible=&lt; (x=3084, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=3030, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=3030, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=3084, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x12a3eb400) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2782 18; ]] [shadow-visible=&lt; (x=2964, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2782 18; ]] [effective-transform=[ 1 0; 0 1; -2782 18; ]] [bounds=(x=2830, y=0, w=2000, h=62)] [visible=&lt; (x=2964, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2830, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=2830, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=2964, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2060 18; ]] [shadow-visible=&lt; (x=2242, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2060 18; ]] [effective-transform=[ 1 0; 0 1; -2060 18; ]] [bounds=(x=2230, y=0, w=1800, h=62)] [visible=&lt; (x=2242, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2230, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=2230, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=2242, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x115648800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1894 18; ]] [shadow-visible=&lt; (x=2076, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1894 18; ]] [effective-transform=[ 1 0; 0 1; -1894 18; ]] [bounds=(x=2030, y=0, w=1800, h=62)] [visible=&lt; (x=2076, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2030, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=2030, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=2076, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1754 18; ]] [shadow-visible=&lt; (x=1936, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1754 18; ]] [effective-transform=[ 1 0; 0 1; -1754 18; ]] [bounds=(x=1830, y=0, w=1800, h=62)] [visible=&lt; (x=1936, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1830, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=1830, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=1936, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x11429ac00) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1612 18; ]] [shadow-visible=&lt; (x=1794, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1612 18; ]] [effective-transform=[ 1 0; 0 1; -1612 18; ]] [bounds=(x=1630, y=0, w=2000, h=62)] [visible=&lt; (x=1794, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1630, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=1630, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=1794, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1478 18; ]] [shadow-visible=&lt; (x=1660, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1478 18; ]] [effective-transform=[ 1 0; 0 1; -1478 18; ]] [bounds=(x=1630, y=0, w=1800, h=62)] [visible=&lt; (x=1660, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1630, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=1630, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=1660, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x115648800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1354 18; ]] [shadow-visible=&lt; (x=1536, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1354 18; ]] [effective-transform=[ 1 0; 0 1; -1354 18; ]] [bounds=(x=1430, y=0, w=1800, h=62)] [visible=&lt; (x=1536, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1430, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=1430, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=1536, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1234 18; ]] [shadow-visible=&lt; (x=1416, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1234 18; ]] [effective-transform=[ 1 0; 0 1; -1234 18; ]] [bounds=(x=1230, y=0, w=2000, h=62)] [visible=&lt; (x=1416, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1230, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=1230, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=1416, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x11429ac00) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1124 18; ]] [shadow-visible=&lt; (x=1306, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1124 18; ]] [effective-transform=[ 1 0; 0 1; -1124 18; ]] [bounds=(x=1230, y=0, w=1800, h=62)] [visible=&lt; (x=1306, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1230, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=1230, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=1306, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1040 18; ]] [shadow-visible=&lt; (x=1222, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1040 18; ]] [effective-transform=[ 1 0; 0 1; -1040 18; ]] [bounds=(x=1030, y=0, w=2000, h=62)] [visible=&lt; (x=1222, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1030, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=1030, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=1222, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x115648800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1516 18; ]] [shadow-visible=&lt; (x=1698, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1516 18; ]] [effective-transform=[ 1 0; 0 1; -1516 18; ]] [bounds=(x=1630, y=0, w=1800, h=62)] [visible=&lt; (x=1698, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=1630, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=1630, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=1698, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -1970 18; ]] [shadow-visible=&lt; (x=2152, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -1970 18; ]] [effective-transform=[ 1 0; 0 1; -1970 18; ]] [bounds=(x=2030, y=0, w=2000, h=62)] [visible=&lt; (x=2152, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2030, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=2030, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=2152, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x112af1800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2402 18; ]] [shadow-visible=&lt; (x=2584, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2402 18; ]] [effective-transform=[ 1 0; 0 1; -2402 18; ]] [bounds=(x=2430, y=0, w=2000, h=62)] [visible=&lt; (x=2584, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2430, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=2430, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=2584, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -2810 18; ]] [shadow-visible=&lt; (x=2992, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -2810 18; ]] [effective-transform=[ 1 0; 0 1; -2810 18; ]] [bounds=(x=2830, y=0, w=2000, h=62)] [visible=&lt; (x=2992, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=2830, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=2830, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=2992, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x112af1800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -3198 18; ]] [shadow-visible=&lt; (x=3380, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -3198 18; ]] [effective-transform=[ 1 0; 0 1; -3198 18; ]] [bounds=(x=3230, y=0, w=2000, h=62)] [visible=&lt; (x=3380, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=3230, y=0, w=2000, h=62); &gt; dispatchtocontentregion=&lt; (x=3230, y=0, w=2000, h=62); &gt;} [valid=&lt; (x=3380, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x114d05000) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -3564 18; ]] [shadow-visible=&lt; (x=3746, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -3564 18; ]] [effective-transform=[ 1 0; 0 1; -3564 18; ]] [bounds=(x=3630, y=0, w=1800, h=62)] [visible=&lt; (x=3746, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=3630, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=3630, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=3746, y=0, w=1680, h=62); &gt;]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x112af1800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  non-e10s (last):
+ </b>
+</div>
+<div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 | LayerManager (0x110e983a0) --- in 3D-sorted rendering order
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |   ContainerLayerComposite (0x124daa000) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x124dab400) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=158); &gt;]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |       TiledContentHost (0x1292dbc00)
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |     PaintedLayerComposite (0x133926c00) [shadow-transform=[ 1 0; 0 1; -40 18; ]] [shadow-visible=&lt; (x=230, y=0, w=1672, h=62); &gt;] [transform=[ 1 0; 0 1; -40 18; ]] [effective-transform=[ 1 0; 0 1; -40 18; ]] [bounds=(x=230, y=0, w=1800, h=62)] [visible=&lt; (x=230, y=0, w=1672, h=62); &gt;] [valid=&lt; (x=230, y=0, w=1672, h=62); &gt;]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |       TiledContentHost (0x1552fa800)
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x132ee0c00) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x13a56a400) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |       ColorLayerComposite (0x13a56b000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |     ContainerLayerComposite (0x13b0ba400) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha]
+ </div>
+ <div>
+  02:02:02     INFO -  PROCESS | 75400 |       PaintedLayerComposite (0x151fcf800) [shadow-visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [bounds=(x=0, y=1499, w=1011, h=37)] [visible=&lt; (x=0, y=1499, w=1011, h=37); &gt;] [componentAlpha] [valid=&lt; (x=0, y=1499, w=1011, h=37); &gt;]
+ </div>
+</div>
+<div>
+ 02:02:02     INFO -  PROCESS | 75400 |         TiledContentHost (0x1552fc780)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  e10s (last):
+ </b>
+</div>
+<div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 | LayerManager (0x1114983a0) --- in 3D-sorted rendering order
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |   ContainerLayerComposite (0x125787c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [visible=&lt; (x=0, y=0, w=2048, h=1536); &gt;] [opaqueContent] [metrics0={ [cb=(x=0.000000, y=0.000000, w=2048.000000, h=1536.000000)] [sr=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [s=(0,0)] [dp=(x=0.000000, y=0.000000, w=1024.000000, h=768.000000)] [cdp=(x=0.000000, y=0.000000, w=0.000000, h=0.000000)] [color=rgba(0, 0, 0, 0.000000)] [scrollId=8] [z=2] }]
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125791c00) [shadow-visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] [bounds=(x=0, y=0, w=2048, h=1536)] [visible=&lt; (x=0, y=0, w=2048, h=158); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1536); &gt;} [opaqueContent] [valid=&lt; (x=0, y=0, w=2048, h=1536); &gt;]
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d7ae0)
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |     PaintedLayerComposite (0x125785c00) [shadow-transform=[ 1 0; 0 1; -3564 18; ]] [shadow-visible=&lt; (x=3746, y=0, w=1680, h=62); &gt;] [transform=[ 1 0; 0 1; -3564 18; ]] [effective-transform=[ 1 0; 0 1; -3564 18; ]] [bounds=(x=3630, y=0, w=1800, h=62)] [visible=&lt; (x=3746, y=0, w=1680, h=62); &gt;] { hitregion=&lt; (x=3630, y=0, w=1800, h=62); &gt; dispatchtocontentregion=&lt; (x=3630, y=0, w=1800, h=62); &gt;} [valid=&lt; (x=3746, y=0, w=1680, h=62); &gt;]
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |       TiledContentHost (0x12a3d8bc0)
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |     ContainerLayerComposite (0x126f82400) [shadow-clip=(x=0, y=158, w=2048, h=1378)] [shadow-visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [clip=(x=0, y=158, w=2048, h=1378)] [visible=&lt; (x=0, y=158, w=2048, h=1378); &gt;] [opaqueContent]
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x112af1800) [not visible] { hitregion=&lt; (x=0, y=158, w=2048, h=1378); &gt;} [opaqueContent]
+ </div>
+ <div>
+  01:56:24     INFO -  PROCESS | 75199 |       PaintedLayerComposite (0x127bd8000) [shadow-clip=(x=0, y=0, w=0, h=0)] [shadow-transform=[ 1 0; 0 1; 0 158; ]] [clip=(x=0, y=0, w=0, h=0)] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [not visible]
+ </div>
+</div>
+<div>
+ 01:56:24     INFO -  PROCESS | 75199 |       ColorLayerComposite (0x129dd9000) [shadow-transform=[ 1 0; 0 1; 0 158; ]] [shadow-visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] [transform=[ 1 0; 0 1; 0 158; ]] [effective-transform=[ 1 0; 0 1; 0 158; ]] [bounds=(x=0, y=0, w=2048, h=1378)] [visible=&lt; (x=0, y=0, w=2048, h=1378); &gt;] { hitregion=&lt; (x=0, y=0, w=2048, h=1378); &gt;} [opaqueContent] [color=rgba(255, 255, 255, 1.000000)] [bounds=(x=0, y=0, w=2048, h=1378)]
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  non-e10s:
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: true, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 57152
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: true, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 203056
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: true, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 203056
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:51:31     INFO -  PROCESS | 87797 | Rects: 1, size: 0
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  e10s:
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 172224
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 172224
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 178112
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 178112
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:58     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 16777216
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 1
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 0
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 184000
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: true, pixBuf: false, format: Gate 3
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Rects: 1, size: 184000
+</div>
+<div>
+ 02:48:59     INFO -  PROCESS | 87596 | Upload - needInit: false, pixBuf: false, format: Gate 3
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input type="checkbox"/>
+ Does paint suppression give us parity on Windows? If we use CSS animations for the tab spinners, we don’t lock them up when RefreshDriver fails to run
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ New profiles baking:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a6b2f0b427ec">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a6b2f0b427ec">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a6b2f0b427ec
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ george patch: 73.09621953957327
+</div>
+<div>
+ 74.62185769646348
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=11edb6e858c5">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=11edb6e858c5">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=11edb6e858c5
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ e10s:
+</div>
+<div>
+ 1:31:13     INFO -  PROCESS | 23838 | [#0] amazon.com/www.amazon.com/Kindle-Wireless-Reader-Wifi-Graphite/dp/B002Y27P3M/507846.html  Cycles:1  Average:91.00  Median:91.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 91.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#1] cgi.ebay.com/cgi.ebay.com/ALL-NEW-KINDLE-3-eBOOK-WIRELESS-READING-DEVICE-W-WIFI-/130496077314@pt=LH_DefaultDomain_0&amp;hash=item1e622c1e02.html  Cycles:1  Average:56.00  Median:56.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 56.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#2] 163.com/www.163.com/index.html  Cycles:1  Average:96.00  Median:96.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 96.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#3] mail.ru/mail.ru/index.html  Cycles:1  Average:49.00  Median:49.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 49.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#4] bbc.co.uk/www.bbc.co.uk/news/index.html  Cycles:1  Average:34.00  Median:34.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 34.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#5] store.apple.com/store.apple.com/us@mco=Nzc1MjMwNA.html  Cycles:1  Average:48.00  Median:48.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 48.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#6] imdb.com/www.imdb.com/title/tt1099212/index.html  Cycles:1  Average:40.00  Median:40.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 40.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#7] cnn.com/www.cnn.com/index.html  Cycles:1  Average:36.00  Median:36.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 36.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#8] sohu.com/www.sohu.com/index.html  Cycles:1  Average:85.00  Median:85.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 85.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#9] youku.com/www.youku.com/index.html  Cycles:1  Average:52.00  Median:52.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 52.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#10] ifeng.com/ifeng.com/index.html  Cycles:1  Average:108.00  Median:108.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 108.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#11] tudou.com/www.tudou.com/index.html  Cycles:1  Average:44.00  Median:44.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 44.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#12] chemistry.about.com/chemistry.about.com/index.html  Cycles:1  Average:31.00  Median:31.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 31.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#13] beatonna.livejournal.com/beatonna.livejournal.com/index.html  Cycles:1  Average:40.00  Median:40.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 40.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#14] rakuten.co.jp/www.rakuten.co.jp/index.html  Cycles:1  Average:67.00  Median:67.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 67.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#15] uol.com.br/www.uol.com.br/index.html  Cycles:1  Average:32.00  Median:32.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 32.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#16] thepiratebay.org/thepiratebay.org/top/201.html  Cycles:1  Average:34.00  Median:34.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 34.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#17] page.renren.com/page.renren.com/index.html  Cycles:1  Average:32.00  Median:32.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 32.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#18] chinaz.com/chinaz.com/index.html  Cycles:1  Average:76.00  Median:76.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 76.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#19] globo.com/www.globo.com/index.html  Cycles:1  Average:43.00  Median:43.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 43.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#20] spiegel.de/www.spiegel.de/index.html  Cycles:1  Average:33.00  Median:33.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 33.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#21] dailymotion.com/www.dailymotion.com/us.html  Cycles:1  Average:23.00  Median:23.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 23.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#22] goo.ne.jp/goo.ne.jp/index.html  Cycles:1  Average:65.00  Median:65.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 65.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#23] stackoverflow.com/stackoverflow.com/questions/184618/what-is-the-best-comment-in-source-code-you-have-ever-encountered.html  Cycles:1  Average:34.00  Median:34.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 34.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#24] ezinearticles.com/ezinearticles.com/index.html@Migraine-Ocular---The-Eye-Migraines&amp;id=4684133.html  Cycles:1  Average:35.00  Median:35.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 35.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#25] huffingtonpost.com/www.huffingtonpost.com/index.html  Cycles:1  Average:31.00  Median:31.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 31.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#26] media.photobucket.com/media.photobucket.com/image/funny%20gif/findstuff22/Best%20Images/Funny/funny-gif1.jpg@o=1.html  Cycles:1  Average:35.00  Median:35.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 35.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#27] imgur.com/imgur.com/gallery/index.html  Cycles:1  Average:29.00  Median:29.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 29.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#28] reddit.com/www.reddit.com/index.html  Cycles:1  Average:35.00  Median:35.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 35.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#29] noimpactman.typepad.com/noimpactman.typepad.com/index.html  Cycles:1  Average:50.00  Median:50.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 50.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#30] myspace.com/www.myspace.com/albumart.html  Cycles:1  Average:68.00  Median:68.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 68.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#31] mashable.com/mashable.com/index.html  Cycles:1  Average:45.00  Median:45.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 45.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#32] dailymail.co.uk/www.dailymail.co.uk/ushome/index.html  Cycles:1  Average:43.00  Median:43.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 43.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#33] whois.domaintools.com/whois.domaintools.com/mozilla.com.html  Cycles:1  Average:21.00  Median:21.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 21.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#34] indiatimes.com/www.indiatimes.com/index.html  Cycles:1  Average:33.00  Median:33.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 33.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#35] reuters.com/www.reuters.com/index.html  Cycles:1  Average:24.00  Median:24.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 24.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#36] xinhuanet.com/xinhuanet.com/index.html  Cycles:1  Average:117.00  Median:117.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 117.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#37] 56.com/www.56.com/index.html  Cycles:1  Average:76.00  Median:76.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 76.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#38] bild.de/www.bild.de/index.html  Cycles:1  Average:22.00  Median:22.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 22.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#39] guardian.co.uk/www.guardian.co.uk/index.html  Cycles:1  Average:33.00  Median:33.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 33.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#40] naver.com/www.naver.com/index.html  Cycles:1  Average:88.00  Median:88.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 88.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#41] yelp.com/www.yelp.com/biz/alexanders-steakhouse-cupertino.html  Cycles:1  Average:48.00  Median:48.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 48.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#42] wsj.com/online.wsj.com/home-page.html  Cycles:1  Average:54.00  Median:54.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 54.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#43] google.com/www.google.com/search@q=mozilla.html  Cycles:1  Average:47.00  Median:47.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 47.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#44] xunlei.com/xunlei.com/index.html  Cycles:1  Average:51.00  Median:51.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 51.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#45] aljazeera.net/aljazeera.net/portal.html  Cycles:1  Average:35.00  Median:35.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 35.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#46] w3.org/www.w3.org/standards/webdesign/htmlcss.html  Cycles:1  Average:37.00  Median:37.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 37.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#47] homeway.com.cn/www.hexun.com/index.html  Cycles:1  Average:90.00  Median:90.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 90.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#48] youtube.com/www.youtube.com/music.html  Cycles:1  Average:43.00  Median:43.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 43.0
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 |
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | [#49] people.com.cn/people.com.cn/index.html  Cycles:1  Average:125.00  Median:125.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:31:13     INFO -  PROCESS | 23838 | Values: 125.0
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#0] amazon.com/www.amazon.com/Kindle-Wireless-Reader-Wifi-Graphite/dp/B002Y27P3M/507846.html  Cycles:1  Average:0.00  Median:0.00  stddev:0.00 (NaN%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 0.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#1] cgi.ebay.com/cgi.ebay.com/ALL-NEW-KINDLE-3-eBOOK-WIRELESS-READING-DEVICE-W-WIFI-/130496077314@pt=LH_DefaultDomain_0&amp;hash=item1e622c1e02.html  Cycles:1  Average:15.00  Median:15.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 15.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#2] 163.com/www.163.com/index.html  Cycles:1  Average:22.00  Median:22.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 22.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#3] mail.ru/mail.ru/index.html  Cycles:1  Average:16.00  Median:16.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 16.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#4] bbc.co.uk/www.bbc.co.uk/news/index.html  Cycles:1  Average:37.00  Median:37.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 37.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#5] store.apple.com/store.apple.com/us@mco=Nzc1MjMwNA.html  Cycles:1  Average:58.00  Median:58.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 58.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#6] imdb.com/www.imdb.com/title/tt1099212/index.html  Cycles:1  Average:16.00  Median:16.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 16.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#7] cnn.com/www.cnn.com/index.html  Cycles:1  Average:70.00  Median:70.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 70.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#8] sohu.com/www.sohu.com/index.html  Cycles:1  Average:102.00  Median:102.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 102.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#9] youku.com/www.youku.com/index.html  Cycles:1  Average:12.00  Median:12.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 12.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#10] ifeng.com/ifeng.com/index.html  Cycles:1  Average:15.00  Median:15.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 15.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#11] tudou.com/www.tudou.com/index.html  Cycles:1  Average:55.00  Median:55.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 55.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#12] chemistry.about.com/chemistry.about.com/index.html  Cycles:1  Average:21.00  Median:21.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 21.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#13] beatonna.livejournal.com/beatonna.livejournal.com/index.html  Cycles:1  Average:36.00  Median:36.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 36.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#14] rakuten.co.jp/www.rakuten.co.jp/index.html  Cycles:1  Average:79.00  Median:79.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 79.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#15] uol.com.br/www.uol.com.br/index.html  Cycles:1  Average:39.00  Median:39.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 39.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#16] thepiratebay.org/thepiratebay.org/top/201.html  Cycles:1  Average:33.00  Median:33.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 33.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#17] page.renren.com/page.renren.com/index.html  Cycles:1  Average:41.00  Median:41.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 41.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#18] chinaz.com/chinaz.com/index.html  Cycles:1  Average:74.00  Median:74.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 74.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#19] globo.com/www.globo.com/index.html  Cycles:1  Average:13.00  Median:13.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 13.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#20] spiegel.de/www.spiegel.de/index.html  Cycles:1  Average:30.00  Median:30.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 30.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#21] dailymotion.com/www.dailymotion.com/us.html  Cycles:1  Average:-1.00  Median:-1.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: -1.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#22] goo.ne.jp/goo.ne.jp/index.html  Cycles:1  Average:13.00  Median:13.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 13.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#23] stackoverflow.com/stackoverflow.com/questions/184618/what-is-the-best-comment-in-source-code-you-have-ever-encountered.html  Cycles:1  Average:53.00  Median:53.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 53.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#24] ezinearticles.com/ezinearticles.com/index.html@Migraine-Ocular---The-Eye-Migraines&amp;id=4684133.html  Cycles:1  Average:29.00  Median:29.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 29.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#25] huffingtonpost.com/www.huffingtonpost.com/index.html  Cycles:1  Average:43.00  Median:43.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 43.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#26] media.photobucket.com/media.photobucket.com/image/funny%20gif/findstuff22/Best%20Images/Funny/funny-gif1.jpg@o=1.html  Cycles:1  Average:35.00  Median:35.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 35.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#27] imgur.com/imgur.com/gallery/index.html  Cycles:1  Average:27.00  Median:27.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 27.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#28] reddit.com/www.reddit.com/index.html  Cycles:1  Average:-3.00  Median:-3.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: -3.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#29] noimpactman.typepad.com/noimpactman.typepad.com/index.html  Cycles:1  Average:53.00  Median:53.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 53.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#30] myspace.com/www.myspace.com/albumart.html  Cycles:1  Average:12.00  Median:12.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 12.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#31] mashable.com/mashable.com/index.html  Cycles:1  Average:40.00  Median:40.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 40.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#32] dailymail.co.uk/www.dailymail.co.uk/ushome/index.html  Cycles:1  Average:41.00  Median:41.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 41.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#33] whois.domaintools.com/whois.domaintools.com/mozilla.com.html  Cycles:1  Average:29.00  Median:29.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 29.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#34] indiatimes.com/www.indiatimes.com/index.html  Cycles:1  Average:42.00  Median:42.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 42.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#35] reuters.com/www.reuters.com/index.html  Cycles:1  Average:44.00  Median:44.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 44.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#36] xinhuanet.com/xinhuanet.com/index.html  Cycles:1  Average:87.00  Median:87.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 87.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#37] 56.com/www.56.com/index.html  Cycles:1  Average:19.00  Median:19.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 19.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#38] bild.de/www.bild.de/index.html  Cycles:1  Average:13.00  Median:13.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 13.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#39] guardian.co.uk/www.guardian.co.uk/index.html  Cycles:1  Average:43.00  Median:43.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 43.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#40] naver.com/www.naver.com/index.html  Cycles:1  Average:90.00  Median:90.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 90.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#41] yelp.com/www.yelp.com/biz/alexanders-steakhouse-cupertino.html  Cycles:1  Average:23.00  Median:23.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 23.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#42] wsj.com/online.wsj.com/home-page.html  Cycles:1  Average:45.00  Median:45.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 45.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#43] google.com/www.google.com/search@q=mozilla.html  Cycles:1  Average:30.00  Median:30.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 30.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#44] xunlei.com/xunlei.com/index.html  Cycles:1  Average:80.00  Median:80.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 80.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#45] aljazeera.net/aljazeera.net/portal.html  Cycles:1  Average:-2.00  Median:-2.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: -2.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#46] w3.org/www.w3.org/standards/webdesign/htmlcss.html  Cycles:1  Average:45.00  Median:45.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 45.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#47] homeway.com.cn/www.hexun.com/index.html  Cycles:1  Average:14.00  Median:14.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 14.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#48] youtube.com/www.youtube.com/music.html  Cycles:1  Average:37.00  Median:37.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 37.0
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 |
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | [#49] people.com.cn/people.com.cn/index.html  Cycles:1  Average:89.00  Median:89.00  stddev:0.00 (0.0%)
+</div>
+<div>
+ 11:34:25     INFO -  PROCESS | 24050 | Values: 89.0
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://cleopatra.io/#report=94f8d662c30ec913b5d407034c988ef788e352dd&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A106752,%22end%22%3A110791%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109390,%22end%22%3A110716%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109510,%22end%22%3A110662%7D%5D&amp;selection=0,4527,4528,4529,4530,4197,4531,8,9,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,5780,6014,5782,5783,748,749,29,30,31,32,33,34,35,36,37,42,6263,6264,6265">
+ </a>
+ <a href="https://cleopatra.io/#report=94f8d662c30ec913b5d407034c988ef788e352dd&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A106752,%22end%22%3A110791%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109390,%22end%22%3A110716%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109510,%22end%22%3A110662%7D%5D&amp;selection=0,4527,4528,4529,4530,4197,4531,8,9,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,5780,6014,5782,5783,748,749,29,30,31,32,33,34,35,36,37,42,6263,6264,6265">
+  https://cleopatra.io/#report=94f8d662c30ec913b5d407034c988ef788e352dd&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A106752,%22end%22%3A110791%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109390,%22end%22%3A110716%7D,%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A109510,%22end%22%3A110662%7D%5D&amp;selection=0,4527,4528,4529,4530,4197,4531,8,9,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,5780,6014,5782,5783,748,749,29,30,31,32,33,34,35,36,37,42,6263,6264,6265
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

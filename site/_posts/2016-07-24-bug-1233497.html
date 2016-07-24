@@ -1,0 +1,2756 @@
+---
+layout: post
+title:  "Bug 1233497 - Make unsafe CPOWs from non-addon browser code throw by default"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1233497">
+ Bug 1233497 - Make unsafe CPOWs from non-addon browser code throw by default
+</a>
+<div>
+ Anti-pattern: Resolve a DOM Promise with a CPOW. Do not do this!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4141c99c0de7&amp;selectedJob=14916334">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4141c99c0de7&amp;selectedJob=14916334
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug329212.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/layout/xul/test/browser_bug706743.js">
+  https://dxr.mozilla.org/mozilla-central/source/layout/xul/test/browser_bug706743.js
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug331772_xul_tooltiptext_in_html.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug561623.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug581947.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug710878.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_clipboard.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_plainTextLinks.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_selectpopup.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_typeAheadFind.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_visibleFindSelection.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ browser/base/content/test/general/browser_bug517902.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_broadcast.js | Uncaught exception - at resource://app/modules/sessionstore/TabState.jsm:98 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ These 3 are failing for non-e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_broadcast.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_capabilities.js | A promise chain failed to handle a rejection: - at chrome://mochikit/content/browser-test.js:817 - TypeError:
+ <a href="http://this.SimpleTest.info">
+  this.SimpleTest.info
+ </a>
+ is not a function
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | dom/ipc/tests/test_bug1086684.html | Test timed out.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | toolkit/components/perfmonitoring/tests/browser/browser_addonPerformanceAlerts_2.js | Got the CPOW burner -
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Devtools failures below
+ </b>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/inspector/test/browser_inspector_keyboard-shortcuts.js | Test timed out -
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_keybindings_04.js | Uncaught exception - at chrome://browser/content/nsContextMenu.js:581 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_keybindings_delete_attributes.js | Test timed out -
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_links_02.js | Uncaught exception - at chrome://mochitests/content/browser/devtools/client/markupview/test/head.js:377 - TypeError: inplaceEditor(...) is undefined
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_navigation.js | Found the doctype after pressing pageup - Got 1, expected 10
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_search_01.js | A promise chain failed to handle a rejection: - at resource://gre/modules/PlacesUtils.jsm:1045 - Component returned failure code: 0x80070057 (NS_ERROR_ILLEGAL_VALUE) [nsINavBookmarksService.getBookmarkIdsForURI]
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_search_01.js | Test timed out -
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_basic.js | Uncaught exception - at resource://gre/modules/Task.jsm:275 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_dynamic_updates.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_sidebar.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_values.js | Test timed out -
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_emitMutations.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_getFrames.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_getMultipleStates.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_getPlayers.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_getStateAfterFinished.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_getSubTreeAnimations.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_keepFinished.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_playPauseIframe.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_playPauseSeveral.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_playerState.js | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_reconstructState.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_refreshTransitions.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_setCurrentTime.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_setPlaybackRate.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_simple.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-cycle-collection.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-01.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-02.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-03.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-gc.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-parse-html.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-styles.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-timestamp.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-profiler-01.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-realtime-markers.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-samples-01.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-samples-02.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_dynamic_windows.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_listings.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_updates.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_stylesheets_getTextEmpty.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_stylesheets_nested-iframes.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline_actors.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline_iframes.js
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ TEST-UNEXPECTED-FAIL | devtools/client/inspector/test/browser_inspector_initialization.js | Uncaught exception - at chrome://browser/content/nsContextMenu.js:581 - Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Fix the devtools/client/inspector/test/ context menu bug
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Two more fixed failures...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5a91058a71f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5a91058a71f
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f" rel="noreferrer" target="_blank">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending NoSuchElementError: EM_find@chrome://marionette/content/elements.js:555:51
+</div>
+<div>
+ findElementContent/&lt;@chrome://marionette/content/listener.js:1421:5
+</div>
+<div>
+ findElementContent@chrome://marionette/content/listener.js:1420:10
+</div>
+<div>
+ dispatch/&lt;/req&lt;@chrome://marionette/content/listener.js:175:22
+</div>
+<div>
+ TaskImpl_run@resource://gre/modules/Task.jsm:315:40
+</div>
+<div>
+ TaskImpl@resource://gre/modules/Task.jsm:276:3
+</div>
+<div>
+ createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:250:14
+</div>
+<div>
+ Task_spawn@resource://gre/modules/Task.jsm:164:12
+</div>
+<div>
+ dispatch/&lt;@chrome://marionette/content/listener.js:171:15
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 0:01.90 TEST_START: MainThread test_click.py TestClick.test_clicking_a_link_made_up_of_numbers_is_handled_correctly
+</div>
+<div>
+ 1452273267889    Marionette    INFO    Accepted connection conn3 from 127.0.0.1:55635
+</div>
+<div>
+ 1452273267893    Marionette    INFO    Accepted connection conn4 from 127.0.0.1:55636
+</div>
+<div>
+ 1452273267894    Marionette    INFO    Closed connection conn4
+</div>
+<div>
+ 1452273267899    Marionette    DEBUG    conn3 -&gt; Command {id: 1, name: "newSession", parameters: {"sessionId":null,"capabilities":null}}
+</div>
+<div>
+ 1452273267903    Marionette    INFO    loaded listener.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:register
+</div>
+<div>
+ 1452273267907    Marionette    INFO    loaded listener.js
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:register
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:listenersAttached
+</div>
+<div>
+ 1452273267908    Marionette    DEBUG    conn3 &lt;- Response {id: 1, error: null, body: {"sessionId":"09a0c746-a046-da4c-8f9c-e90ecdba2752","capabilities":{"browserName":"Firefox","browserVersion":"46.0a1","platformName":"Darwin","platformVersion":"14.5.0","specificationLevel":"1","raisesAccessibilityExceptions":false,"rotatable":false,"acceptSslCerts":false,"takesElementScreenshot":true,"takesScreenshot":true,"proxy":{},"platform":"DARWIN","XULappId":"{ec8030f7-c20a-464f-9b0e-13a3a9e97384}","appBuildId":"20160107160939","device":"desktop","version":"46.0a1"}}}
+</div>
+<div>
+ 1452273267910    Marionette    DEBUG    conn3 -&gt; Command {id: 2, name: "timeouts", parameters: {"type":"page load","ms":30000}}
+</div>
+<div>
+ 1452273267910    Marionette    DEBUG    conn3 &lt;- Response {id: 2, error: null, body: {}}
+</div>
+<div>
+ 1452273267911    Marionette    DEBUG    conn3 -&gt; Command {id: 3, name: "setTestName", parameters: {"value":"test_click.py TestClick.test_clicking_a_link_made_up_of_numbers_is_handled_correctly"}}
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273267912    Marionette    DEBUG    conn3 &lt;- Response {id: 3, error: null, body: {}}
+</div>
+<div>
+ 1452273267918    Marionette    DEBUG    conn3 -&gt; Command {id: 4, name: "executeScript", parameters: {"scriptTimeout":null,"newSandbox":true,"args":[],"filename":"marionette_test.py","script":"log('TEST-START: /Users/mikeconley/Projects/mozilla-central/testing/marionette/client/marionette/tests/unit/test_click.py:test_clicking_a_link_made_up_of_numbers_is_handled_correctly')","sandbox":"default","line":737}}
+</div>
+<div>
+ MARIONETTE LOG: INFO: TEST-START: /Users/mikeconley/Projects/mozilla-central/testing/marionette/client/marionette/tests/unit/test_click.py:test_clicking_a_link_made_up_of_numbers_is_handled_correctly
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:shareData
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:done
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:done
+</div>
+<div>
+ 1452273267920    Marionette    DEBUG    conn3 &lt;- Response {id: 4, error: null, body: {"value":null}}
+</div>
+<div>
+ 1452273267921    Marionette    DEBUG    conn3 -&gt; Command {id: 5, name: "get", parameters: {"url":"http://127.0.0.1:55634/clicks.html"}}
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:switchedToFrame
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Driver received message: Marionette:register
+ </b>
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ <b>
+  Driver received message: Marionette:listenersAttached
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273268466    Marionette    DEBUG    conn3 &lt;- Response {id: 5, error: null, body: {}}
+</div>
+<div>
+ 1452273268467    Marionette    DEBUG    conn3 -&gt; Command {id: 6, name: "findElement", parameters: {"using":"link text","value":"333333"}}
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FINDING AN ELEMENT!!!!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FIND entered
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ CHECKING RESPONSE??
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:done
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:done
+</div>
+<div>
+ 1452273268470    Marionette    DEBUG    conn3 &lt;- Response {id: 6, error: null, body: {"value":{"ELEMENT":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216","element-6066-11e4-a52e-4f735466cecf":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216"}}}
+</div>
+<div>
+ 1452273268471    Marionette    DEBUG    conn3 -&gt; Command {id: 7, name: "clickElement", parameters: {"id":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216"}}
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TOLD TO CLICK ON: 3d7c2c8b-0db5-584d-b66a-ce7972c0a216
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Getting accessibile thing...
+</div>
+<div>
+ ENTERING
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Trying to get accessible for thing...100
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GOT THE ACCESSIBLE OBJECT
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ CHECKING RESPONSE??
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273268493    Marionette    DEBUG    conn3 &lt;- Response {id: 7, error: null, body: {}}
+</div>
+<div>
+ 1452273268494    Marionette    DEBUG    conn3 -&gt; Command {id: 8, name: "findElement", parameters: {"using":"id","value":"username"}}
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FINDING AN ELEMENT!!!!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FIND entered
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Entered first block
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ RU ROH 1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending NoSuchElementError: EM_find@chrome://marionette/content/elements.js:555:51
+</div>
+<div>
+ findElementContent/&lt;@chrome://marionette/content/listener.js:1423:5
+</div>
+<div>
+ findElementContent@chrome://marionette/content/listener.js:1422:10
+</div>
+<div>
+ dispatch/&lt;/req&lt;@chrome://marionette/content/listener.js:175:22
+</div>
+<div>
+ TaskImpl_run@resource://gre/modules/Task.jsm:315:40
+</div>
+<div>
+ TaskImpl@resource://gre/modules/Task.jsm:276:3
+</div>
+<div>
+ createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:250:14
+</div>
+<div>
+ Task_spawn@resource://gre/modules/Task.jsm:164:12
+</div>
+<div>
+ dispatch/&lt;@chrome://marionette/content/listener.js:171:15
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sent it!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sending message: Marionette:error
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Driver received message: Marionette:error
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The Exception that we’re raising is the CPOW? Yes indeed!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Need to post a concern message to the bug… something like:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "Having worked on fixing up these tests, I’m slightly worried about how this is going to affect add-ons going forward.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The CPOW restriction that billm’s patch adds does a great job of making sure that CPOWs can only be used within add-on compartments. It is trivial (and likely common), however, for an add-on to pass arguments like CPOWs into other compartments, and this is going to cause explosions.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Imagine some built-in JSM that we ship with the browser, like E10SUtils or BrowserUtils. Each JSM has their own compartment. As soon as an add-on attempts to pass a CPOW to one of these, it’ll explode.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I’m seeing this as I’m fixing tests - the two common cases being the Promise-backend.jsm and Task.jsm compartments (essentially meaning that add-ons can no longer resolve Promises or yield in Tasks with CPOWs). These two cases are actually particularly interesting because something like a Promise resolution with a CPOW will occur in a later tick of the event loop, meaning that the add-on code will no longer be on the stack.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ To break down my concern:  It’s possible that this change can break add-ons and it’s not clear how many add-ons this will break, nor how bad the breakages will be.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A few possible approaches:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  Don’t care. Just flip the bit, damn the torpedoes, full speed ahead.
+ </li>
+ <li>
+  Only flip the bit when running tests. This has the advantage of letting us know when code that we’ve written tests for uses CPOWs, but it will mean that we could miss untested browser code that uses CPOWs.
+ </li>
+ <li>
+  Throw exceptions when accessing CPOWs in pre-release channels, but warn in release channels in order to get the word out to our add-on authors that passing CPOWs around to other modules is no-bueno. Perhaps measure how many warnings we’re seeing via Telemetry, and when the warnings drops beneath some threshold, flip the bit.
+ </li>
+ <li>
+  Find some way of marking a CPOW as having been passed by add-on code (and the mark persists beyond returns to the event loop), and then allow browser code to handle it. I have no idea if this is possible or even desirable.
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ There might be other options, but these are the ones that came to my head right off the bat. How do we want to proceed?"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Rebased and pushed to try, now with ALL tests:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AND AGAIN:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53
+ </a>
+ . There are some Windows failures in there that I want to check out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  TEST-UNEXPECTED-FAIL | ShutdownLeaks | process() called before end of test suite
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1155861" target="_blank">
+    1155861 Intermittent browser_panel_toggle.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for tabs to finish closing","state":"(none)","filename":"chrome
+   </a>
+  </li>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1185045" target="_blank">
+    1185045 Intermittent browser_net_timing-division.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)","filename":" ...
+   </a>
+  </li>
+ </ul>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1235148" target="_blank">
+    1235148 Intermittent browser_toolbox_sidebar_overflow_menu.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)"
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  TEST-UNEXPECTED-FAIL | devtools/client/webconsole/test/browser_webconsole_split.js | application terminated with exit code 1
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1236316" target="_blank">
+    1236316 Intermittent
+    <strong>
+     browser_
+    </strong>
+    webconsole_split.
+    <strong>
+     js
+    </strong>
+    |
+    <strong>
+     application
+    </strong>
+    <strong>
+     terminated
+    </strong>
+    <strong>
+     with
+    </strong>
+    <strong>
+     exit
+    </strong>
+    <strong>
+     code
+    </strong>
+    <strong>
+     1
+    </strong>
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  PROCESS-CRASH | devtools/client/webconsole/test/browser_webconsole_split.js | application crashed [@ js::jit::DoTypeMonitorFallback]
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1236316" target="_blank">
+    1236316 Intermittent
+    <strong>
+     browser_
+    </strong>
+    webconsole_split.
+    <strong>
+     <strong>
+      js
+     </strong>
+    </strong>
+    |
+    <strong>
+     application
+    </strong>
+    terminated with exit code 1
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  TEST-UNEXPECTED-FAIL | leakcheck | default process: missing output line for total leaks!
+ </div>
+ <div>
+  Return code: 1
+ </div>
+ <div>
+  No tests run or test summary not found
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1160010" target="_blank">
+    1160010 Intermittent Android 2.3/4.3 mochi
+    <strong>
+     test
+    </strong>
+    /ref
+    <strong>
+     test
+    </strong>
+    <strong>
+     No
+    </strong>
+    <strong>
+     <strong>
+      test
+     </strong>
+     s
+    </strong>
+    <strong>
+     run
+    </strong>
+    <strong>
+     or
+    </strong>
+    <strong>
+     test
+    </strong>
+    <strong>
+     summary
+    </strong>
+    <strong>
+     <strong>
+      no
+     </strong>
+     t
+    </strong>
+    <strong>
+     found
+    </strong>
+    due to an | application ran f
+    <strong>
+     or
+    </strong>
+    longer than allowed maximum time
+   </a>
+  </li>
+ </ul>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://developer.mozilla.org/en-US/docs/Debugging_a_minidump">
+  https://developer.mozilla.org/en-US/docs/Debugging_a_minidump
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Thread 0 (crashed)
+</div>
+<div>
+ 0  KERNELBASE.dll + 0x3381b
+</div>
+<div>
+ eip = 0x758c381b   esp = 0x0024bb4c   ebp = 0x0024bf7c   ebx = 0x00000000
+</div>
+<div>
+ esi = 0x00000000   edi = 0x693c42b5   eax = 0x00000000   ecx = 0x00000005
+</div>
+<div>
+ edx = 0x0000001a   efl = 0x00200246
+</div>
+<div>
+ Found by: given as instruction pointer in context
+</div>
+<div>
+ 1  xul.dll!nsDebugImpl::Abort(char const *,int) [nsDebugImpl.cpp:d8289c37ae53 : 146 + 0x11]
+</div>
+<div>
+ eip = 0x5ea7b2e1   esp = 0x0024bf84   ebp = 0x0024bf98
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 2  xul.dll!NS_InvokeByIndex + 0x27
+</div>
+<div>
+ eip = 0x5eafed57   esp = 0x0024bfa0   ebp = 0x0024bfb4
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 3  xul.dll!CallMethodHelper::Invoke() [XPCWrappedNative.cpp:d8289c37ae53 : 2097 + 0xf]
+</div>
+<div>
+ eip = 0x5f1f433c   esp = 0x0024bfbc   ebp = 0x0024bfe0
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 4  xul.dll!CallMethodHelper::Call() [XPCWrappedNative.cpp:d8289c37ae53 : 1414 + 0x7]
+</div>
+<div>
+ eip = 0x5f1e70a1   esp = 0x0024bfd0   ebp = 0x0024bfe0
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 5  xul.dll!XPCWrappedNative::CallMethod(XPCCallContext &amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 1381 + 0x12]
+</div>
+<div>
+ eip = 0x5f1e717f   esp = 0x0024bfe8   ebp = 0x0024c0b8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 6  xul.dll!js::ObjectGroupHasProperty(JSContext *,js::ObjectGroup *,jsid,JS::Value const &amp;) [TypeInference.cpp:d8289c37ae53 : 242 + 0xe]
+</div>
+<div>
+ eip = 0x6170549f   esp = 0x0024c018   ebp = 0x0024c07c
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 7  xul.dll!XPCNativeMember::GetCallInfo(JSObject *,XPCNativeInterface * *,XPCNativeMember * *) [XPCWrappedNativeInfo.cpp:d8289c37ae53 : 32 + 0x8]
+</div>
+<div>
+ eip = 0x5f1ee048   esp = 0x0024c0a0   ebp = 0x6148384d
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 8  xul.dll!XPCCallContext::SetCallInfo(XPCNativeInterface *,XPCNativeMember *,bool) [XPCCallContext.cpp:d8289c37ae53 : 148 + 0x9]
+</div>
+<div>
+ eip = 0x5f1d8f34   esp = 0x0024c0b4   ebp = 0x6148384d
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 9  xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae   esp = 0x0024c0c0   ebp = 0x6148384d
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 10  xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae   esp = 0x0024c0c8   ebp = 0x0024c888
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 11  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa   esp = 0x0024c1a8   ebp = 0x0024e3c4
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 12  xul.dll!XPCWrappedNative::CallMethod(XPCCallContext &amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 1381 + 0x20]
+</div>
+<div>
+ eip = 0x5f1e718d   esp = 0x0024c220   ebp = 0x0024c1fc
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 13  xul.dll!js::ObjectGroupHasProperty(JSContext *,js::ObjectGroup *,jsid,JS::Value const &amp;) [TypeInference.cpp:d8289c37ae53 : 242 + 0xe]
+</div>
+<div>
+ eip = 0x6170549f   esp = 0x0024c250   ebp = 0x0024c1fc
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 14  xul.dll!AssertActivityIsLegal [nsTraceRefcnt.cpp:d8289c37ae53 : 163 + 0x11]
+</div>
+<div>
+ eip = 0x5ea966d9   esp = 0x0024c2c8   ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 15  nss3.dll!_MD_CURRENT_THREAD [w95thred.c:d8289c37ae53 : 312 + 0xc]
+</div>
+<div>
+ eip = 0x67fd569c   esp = 0x0024c2dc   ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 16  xul.dll!js::CurrentThreadCanAccessRuntime(JSRuntime *) [Runtime.cpp:d8289c37ae53 : 847 + 0x6]
+</div>
+<div>
+ eip = 0x616880b9   esp = 0x0024c2e4   ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 17  xul.dll!XPCCallContext::~XPCCallContext() [XPCCallContext.cpp:d8289c37ae53 : 234 + 0x1e]
+</div>
+<div>
+ eip = 0x5f1beb5e   esp = 0x0024c2fc   ebp = 0x0024c314
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 18  xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0x2d]
+</div>
+<div>
+ eip = 0x5f1fcccd   esp = 0x0024c308   ebp = 0x0024c314
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 19  xul.dll!js::Debugger::FrameRange::FrameRange(js::AbstractFramePtr,js::GlobalObject *) [Debugger.cpp:d8289c37ae53 : 197 + 0x7]
+</div>
+<div>
+ eip = 0x615ebf57   esp = 0x0024c3dc   ebp = 0x0024e3c4
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 20  xul.dll!js::detail::BumpChunk::setBump(void *) [LifoAlloc.h:d8289c37ae53 : 76 + 0xe]
+</div>
+<div>
+ eip = 0x6149f73c   esp = 0x0024c3fc   ebp = 0x0024cabc
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 21  xul.dll!JS::PersistentRooted&lt;JSString *&gt;::set(JSString *) [RootingAPI.h:d8289c37ae53 : 1100 + 0x5]
+</div>
+<div>
+ eip = 0x5ea586be   esp = 0x0024c424   ebp = 0x0024c424
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 22  xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 4005 + 0xf]
+</div>
+<div>
+ eip = 0x6164454b   esp = 0x0024c448   ebp = 0x0024cd28
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 23  xul.dll!xpc::WrapperFactory::PrepareForWrapping(JSContext *,JS::Handle&lt;JSObject *&gt;,JS::Handle&lt;JSObject *&gt;,JS::Handle&lt;JSObject *&gt;) [WrapperFactory.cpp:d8289c37ae53 : 188 + 0x19]
+</div>
+<div>
+ eip = 0x5f196cbe   esp = 0x0024ce24   ebp = 0x0024c800
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 24  xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext *,unsigned int,JS::Value *),JS::CallArgs const &amp;) [jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a   esp = 0x0024cf20   ebp = 0x0024ce00
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 25  xul.dll + 0x2a4e580
+</div>
+<div>
+ eip = 0x6142e580   esp = 0x0024cf50   ebp = 0x0024cf90
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 26  xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value const &amp;,unsigned int,JS::Value const *,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d   esp = 0x0024cf98   ebp = 0x0024d050
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 27  xul.dll!js::DirectProxyHandler::call(JSContext *,JS::Handle&lt;JSObject *&gt;,JS::CallArgs const &amp;) [DirectProxyHandler.cpp:d8289c37ae53 : 77 + 0x1f]
+</div>
+<div>
+ eip = 0x615b8a0e   esp = 0x0024d058   ebp = 0x0024d090
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 28  xul.dll!js::CrossCompartmentWrapper::call(JSContext *,JS::Handle&lt;JSObject *&gt;,JS::CallArgs const &amp;) [CrossCompartmentWrapper.cpp:d8289c37ae53 : 289 + 0xd]
+</div>
+<div>
+ eip = 0x615a6404   esp = 0x0024d098   ebp = 0x0024d0c0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 29  xul.dll!js::Proxy::call(JSContext *,JS::Handle&lt;JSObject *&gt;,JS::CallArgs const &amp;) [Proxy.cpp:d8289c37ae53 : 391 + 0xe]
+</div>
+<div>
+ eip = 0x615b8b31   esp = 0x0024d0c8   ebp = 0x0024d120
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 30  xul.dll!js::proxy_Call(JSContext *,unsigned int,JS::Value *) [Proxy.cpp:d8289c37ae53 : 683 + 0x12]
+</div>
+<div>
+ eip = 0x615bf348   esp = 0x0024d128   ebp = 0x0024d158
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 31  xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext *,unsigned int,JS::Value *),JS::CallArgs const &amp;) [jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a   esp = 0x0024d160   ebp = 0x0024d180
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 32  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 465 + 0x8]
+</div>
+<div>
+ eip = 0x61644f3d   esp = 0x0024d188   ebp = 0x0024d1d0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 33  xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 2803 + 0xf]
+</div>
+<div>
+ eip = 0x6163dc8a   esp = 0x0024d1d8   ebp = 0x0024db84
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 34  xul.dll!js::RunScript(JSContext *,js::RunState &amp;) [Interpreter.cpp:d8289c37ae53 : 424 + 0xd]
+</div>
+<div>
+ eip = 0x61648f17   esp = 0x0024db8c   ebp = 0x0024dc34
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 35  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 495 + 0xa]
+</div>
+<div>
+ eip = 0x61645057   esp = 0x0024dc3c   ebp = 0x0024dc80
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 36  xul.dll!js::CallOrConstructBoundFunction(JSContext *,unsigned int,JS::Value *) [jsfun.cpp:d8289c37ae53 : 1595 + 0x12]
+</div>
+<div>
+ eip = 0x61456d63   esp = 0x0024dc88   ebp = 0x0024de40
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 37  xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext *,unsigned int,JS::Value *),JS::CallArgs const &amp;) [jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a   esp = 0x0024de48   ebp = 0x0024de68
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 38  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa   esp = 0x0024de70   ebp = 0x0024deb8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 39  xul.dll!js::CallOrConstructBoundFunction(JSContext *,unsigned int,JS::Value *) [jsfun.cpp:d8289c37ae53 : 1595 + 0x12]
+</div>
+<div>
+ eip = 0x61456d63   esp = 0x0024dec0   ebp = 0x0024e078
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 40  xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext *,unsigned int,JS::Value *),JS::CallArgs const &amp;) [jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a   esp = 0x0024e080   ebp = 0x0024e0a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 41  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa   esp = 0x0024e0a8   ebp = 0x0024e0f0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 42  xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value const &amp;,unsigned int,JS::Value const *,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d   esp = 0x0024e0f8   ebp = 0x0024e1b0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 43  xul.dll!JS_CallFunctionValue(JSContext *,JS::Handle&lt;JSObject *&gt;,JS::Handle&lt;JS::Value&gt;,JS::HandleValueArray const &amp;,JS::MutableHandle&lt;JS::Value&gt;) [jsapi.cpp:d8289c37ae53 : 2817 + 0x36]
+</div>
+<div>
+ eip = 0x614fe926   esp = 0x0024e1b8   ebp = 0x0024e1f0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 44  xul.dll!nsXPCComponents_Utils::CallFunctionWithAsyncStack(JS::Handle&lt;JS::Value&gt;,nsIStackFrame *,nsAString_internal const &amp;,JSContext *,JS::MutableHandle&lt;JS::Value&gt;) [XPCComponents.cpp:d8289c37ae53 : 2704 + 0x21]
+</div>
+<div>
+ eip = 0x5f1a88eb   esp = 0x0024e1f8   ebp = 0x0024e268
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 45  xul.dll!NS_InvokeByIndex + 0x27
+</div>
+<div>
+ eip = 0x5eafed57   esp = 0x0024e270   ebp = 0x0024e29c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 46  xul.dll!CallMethodHelper::Invoke() [XPCWrappedNative.cpp:d8289c37ae53 : 2097 + 0xf]
+</div>
+<div>
+ eip = 0x5f1f433c   esp = 0x0024e2a4   ebp = 0x0024e2c8
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 47  xul.dll!CallMethodHelper::Call() [XPCWrappedNative.cpp:d8289c37ae53 : 1414 + 0x7]
+</div>
+<div>
+ eip = 0x5f1e70a1   esp = 0x0024e2b8   ebp = 0x0024e2c8
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 48  xul.dll!XPCWrappedNative::CallMethod(XPCCallContext &amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 1381 + 0x12]
+</div>
+<div>
+ eip = 0x5f1e717f   esp = 0x0024e2d0   ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 49  xul.dll!JSFunction::toExtended() [jsfun.h:d8289c37ae53 : 769 + 0x5]
+</div>
+<div>
+ eip = 0x614a47e8   esp = 0x0024e360   ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 50  xul.dll!js::GetFunctionNativeReserved(JSObject *,unsigned int) [jsfriendapi.cpp:d8289c37ae53 : 464 + 0xf]
+</div>
+<div>
+ eip = 0x6145e619   esp = 0x0024e378   ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 51  xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae   esp = 0x0024e3a8   ebp = 0x0024e460
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 52  xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext *,unsigned int,JS::Value *),JS::CallArgs const &amp;) [jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a   esp = 0x0024e468   ebp = 0x0024e488
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 53  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa   esp = 0x0024e490   ebp = 0x0024e4d8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 54  xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 2803 + 0xf]
+</div>
+<div>
+ eip = 0x6163dc8a   esp = 0x0024e4e0   ebp = 0x0024ee8c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 55  xul.dll!js::RunScript(JSContext *,js::RunState &amp;) [Interpreter.cpp:d8289c37ae53 : 424 + 0xd]
+</div>
+<div>
+ eip = 0x61648f17   esp = 0x0024ee94   ebp = 0x0024ef3c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 56  xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 495 + 0xa]
+</div>
+<div>
+ eip = 0x61645057   esp = 0x0024ef44   ebp = 0x0024ef88
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 57  xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value const &amp;,unsigned int,JS::Value const *,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d   esp = 0x0024ef90   ebp = 0x0024f048
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 58  xul.dll!JS::Call(JSContext *,JS::Handle&lt;JS::Value&gt;,JS::Handle&lt;JS::Value&gt;,JS::HandleValueArray const &amp;,JS::MutableHandle&lt;JS::Value&gt;) [jsapi.cpp:d8289c37ae53 : 2864 + 0x14]
+</div>
+<div>
+ eip = 0x614f4d31   esp = 0x0024f050   ebp = 0x0024f080
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 59  xul.dll!mozilla::dom::AnyCallback::Call(JSContext *,JS::Handle&lt;JS::Value&gt;,JS::Handle&lt;JS::Value&gt;,JS::MutableHandle&lt;JS::Value&gt;,mozilla::ErrorResult &amp;) [PromiseBinding.cpp:d8289c37ae53 : 79 + 0x51]
+</div>
+<div>
+ eip = 0x5fa33ba5   esp = 0x0024f088   ebp = 0x0024f16c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 60  xul.dll!mozilla::dom::AnyCallback::Call(JS::Handle&lt;JS::Value&gt;,JS::MutableHandle&lt;JS::Value&gt;,mozilla::ErrorResult &amp;,char const *,mozilla::dom::CallbackObject::ExceptionHandling,JSCompartment *) [PromiseBinding.h:d8289c37ae53 : 149 + 0x1a]
+</div>
+<div>
+ eip = 0x60562867   esp = 0x0024f174   ebp = 0x0024f2dc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 61  xul.dll!mozilla::dom::WrapperPromiseCallback::Call(JSContext *,JS::Handle&lt;JS::Value&gt;) [PromiseCallback.cpp:d8289c37ae53 : 336 + 0x39]
+</div>
+<div>
+ eip = 0x60562d61   esp = 0x0024f2e4   ebp = 0x0024f490
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 62  xul.dll!mozilla::dom::PromiseReactionJob::Run() [Promise.cpp:d8289c37ae53 : 105 + 0x28]
+</div>
+<div>
+ eip = 0x605687a7   esp = 0x0024f498   ebp = 0x0024f5b0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 63  xul.dll!mozilla::dom::Promise::PerformMicroTaskCheckpoint() [Promise.cpp:d8289c37ae53 : 567 + 0x11]
+</div>
+<div>
+ eip = 0x6056632f   esp = 0x0024f5b8   ebp = 0x0024f654
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 64  xul.dll!mozilla::CycleCollectedJSRuntime::AfterProcessTask(unsigned int) [CycleCollectedJSRuntime.cpp:d8289c37ae53 : 1157 + 0x5]
+</div>
+<div>
+ eip = 0x5ea8341c   esp = 0x0024f65c   ebp = 0x0024f660
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 65  xul.dll!XPCJSRuntime::AfterProcessTask(unsigned int) [XPCJSRuntime.cpp:d8289c37ae53 : 3648 + 0xa]
+</div>
+<div>
+ eip = 0x5f1c120a   esp = 0x0024f668   ebp = 0x0024f690
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 66  xul.dll!nsThread::ProcessNextEvent(bool,bool *) [nsThread.cpp:d8289c37ae53 : 1004 + 0x8]
+</div>
+<div>
+ eip = 0x5eaefb1d   esp = 0x0024f698   ebp = 0x0024f778
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 67  xul.dll!NS_ProcessNextEvent(nsIThread *,bool) [nsThreadUtils.cpp:d8289c37ae53 : 297 + 0xd]
+</div>
+<div>
+ eip = 0x5eb1d1be   esp = 0x0024f780   ebp = 0x0024f78c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 68  xul.dll!mozilla::ipc::MessagePump::Run(base::MessagePump::Delegate *) [MessagePump.cpp:d8289c37ae53 : 127 + 0xa]
+</div>
+<div>
+ eip = 0x5edccb73   esp = 0x0024f794   ebp = 0x0024f7bc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 69  xul.dll!MessageLoop::RunInternal() [message_loop.cc:d8289c37ae53 : 234 + 0xf]
+</div>
+<div>
+ eip = 0x5ed9c4b5   esp = 0x0024f7c4   ebp = 0x0024f7dc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 70  xul.dll!MessageLoop::RunHandler() [message_loop.cc:d8289c37ae53 : 227 + 0x5]
+</div>
+<div>
+ eip = 0x5ed9c46d   esp = 0x0024f7e4   ebp = 0x0024f810
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 71  xul.dll!MessageLoop::Run() [message_loop.cc:d8289c37ae53 : 201 + 0x7]
+</div>
+<div>
+ eip = 0x5ed9c1e6   esp = 0x0024f818   ebp = 0x0024f830
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 72  xul.dll!nsBaseAppShell::Run() [nsBaseAppShell.cpp:d8289c37ae53 : 156 + 0xc]
+</div>
+<div>
+ eip = 0x6068693d   esp = 0x0024f838   ebp = 0x0024f840
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 73  xul.dll!nsAppShell::Run() [nsAppShell.cpp:d8289c37ae53 : 257 + 0x8]
+</div>
+<div>
+ eip = 0x606d813f   esp = 0x0024f848   ebp = 0x0024f850
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 74  xul.dll!nsAppStartup::Run() [nsAppStartup.cpp:d8289c37ae53 : 281 + 0x12]
+</div>
+<div>
+ eip = 0x60e2c9c2   esp = 0x0024f858   ebp = 0x0024f864
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 75  xul.dll!XREMain::XRE_mainRun() [nsAppRunner.cpp:d8289c37ae53 : 4326 + 0x11]
+</div>
+<div>
+ eip = 0x60e7ce36   esp = 0x0024f86c   ebp = 0x0024fa44
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 76  xul.dll!XREMain::XRE_main(int,char * * const,nsXREAppData const *) [nsAppRunner.cpp:d8289c37ae53 : 4423 + 0x7]
+</div>
+<div>
+ eip = 0x60e7b272   esp = 0x0024fa4c   ebp = 0x0024fa60
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 77  xul.dll!XRE_main [nsAppRunner.cpp:d8289c37ae53 : 4525 + 0x12]
+</div>
+<div>
+ eip = 0x60e7dc95   esp = 0x0024fa68   ebp = 0x0024fb74
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 78  firefox.exe!do_main [nsBrowserApp.cpp:d8289c37ae53 : 212 + 0x15]
+</div>
+<div>
+ eip = 0x013a294d   esp = 0x0024fb7c   ebp = 0x0024fd14
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 79  firefox.exe!NS_internal_main(int,char * *) [nsBrowserApp.cpp:d8289c37ae53 : 352 + 0xc]
+</div>
+<div>
+ eip = 0x013a225e   esp = 0x0024fd1c   ebp = 0x0024fdb8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 80  firefox.exe!wmain [nsWindowsWMain.cpp:d8289c37ae53 : 131 + 0x7]
+</div>
+<div>
+ eip = 0x013a2d09   esp = 0x0024fdc0   ebp = 0x0024fdec
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 81  firefox.exe!__tmainCRTStartup [crt0.c : 255 + 0x12]
+</div>
+<div>
+ eip = 0x013a50bf   esp = 0x0024fdf4   ebp = 0x0024fe34
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 82  kernel32.dll + 0x53c45
+</div>
+<div>
+ eip = 0x76753c45   esp = 0x0024fe3c   ebp = 0x0024fe40
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 83  ntdll.dll + 0x637f5
+</div>
+<div>
+ eip = 0x776c37f5   esp = 0x0024fe48   ebp = 0x0024fe80
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 84  ntdll.dll + 0x637c8
+</div>
+<div>
+ eip = 0x776c37c8   esp = 0x0024fe88   ebp = 0x0024fe98
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, to sum, it looks like the toolbox is taking too long to shutdown, and AsyncShutdown is killing us.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 10:01:50     INFO -  WARNING: At least one completion condition is taking too long to complete. Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)","filename":"resource://gre/modules/commonjs/toolkit/loader.js -&gt; resource://devtools/client/framework/toolbox.js","lineNumber":2018,"stack":["resource://gre/modules/commonjs/toolkit/loader.js -&gt; resource://devtools/client/framework/toolbox.js:Toolbox.prototype.destroy/leakCheckObserver:2018","chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:687","chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:741"]}] Barrier: ShutdownLeaks: Wait for cleanup to be finished before checking for leaks
+ <br/>
+ 10:01:51     INFO -  [Parent 3380] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80520012: file c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/widget/windows/WinUtils.cpp, line 1364
+ <br/>
+ 10:01:54     INFO -  --DOMWINDOW == 20 (1A835C00) [pid = 3380] [serial = 473] [outer = 00000000] [url = about:blank]
+ <br/>
+ 10:01:54     INFO -  --DOMWINDOW == 19 (1352E800) [pid = 3380] [serial = 471] [outer = 00000000] [url = chrome://devtools/content/framework/toolbox.xul]
+ <br/>
+ 10:01:54     INFO -  --DOMWINDOW == 18 (1B248400) [pid = 3380] [serial = 475] [outer = 00000000] [url = about:blank]
+ <br/>
+ 10:01:54     INFO -  --DOMWINDOW == 17 (1DB5C800) [pid = 3380] [serial = 20] [outer = 00000000] [url = about:newtab]
+ <br/>
+ 10:01:54     INFO -  --DOMWINDOW == 16 (11BED800) [pid = 3380] [serial = 28] [outer = 00000000] [url = data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/&gt;]
+</div>
+<div>
+ 10:02:41     INFO -  FATAL ERROR: AsyncShutdown timeout in ShutdownLeaks: Wait for cleanup to be finished before checking for leaks Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)","filename":"resource://gre/modules/commonjs/toolkit/loader.js -&gt; resource://devtools/client/framework/toolbox.js","lineNumber":2018,"stack":["resource://gre/modules/commonjs/toolkit/loader.js -&gt; resource://devtools/client/framework/toolbox.js:Toolbox.prototype.destroy/leakCheckObserver:2018","chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:687","chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:741"]}] At least one completion condition failed to complete within a reasonable amount of time. Causing a crash to ensure that we do not leave the user with an unresponsive process draining resources.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, I’ve added some async shutdown state logging, let’s see if that helps
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fuck. Now I have a different crash for different reasons. WTF??
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay…. let’s just try dumping then.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a1967f4cc0af">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a1967f4cc0af
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh. Now it’s not a shutdown hang. This crash is suspicious:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  17:08:46     INFO -  544 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | The command button is selected. -
+  <br/>
+  17:08:46     INFO -  545 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | Splitter is hidden after toggling -
+  <br/>
+  17:08:46     INFO -  546 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | Deck has a height &gt; 0 after toggling -
+  <br/>
+  17:08:46     INFO -  547 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | Web console is collapsed after toggling -
+  <br/>
+  17:08:46     INFO -  548 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | The console panel is not the current tool -
+  <br/>
+  17:08:46     INFO -  549 INFO TEST-PASS | devtools/client/webconsole/test/browser_webconsole_split.js | The command button is not selected. -
+  <br/>
+  17:08:46  WARNING -  TEST-UNEXPECTED-FAIL | devtools/client/webconsole/test/browser_webconsole_split.js | application terminated with exit code 1
+  <br/>
+  17:08:46     INFO -
+  <a href="http://runtests.py">
+   runtests.py
+  </a>
+  | Application ran for: 0:13:34.124250
+  <br/>
+  17:08:46     INFO -  zombiecheck | Reading PID log: /var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmp5l0oXppidlog
+  <br/>
+  17:08:46     INFO -  mozcrash Copy/paste: /builds/slave/test/build/macosx64-minidump_stackwalk /var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmpURI2mt.mozrunner/minidumps/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp /builds/slave/test/build/symbols
+  <br/>
+  17:09:06     INFO -  mozcrash Saved minidump as /builds/slave/test/build/blobber_upload_dir/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp
+  <br/>
+  17:09:06     INFO -  mozcrash Saved app info as /builds/slave/test/build/blobber_upload_dir/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.extra
+  <br/>
+  17:09:06  WARNING -  PROCESS-CRASH | devtools/client/webconsole/test/browser_webconsole_split.js | application crashed [@ js::jit::DoTypeMonitorFallback]
+  <br/>
+  17:09:06     INFO -  Crash dump filename: /var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmpURI2mt.mozrunner/minidumps/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp
+  <br/>
+  17:09:06     INFO -  Operating system: Mac OS X
+  <br/>
+  17:09:06     INFO -                    10.6.8 10K549
+  <br/>
+  17:09:06     INFO -  CPU: amd64
+  <br/>
+  17:09:06     INFO -       family 6 model 23 stepping 10
+  <br/>
+  17:09:06     INFO -       2 CPUs
+  <br/>
+  17:09:06     INFO -  Crash reason:  EXC_BAD_ACCESS / 0x0000000d
+  <br/>
+  17:09:06     INFO -  Crash address: 0x0
+  <br/>
+  17:09:06     INFO -  Process uptime: 812 seconds
+  <br/>
+  17:09:06     INFO -  Thread 0 (crashed)
+  <br/>
+  17:09:06     INFO -   0  XUL!js::jit::DoTypeMonitorFallback [jsscript.h:a1967f4cc0af : 1276 + 0x0]
+  <br/>
+  17:09:06     INFO -      rax = 0xfffc2b2b2b2b2b2b   rdx = 0x0000000122f7acd0
+  <br/>
+  17:09:06     INFO -      rcx = 0x0000000000000000   rbx = 0x0000000122fea650
+  <br/>
+  17:09:06     INFO -      rsi = 0x00007fff5fbfaea8   rdi = 0x0000000120b7f810
+  <br/>
+  17:09:06     INFO -      rbp = 0x00007fff5fbfae20   rsp = 0x00007fff5fbfadb0
+  <br/>
+  17:09:06     INFO -       r8 = 0x00007fff5fbfae48    r9 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r10 = 0x00007fff5fbfae70   r11 = 0xfff9000000000000
+  <br/>
+  17:09:06     INFO -      r12 = 0x0000000000000000   r13 = 0x00007fff5fbfae80
+  <br/>
+  17:09:06     INFO -      r14 = 0x00007fff5fbfaea8   r15 = 0x0000000109e56c00
+  <br/>
+  17:09:06     INFO -      rip = 0x0000000105361cc8
+  <br/>
+  17:09:06     INFO -      Found by: given as instruction pointer in context
+  <br/>
+  17:09:06     INFO -   1  0x1080cfe97
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000012a5614f0   rbp = 0x00007fff5fbfaee8
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfae30   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfb570   r14 = 0x0000000121bca940
+  <br/>
+  17:09:06     INFO -      r15 = 0xffff800000000000   rip = 0x00000001080cfe97
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   2  0x1080ccdc4
+  <br/>
+  17:09:06     INFO -      rbp = 0x00007fff5fbfaf50   rsp = 0x00007fff5fbfaef8
+  <br/>
+  17:09:06     INFO -      rip = 0x00000001080ccdc4
+  <br/>
+  17:09:06     INFO -      Found by: previous frame's frame pointer
+  <br/>
+  17:09:06     INFO -   3  XUL!EnterBaseline [BaselineJIT.cpp:a1967f4cc0af : 134 + 0xf]
+  <br/>
+  17:09:06     INFO -      rbp = 0x00007fff5fbfb260   rsp = 0x00007fff5fbfaf60
+  <br/>
+  17:09:06     INFO -      rip = 0x00000001051274ff
+  <br/>
+  17:09:06     INFO -      Found by: previous frame's frame pointer
+  <br/>
+  17:09:06     INFO -   4  XUL!js::jit::EnterBaselineMethod(JSContext*, js::RunState&amp;) [BaselineJIT.cpp:a1967f4cc0af : 173 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfb390
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb270   r12 = 0x00007fff5fbfb330
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfb348   r14 = 0x00007fff5fbfb480
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x000000010512712c
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   5  XUL!js::RunScript(JSContext*, js::RunState&amp;) [Interpreter.cpp:a1967f4cc0af : 414 + 0xb]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000013693aa50   rbp = 0x00007fff5fbfb450
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb3a0   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000002   r14 = 0x00007fff5fbfb480
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000109e56c00   rip = 0x000000010568a69b
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   6  XUL!js::Invoke(JSContext*, JS::CallArgs const&amp;, js::MaybeConstruct) [Interpreter.cpp:a1967f4cc0af : 495 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfb510   rbp = 0x00007fff5fbfb4e0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb460   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000002   r14 = 0x0000000109f08000
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000109e56c00   rip = 0x0000000105679c5d
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   7  XUL!js::Invoke(JSContext*, JS::Value const&amp;, JS::Value const&amp;, unsigned int, JS::Value const*, JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:a1967f4cc0af : 529 + 0xc]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfb5e0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb4f0   r12 = 0x00007fff5fbfb510
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfb600   r14 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfb8f0   rip = 0x00000001056a08e0
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   8  XUL!js::DirectProxyHandler::call(JSContext*, JS::Handle&lt;JSObject*&gt;, JS::CallArgs const&amp;) const [DirectProxyHandler.cpp:a1967f4cc0af : 77 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfb620
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb5f0   r12 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000106cfc780   r14 = 0x00007fff5fbfb758
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfb5f0   rip = 0x00000001055ebfa2
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -   9  XUL!js::CrossCompartmentWrapper::call(JSContext*, JS::Handle&lt;JSObject*&gt;, JS::CallArgs const&amp;) const [CrossCompartmentWrapper.cpp:a1967f4cc0af : 289 + 0x13]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfb6a0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb630   r12 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000106cfc780   r14 = 0x00007fff5fbfb758
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfb750   rip = 0x00000001055d040f
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  10  XUL!js::Proxy::call(JSContext*, JS::Handle&lt;JSObject*&gt;, JS::CallArgs const&amp;) [Proxy.cpp:a1967f4cc0af : 391 + 0x14]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfb730
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb6b0   r12 = 0x0000000107b525d8
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000107cd7530   r14 = 0x0000000107c311c0
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfb750   rip = 0x00000001055f0b6b
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  11  XUL!js::proxy_Call(JSContext*, unsigned int, JS::Value*) [Proxy.cpp:a1967f4cc0af : 683 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfb780
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb740   r12 = 0x00007fff5fbfb890
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfb7a0   r14 = 0x00007fff5fbfb740
+  <br/>
+  17:09:06     INFO -      r15 = 0x00000000ffffffff   rip = 0x00000001055f246e
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  12  XUL!js::CallJSNative(JSContext*, bool (*)(JSContext*, unsigned int, JS::Value*), JS::CallArgs const&amp;) [jscntxtinlines.h:a1967f4cc0af : 235 + 0x5]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000001055f23e0   rbp = 0x00007fff5fbfb7d0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb790   r12 = 0x00007fff5fbfb890
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfb7a0   r14 = 0x0000000109e56c00
+  <br/>
+  17:09:06     INFO -      r15 = 0x00000000ffffffff   rip = 0x00000001056ad045
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  13  XUL!js::Invoke(JSContext*, JS::CallArgs const&amp;, js::MaybeConstruct) [Interpreter.cpp:a1967f4cc0af : 465 + 0xe]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfb890   rbp = 0x00007fff5fbfb860
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb7e0   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000002   r14 = 0x0000000109f08000
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000109e56c00   rip = 0x0000000105679cbe
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  14  XUL!js::Invoke(JSContext*, JS::Value const&amp;, JS::Value const&amp;, unsigned int, JS::Value const*, JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:a1967f4cc0af : 529 + 0xc]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfb960
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb870   r12 = 0x00007fff5fbfb890
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfba30   r14 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfba18   rip = 0x00000001056a08e0
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  15  XUL!JS::Call(JSContext*, JS::Handle&lt;JS::Value&gt;, JS::Handle&lt;JS::Value&gt;, JS::HandleValueArray const&amp;, JS::MutableHandle&lt;JS::Value&gt;) [jsapi.cpp:a1967f4cc0af : 2864 + 0x11]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfb9f8   rbp = 0x00007fff5fbfb9d0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb970   r12 = 0x00007fff5fbfba18
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000109e56c00   r14 = 0x00007fff5fbfba50
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfba30   rip = 0x00000001054b1673
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  16  XUL!mozilla::dom::EventListener::HandleEvent(JSContext*, JS::Handle&lt;JS::Value&gt;, mozilla::dom::Event&amp;, mozilla::ErrorResult&amp;) [EventListenerBinding.cpp:a1967f4cc0af : 47 + 0xb]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109e56c00   rbp = 0x00007fff5fbfbb20
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfb9e0   r12 = 0x00007fff5fbfba20
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfba30   r14 = 0x0000000109e56c68
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfba08   rip = 0x0000000102c671a6
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  17  XUL!void mozilla::dom::EventListener::HandleEvent&lt;mozilla::dom::EventTarget*&gt;(mozilla::dom::EventTarget* const&amp;, mozilla::dom::Event&amp;, mozilla::ErrorResult&amp;, char const*, mozilla::dom::CallbackObject::ExceptionHandling, JSCompartment*) [EventListenerBinding.h:a1967f4cc0af : 54 + 0x11]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfbb50   rbp = 0x00007fff5fbfbd70
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfbb30   r12 = 0x00007fff5fbfbdb0
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfbd98   r14 = 0x0000000122ad9d00
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000012b4d5180   rip = 0x0000000102fe26f3
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  18  XUL!mozilla::EventListenerManager::HandleEventSubType(mozilla::EventListenerManager::Listener*, nsIDOMEvent*, mozilla::dom::EventTarget*) [EventListenerManager.cpp:a1967f4cc0af : 1032 + 0x24]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfbd98   rbp = 0x00007fff5fbfbde0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfbd80   r12 = 0x000000012b4d5180
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfc1d0   r14 = 0x000000015a2d46b0
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000012b4d5180   rip = 0x0000000102fc51db
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  19  XUL!mozilla::EventListenerManager::HandleEventInternal(nsPresContext*, mozilla::WidgetEvent*, nsIDOMEvent**, mozilla::dom::EventTarget*, nsEventStatus*) [EventListenerManager.cpp:a1967f4cc0af : 1164 + 0x12]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000012291dd00   rbp = 0x00007fff5fbfbfa0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfbdf0   r12 = 0x0000000124717608
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfc1d0   r14 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000015a2d46b0   rip = 0x0000000102fc5acf
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  20  XUL!mozilla::EventTargetChainItem::HandleEvent(mozilla::EventChainPostVisitor&amp;, mozilla::ELMCreationDetector&amp;) [EventListenerManager.h:a1967f4cc0af : 349 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000001226e6008   rbp = 0x00007fff5fbfbfd0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfbfb0   r12 = 0x00007fff5fbfc128
+  <br/>
+  17:09:06     INFO -      r13 = 0x00000001226e6008   r14 = 0x00007fff5fbfc090
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000015a2d46b0   rip = 0x0000000102fb550f
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  21  XUL!mozilla::EventTargetChainItem::HandleEventTargetChain(nsTArray&lt;mozilla::EventTargetChainItem&gt;&amp;, mozilla::EventChainPostVisitor&amp;, mozilla::EventDispatchingCallback*, mozilla::ELMCreationDetector&amp;) [EventDispatcher.cpp:a1967f4cc0af : 315 + 0x12]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfc090   rbp = 0x00007fff5fbfc040
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfbfe0   r12 = 0x00000000ffffffff
+  <br/>
+  17:09:06     INFO -      r13 = 0x00000001226e6008   r14 = 0x00000001226e6008
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000000   rip = 0x0000000102fb2b16
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  22  XUL!mozilla::EventDispatcher::Dispatch(nsISupports*, nsPresContext*, mozilla::WidgetEvent*, nsIDOMEvent*, nsEventStatus*, mozilla::EventDispatchingCallback*, nsTArray&lt;mozilla::dom::EventTarget*&gt;*) [EventDispatcher.cpp:a1967f4cc0af : 653 + 0xc]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfc170
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc050   r12 = 0x00007fff5fbfc120
+  <br/>
+  17:09:06     INFO -      r13 = 0x00000001226e6030   r14 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r15 = 0x00000001226e6030   rip = 0x0000000102fb4349
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  23  XUL!nsDocumentViewer::LoadComplete(nsresult) [nsDocumentViewer.cpp:a1967f4cc0af : 995 + 0x1d]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000001003260a0   rbp = 0x00007fff5fbfc270
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc180   r12 = 0x000000012291dd00
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000133ed4ed0   r14 = 0x0000000136a081a8
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000101128790   rip = 0x0000000103dc6751
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  24  XUL!nsDocShell::EndPageLoad(nsIWebProgress*, nsIChannel*, nsresult) [nsDocShell.cpp:a1967f4cc0af : 7478 + 0xd]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000136a081a8   rbp = 0x00007fff5fbfc660
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc280   r12 = 0x0000000136a08000
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfc438   r14 = 0x0000000131889280
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000136a08318   rip = 0x000000010429ceef
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  25  XUL!nsDocShell::OnStateChange(nsIWebProgress*, nsIRequest*, unsigned int, nsresult) [nsDocShell.cpp:a1967f4cc0af : 7292 + 0xb]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000131889280   rbp = 0x00007fff5fbfc780
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc670   r12 = 0x00000000fffdffef
+  <br/>
+  17:09:06     INFO -      r13 = 0x54c8680391b12bc6   r14 = 0x00000000805d0021
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000136a08000   rip = 0x000000010429b275
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  26  XUL!non-virtual thunk to nsDocShell::OnStateChange(nsIWebProgress*, nsIRequest*, unsigned int, nsresult) [nsDocShell.cpp:a1967f4cc0af : 7189 + 0xc]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfc7f0   rbp = 0x00007fff5fbfc790
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc790   r12 = 0x00007fff5fbfc8a8
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000136a08028   r14 = 0x0000000131889280
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000139a95ed8   rip = 0x000000010429e3c0
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  27  XUL!nsDocLoader::DoFireOnStateChange(nsIWebProgress*, nsIRequest*, int&amp;, nsresult) [nsDocLoader.cpp:a1967f4cc0af : 1247 + 0x10]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfc7f0   rbp = 0x00007fff5fbfc890
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc7a0   r12 = 0x00007fff5fbfc8a8
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000136a08028   r14 = 0x0000000131889280
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000139a95ed8   rip = 0x0000000101ca2078
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  28  XUL!nsDocLoader::doStopDocumentLoad(nsIRequest*, nsresult) [nsDocLoader.cpp:a1967f4cc0af : 831 + 0x11]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000136a08028   rbp = 0x00007fff5fbfc990
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc8a0   r12 = 0x0000000131889280
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfc8a8   r14 = 0x00000000805d0021
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x0000000101ca198b
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  29  XUL!nsDocLoader::DocLoaderIsEmpty(bool) [nsDocLoader.cpp:a1967f4cc0af : 721 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfc9c8   rbp = 0x00007fff5fbfca00
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfc9a0   r12 = 0x0000000136a08000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000136d90800   r14 = 0x00000001003c4920
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000131889280   rip = 0x0000000101ca06dc
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  30  XUL!nsDocLoader::DocLoaderIsEmpty(bool) [nsDocLoader.h:a1967f4cc0af : 201 + 0xd]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfca38   rbp = 0x00007fff5fbfca70
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfca10   r12 = 0x0000000136d90800
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000136d90800   r14 = 0x0000000136a08000
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000012dc2d7d0   rip = 0x0000000101ca06fd
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  31  XUL!nsDocLoader::OnStopRequest(nsIRequest*, nsISupports*, nsresult) [nsDocLoader.cpp:a1967f4cc0af : 605 + 0xd]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfcb70
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfca80   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000136d90800   r14 = 0x54c8680391b12bc6
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000012ba2a580   rip = 0x0000000101ca1238
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  32  XUL!non-virtual thunk to nsDocLoader::OnStopRequest(nsIRequest*, nsISupports*, nsresult) [nsDocLoader.cpp:a1967f4cc0af : 468 + 0x9]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfcb80
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcb80   r12 = 0x000000012ba2a580
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000000   r14 = 0x000000012a1bfe00
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000000   rip = 0x0000000101ca175d
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  33  XUL!nsLoadGroup::RemoveRequest(nsIRequest*, nsISupports*, nsresult) [nsLoadGroup.cpp:a1967f4cc0af : 634 + 0x13]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfcc60
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcb90   r12 = 0x000000012ba2a580
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000000   r14 = 0x000000012a1bfe00
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000000   rip = 0x0000000101258df3
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  34  XUL!nsDocument::DoUnblockOnload() [nsDocument.cpp:a1967f4cc0af : 9036 + 0xa]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000013968f000   rbp = 0x00007fff5fbfcc90
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcc70   r12 = 0x000000012291dd00
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfcd08   r14 = 0x0000000121dd3bb0
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000013968f000   rip = 0x000000010223cbdc
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  35  XUL!nsDocument::DispatchContentLoadedEvents() [nsDocument.cpp:a1967f4cc0af : 5105 + 0x11]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000012aa87380   rbp = 0x00007fff5fbfcd80
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcca0   r12 = 0x000000012291dd00
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfcd08   r14 = 0x0000000121dd3bb0
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000013968f000   rip = 0x000000010222bf41
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  36  XUL!nsRunnableMethodImpl&lt;void (nsDocument::*)(), true&gt;::Run [nsThreadUtils.h:a1967f4cc0af : 663 + 0x13]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000010036d800   rbp = 0x00007fff5fbfcd90
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcd90   r12 = 0x000000010039eb00
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000000   r14 = 0x000000010039eb20
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000010039eb90   rip = 0x000000010228b347
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  37  XUL!nsThread::ProcessNextEvent(bool, bool*) [nsThread.cpp:a1967f4cc0af : 989 + 0x6]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000010036d800   rbp = 0x00007fff5fbfce30
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcda0   r12 = 0x000000010039eb00
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000000   r14 = 0x000000010039eb20
+  <br/>
+  17:09:06     INFO -      r15 = 0x000000010039eb90   rip = 0x0000000101180f95
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  38  XUL!NS_ProcessPendingEvents(nsIThread*, unsigned int) [nsThreadUtils.cpp:a1967f4cc0af : 239 + 0xf]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfce70
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfce40   r12 = 0x00007fff5fbfce47
+  <br/>
+  17:09:06     INFO -      r13 = 0x000000010039eb00   r14 = 0x000000000000000a
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000106db6   rip = 0x00000001011c113f
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  39  XUL!nsBaseAppShell::NativeEventCallback() [nsBaseAppShell.cpp:a1967f4cc0af : 97 + 0xa]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000121d59940   rbp = 0x00007fff5fbfcea0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfce80   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000001   r14 = 0x000000010039eb00
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000121d59900   rip = 0x00000001039d1184
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  40  XUL!nsAppShell::ProcessGeckoEvents(void*) [nsAppShell.mm:a1967f4cc0af : 387 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000107f11b40   rbp = 0x00007fff5fbfcef0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfceb0   r12 = 0x0000000107f11b54
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000001   r14 = 0x0000000100397000
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000121d59940   rip = 0x0000000103a3893d
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  41  CoreFoundation!__CFRunLoopDoSources0 + 0x551
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000107f11b40   rbp = 0x00007fff5fbfcf90
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcf00   r12 = 0x0000000107f11b54
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000001   r14 = 0x0000000100115c70
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000100115c70   rip = 0x00007fff8573a401
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  42  CoreFoundation!__CFRunLoopRun + 0x369
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000100115da0   rbp = 0x00007fff5fbfd8b0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfcfa0   r12 = 0x0000000100115c70
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000001   r14 = 0x0000000100115c70
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000100115da0   rip = 0x00007fff857385f9
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  43  CoreFoundation!CFRunLoopRunSpecific + 0x23f
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000100115da0   rbp = 0x00007fff5fbfd920
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfd8c0   r12 = 0x0000000100115c70
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000001   r14 = 0x0000000100115c80
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x00007fff85737dbf
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  44  HIToolbox!RunCurrentEventLoopInMode + 0x14d
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000001   rbp = 0x00007fff5fbfd960
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfd930   r12 = 0x00007fff7087d390
+  <br/>
+  17:09:06     INFO -      r13 = 0x000000010a05d140   r14 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000000   rip = 0x00007fff86b737ee
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  45  HIToolbox!ReceiveNextEventCommon + 0x136
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000000ffffd96d   rbp = 0x00007fff5fbfd9e0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfd970   r12 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000000   r14 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000000   rip = 0x00007fff86b735f3
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  46  HIToolbox!BlockUntilNextEventMatchingListInMode + 0x3b
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000001001095f0   rbp = 0x00007fff5fbfd9f0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfd9f0   r12 = 0xffffffffffffffff
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000121d599d0   r14 = 0x00007fff7087d390
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x00007fff86b734ac
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  47  AppKit!_DPSNextEvent + 0x2c4
+  <br/>
+  17:09:06     INFO -      rbx = 0x00000001001095f0   rbp = 0x00007fff5fbfde20
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfda00   r12 = 0xffffffffffffffff
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000121d599d0   r14 = 0x00007fff7087d390
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x00007fff85cd3eb2
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  48  AppKit!-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] + 0x9b
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff7087d390   rbp = 0x00007fff5fbfe0d0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfde30   r12 = 0xffffffffffffffff
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000121d599d0   r14 = 0x00007fff7087d390
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000121d599d0   rip = 0x00007fff85cd3801
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  49  XUL!-[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] [nsAppShell.mm:a1967f4cc0af : 121 + 0x2c]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000012a9fc7b0   rbp = 0x00007fff5fbfe120
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe0e0   r12 = 0x0000000000000001
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000121d599d0   r14 = 0x00007fff7087d390
+  <br/>
+  17:09:06     INFO -      r15 = 0xffffffffffffffff   rip = 0x0000000103a37c06
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  50  AppKit!-[NSApplication run] + 0x18b
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000109f5c6a0   rbp = 0x00007fff5fbfe180
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe130   r12 = 0x0000000121d599d0
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000129846d90   r14 = 0x0000000000000000
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff864108e0   rip = 0x00007fff85c9968f
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  51  XUL!nsAppShell::Run() [nsAppShell.mm:a1967f4cc0af : 661 + 0x17]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000012aa235a0   rbp = 0x00007fff5fbfe1d0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe190   r12 = 0x54c8680391b12bc6
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfe520   r14 = 0x00007fff5fbfe679
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000105b4462d   rip = 0x0000000103a390c5
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  52  XUL!nsAppStartup::Run() [nsAppStartup.cpp:a1967f4cc0af : 281 + 0x6]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000121d74e20   rbp = 0x00007fff5fbfe1f0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe1e0   r12 = 0x54c8680391b12bc6
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfe520   r14 = 0x00007fff5fbfe679
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfe39c   rip = 0x00000001045eae01
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  53  XUL!XREMain::XRE_mainRun() [nsAppRunner.cpp:a1967f4cc0af : 4326 + 0x6]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000124de3600   rbp = 0x00007fff5fbfe4b0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe200   r12 = 0x54c8680391b12bc6
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfe520   r14 = 0x00007fff5fbfe679
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfe39c   rip = 0x00000001046647ad
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  54  XUL!XREMain::XRE_main(int, char**, nsXREAppData const*) [nsAppRunner.cpp:a1967f4cc0af : 4423 + 0x8]
+  <br/>
+  17:09:06     INFO -      rbx = 0x0000000000000000   rbp = 0x00007fff5fbfe510
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe4c0   r12 = 0x00007fff5fbfec08
+  <br/>
+  17:09:06     INFO -      r13 = 0x0000000000000005   r14 = 0x00007fff5fbfe520
+  <br/>
+  17:09:06     INFO -      r15 = 0x0000000000000001   rip = 0x000000010466517b
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  55  XUL!XRE_main [nsAppRunner.cpp:a1967f4cc0af : 4525 + 0x11]
+  <br/>
+  17:09:06     INFO -      rbx = 0x00007fff5fbfe638   rbp = 0x00007fff5fbfe6b0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe520   r12 = 0x0000000000000005
+  <br/>
+  17:09:06     INFO -      r13 = 0x00007fff5fbfe520   r14 = 0x00007fff5fbfe7b0
+  <br/>
+  17:09:06     INFO -      r15 = 0x00007fff5fbfec08   rip = 0x000000010466565b
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  56  firefox!main [nsBrowserApp.cpp:a1967f4cc0af : 212 + 0x15]
+  <br/>
+  17:09:06     INFO -      rbx = 0x000000010033e1c0   rbp = 0x00007fff5fbfebe0
+  <br/>
+  17:09:06     INFO -      rsp = 0x00007fff5fbfe6c0   r12 = 0x000000010113f230
+  <br/>
+  17:09:06     INFO -      r13 = 0x000000010033dd40   r14 = 0x00007fff5fbfe6e0
+  <br/>
+  17:09:06     INFO -      r15 = 0x54c8680391b12bc6   rip = 0x000000010000208f
+  <br/>
+  17:09:06     INFO -      Found by: call frame info
+  <br/>
+  17:09:06     INFO -  57  firefox!start + 0x34
+  <br/>
+  17:09:06     INFO -      rbp = 0x00007fff5fbfebf8   rsp = 0x00007fff5fbfebf0
+  <br/>
+  17:09:06     INFO -      rip = 0x00000001000015b4
+  <br/>
+  17:09:06     INFO -      Found by: previous frame's frame pointer
+  <br/>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let me see if I can reproduce on my Windows machine.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WHAAAA - and now these are passing:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Triggering on Windows now...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What did I need the specialpowersAPI.js CPOW permission for?:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, it was
+</div>
+<div>
+ TEST-UNEXPECTED-FAIL | dom/ipc/tests/test_bug1086684.html
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ isWrapper@chrome://specialpowers/content/specialpowersAPI.js:84:31
+</div>
+<div>
+ wrapIfUnwrapped@chrome://specialpowers/content/specialpowersAPI.js:96:10
+</div>
+<div>
+ testStructure@http://mochi.test:8888/tests/dom/ipc/tests/test_bug1086684.html:66:10
+</div>
+<div>
+ testDone@http://mochi.test:8888/tests/dom/ipc/tests/test_bug1086684.html:52:9
+</div>
+<div>
+ JavaScript error: chrome://specialpowers/content/specialpowersAPI.js, line 84: Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, it was just for this one test, and it’s pretty easy to fix the test.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ BAHHHH - DevTools failure. Let’s see if this fixes it:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f431f45b150">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f431f45b150
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It does! Okay, blocked on
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1240044">
+  bug 1240044
+ </a>
+ now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ New try push:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push with jdescottes patch from bug 1240509:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b0030d9d8f44">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b0030d9d8f44
+ </a>
+</div>

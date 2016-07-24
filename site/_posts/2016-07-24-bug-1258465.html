@@ -1,0 +1,49 @@
+---
+layout: post
+title:  "Bug 1258465 - Only nsIWebBrowserFocus-&gt;activate a TabChild once it has composited"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1258465">
+ Bug 1258465 - Only nsIWebBrowserFocus-&gt;activate a TabChild once it has composited
+</a>
+<div>
+ So one of my concerns is that we’re over-optimizing for the test here because my current patch notifies the TabChild that we’ve composited based on the MozAfterPaint event firing. This isn’t exactly cheating, but moving it to after MozAfterPaint fires has no purpose except for improving our test score; otherwise, we’d move it to where we queue the MozAfterPaint event to fire.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I should talk to somebody about that because we’re going to score more poorly with e10s despite us presenting to the user at the same time or even faster, because we’ll be blocked on firing the MozAfterPaint event which tpaint.html is waiting for to stop its stopwatch.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ One of the problems that mstange brought up is that we’re breaking the assumption that any focus events sent after the activate will go to the right things because we haven’t necessarily actually activated yet.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ One idea: Can we increase the priority of the sync IME message so that we can get an answer ASAP and get to painting?
+</div>
+<div>
+ <b>
+  Answer: Not really - the message is already at prio(urgent). :/
+ </b>
+</div>
+<div>
+ <b>
+  <span style="font-size: 18px;">
+   <br/>
+  </span>
+ </b>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

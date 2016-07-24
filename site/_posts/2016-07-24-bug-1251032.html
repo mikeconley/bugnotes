@@ -1,0 +1,529 @@
+---
+layout: post
+title:  "Bug 1251032 - Have ContentParent send RenderFrameInfo down when responding to the CreateWindow sync message"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1251032">
+ Bug 1251032 - Have ContentParent send RenderFrameInfo down when responding to the CreateWindow sync message
+</a>
+<div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:02:05 PM">
+   6:02 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: I guess you would send the RenderFrameConstructor message earlier
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:02:45 PM">
+   6:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; billm: or could I send it down from the parent just before responding to the CreateWindow in the parent?
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:02:51 PM">
+   6:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; I forget if IPC lets me do that
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:03:37 PM">
+   6:03 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: hmm, then it will arrive asynchronously, which is a problem
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:03:41 PM">
+   6:03 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; (in the child)
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:03:58 PM">
+   6:03 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; ah, gotcha
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:05 PM">
+   6:04 PM
+  </span>
+  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ehsan" title="ehsan (ehsan@66.207.193.21)">
+   ehsan
+  </a>
+  quit (ehsan@66.207.193.21) A TLS packet with unexpected length was received.
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:12 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; okay, fair enough - I'll send it earlier
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:17 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; (from the child)
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:18 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: actually, you can't send it earlier I don't think
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:23 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; oh
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:30 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: it relies on there being a frameloader:
+  <a href="http://searchfox.org/mozilla-central/source/dom/ipc/TabParent.cpp#2638" rel="noreferrer" target="_blank">
+   http://searchfox.org/mozilla-central/source/dom/ipc/TabParent.cpp#2638
+  </a>
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:35 PM">
+   6:04 PM
+  </span>
+  bholley →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bholley_away" title="bholley_away (bholley@moz-mehar5.ca.comcast.net)">
+   bholley_away
+  </a>
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:38 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: and I think that won't exist until CreateWindow finishes
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:45 PM">
+   6:04 PM
+  </span>
+  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/marcosc" title="marcosc (marcosc@moz-29a.do1.52.113.IP)">
+   marcosc
+  </a>
+  quit (marcosc@moz-29a.do1.52.113.IP) Ping timeout: 121 seconds
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:04:49 PM">
+   6:04 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; yuck
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:05:43 PM">
+   6:05 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; hrm
+ </div>
+</div>
+<div>
+ <span title="Wednesday, February 24, 2016 6:06:00 PM">
+  6:06 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt; this is exactly the sort of up-front stuff I wanted to hear about, so thanks.
+ <span style="-evernote-sentoj-emoticon:true">
+  😃
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:06:54 PM">
+   6:06 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: you can make the constructor message for PRenderFrame have urgent priority (not sure if that's possible, but we could make it work)
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:07:07 PM">
+   6:07 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: then you can return the PRenderFrame as a result of CreateWindow
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:07:29 PM">
+   6:07 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: the urgent property means that the child will process the AllocPRenderFrame message while it's waiting for the CreateWindow reply
+ </div>
+ <div>
+  <span title="Wednesday, February 24, 2016 6:07:59 PM">
+   6:07 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt; mconley: that's horrible and we really need to rewrite this code, but I can't think of anything better that would be quick
+ </div>
+</div>
+<div>
+ <span title="Wednesday, February 24, 2016 6:08:43 PM">
+  6:08 PM
+ </span>
+ &lt;
+ <span title="Admins">
+  &amp;
+ </span>
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-3erol8.ujol.1ibb.0101.2620.IP)">
+  billm
+ </a>
+ &gt; mconley: step 1 is to try to add prio(urgent) in front of the PRenderFrame constructor message in IPDL and see if that works
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, this is tricky. I really don’t want to disturb the ecosystem here, so I’m looking for something minimal that will give me what I need.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ My WIP is kinda… invasive. Can I pare it down any?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What does it do exactly?
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  Adds the RenderFrame to the set of things passed up to CreateWindow and adds TextureFactoryIdentifier and a layersId to what is returned from CreateWindow from the parent
+ </li>
+ <li>
+  Publicly expose methods on TabParent to get at the FrameLoader and the RecvGetRenderFrameInfo method, along with the AddTabParentToTable method.
+ </li>
+ <li>
+  Add an “Init” method to RenderFrameParent that allows us to endow an instance with information after it has been instantiated.
+ </li>
+ <li>
+  Reorganize ContentChild so that it sends up a RenderFrame constructor first so that it can pass the RenderFrameChild up with SendCreateWindow. Needs to be able to handle failures, and send a delete for the RenderFrameChild if things go wrong.
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ I think the most egregious thing about this patch is how we expose things on TabParent, like the AddTabParentToTable, the RecvGetRenderFrameInfo, and the FrameLoader getter. I think what we should do instead of exposing these things is give TabParent a new public method for just this case, so that it can call those things internally. Otherwise, it’s TMI for callers.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So let’s see what the path is here...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1251032#c4">
+  From billm
+ </a>
+ :
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "
+ <div>
+  Here's a way to do this:
+  <br/>
+  <br/>
+  1. Send up a new RenderFrame before the CreateWindow call. We won't have a frameloader yet, so the AllocPRenderFrame code won't really do anything.
+  <br/>
+  2. Pass the new PRenderFrame to CreateWindow. CreateWindow will fill in the RenderFrameParent with everything it normally gets from frameloader.
+  <br/>
+  3. CreateWindow returns any other information needed, like the texture factory identifier and layer tree ID.
+  <br/>
+  <br/>
+  This is kinda hacky, but at least it doesn't rely on weird IPC gymnastics."
+  <br/>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait a second. How come I can’t just have the CreateWindow constructor return the RenderFrame? Like… can’t I have ContentParent construct it after the forceInitialBrowserRemote thing, and then send it down? If not, why not?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, because like billm pointed out, that would mean upping the priority of the PRenderFrame construction message so that it’s processed before the CreateWindow proceeds, and that’s scary. Messages should be processed in order where possible.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, so that idea is out.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here’s what it’s starting to look like:
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Send construction message for RenderFrame first, before the FrameLoader even exists.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Create a TabParent::SetRenderFrame or TabParent::InitRenderFrame, passing it the RenderFrame that was sent from the Child up to us
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Implement Set/InitRenderFrame to do the work that I didn’t want exposed in (2) above.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, now I want to split this patch up to make it easier to review:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Remove layerId and TextureFactoryIdentifier from RenderFrameParent constructor
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Add Init method to RenderFrameParent
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Make it so that the child creates the RenderFrame _before_ the FrameLoader is available, and combine into PContent’s CreateWindow
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oranges and other test failure thingies:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Debug only
+ </b>
+</div>
+<div>
+ dom/browser-element/mochitest/test_browserElement_oop_OpenNamed.html
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Failing this assertion: MOZ_ASSERT((!mDidFakeShow &amp;&amp; aRenderFrame) || (mDidFakeShow &amp;&amp; !aRenderFrame));
+</div>
+<div>
+ A || B == !A &amp;&amp; !B
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AHHHHH - I see what’s happening here. We’re entering the mozbrowser block above the part where I did all of the render frame manipulation. This thing:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 11.0px Menlo; font-variant-ligatures: no-common-ligatures">
+ </span>
+ <span style="font: 11.0px Menlo; font-variant-ligatures: no-common-ligatures; color: #bb2ca2">
+  if
+ </span>
+ <span style="font-style: normal; font-variant: normal; font-weight: normal; line-height: normal;">
+  <span style="font-size: 11px;">
+   <span style="font-family: Menlo;">
+    (aIframeMoz) {
+    <br/>
+    MOZ_ASSERT(aTabOpener);
+    <br/>
+    newChild-&gt;SendBrowserFrameOpenWindow(aTabOpener, NS_ConvertUTF8toUTF16(url),
+    <br/>
+    name, NS_ConvertUTF8toUTF16(features),
+    <br/>
+    aWindowIsNew);
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-family: Menlo;">
+  <span style="font-size: 11px;">
+   }
+   <span style="font: 11.0px Menlo; font-variant-ligatures: no-common-ligatures; color: #bb2ca2">
+    else
+   </span>
+   <span style="font: 11.0px Menlo; font-variant-ligatures: no-common-ligatures">
+    {
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From here:
+ <a href="https://hg.mozilla.org/mozilla-central/file/d1d47ba19ce9/dom/ipc/ContentChild.cpp#l858">
+  https://hg.mozilla.org/mozilla-central/file/d1d47ba19ce9/dom/ipc/ContentChild.cpp#l858
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ dom/browser-element/mochitest/test_browserElement_oop_FrameWrongURI.html
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Debug and opt
+ </b>
+</div>
+<div>
+ dom/browser-element/mochitest/test_browserElement_inproc_OpenMixedProcess.html
+</div>
+<div>
+ dom/browser-element/mochitest/test_browserElement_oop_AppWindowNamespace.html
+</div>

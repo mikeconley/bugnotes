@@ -1,0 +1,58 @@
+---
+layout: post
+title:  "Bug 1284687 - WebExtension page causes Firefox shutdown to hang"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1284687">
+ Bug 1284687 - WebExtension page causes Firefox shutdown to hang
+</a>
+<div>
+ This is a minor tragedy, and I feel pretty responsible.
+ <br/>
+ <br/>
+ In
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1177310" title="RESOLVED FIXED - [e10s] Stop using CPOWs on application shutdown">
+  bug 1177310
+ </a>
+ , I wrote patches that got rid of CPOW usage on application shutdown. Instead of causing flushes using CPOWs, I use the AsyncShutdown JSM to spin the event loop until each windows browsers had flushed their message queues.
+ <br/>
+ <br/>
+ As a perceived shutdown performance optimization, I added a line that closed the window after the flush messages go down to each browser.
+ <br/>
+ <br/>
+ This... this isn't perfect, and this WebExtension is exposing that.
+ <br/>
+ <br/>
+ The problem is that the onClose handler - which fires in response to the domwindowclosed notification - will likely fire before all of the updates have come up from each browser. onClose, when we're shutting down, will call cleanUpWindow, which resolves all of the in-flight flush Promises for each of the browsers still in the window and then removing all of the message listeners.
+ <br/>
+ <br/>
+ This is problematic for two reasons:
+ <br/>
+ <br/>
+ 1) It's very likely that we haven't heard all of the browser updates by the time that onClose fires, so we're probably missing out on the last ~2 seconds of session state from the unflushed browsers
+ <br/>
+ 2) If something (like the WebExtension in this bug) removes a browser from a window once SessionStore has kicked off its async flush, but _before_ domwindowclosed has fired, then when cleanUpWindow is called, it'll resolve all browsers except the one that had been removed, and the async window flush will never finish because we'll never have resolved the one that was removed.
+ <br/>
+ <br/>
+ To me, the simplest solution is to not cause onClose to happen until the window flushes have completed. Instead of calling win.close after each flush message is sent, I set its visibility to false.
+ <br/>
+ <br/>
+</div>
+<div>
+ This solves the WebExtension case because when the WebExtension removes the tab, we'll hear the final update come up from it, which will resolve the async window flush Promise (whereas before we never had a chance to hear that final update message because cleanUpWindow removed the message listeners).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ TODO:
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File that follow-up bug about the potential for windows to be closed between quit-application-granted and the flush.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1286077" title="NEW - Don't clean up window message listeners for SessionStore if we're in the midst of a shutdown">
+  bug 1286077
+ </a>
+</div>

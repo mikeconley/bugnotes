@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, perf"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-12-01 19:14:37 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1195295"/><meta name="updated" content="2016-02-22 17:04:14 +0000"/><title>Bug 1195295 - content-sessionStore.js sends a sync message to the parent in SyncHandler.init</title></head><body>
+<div>Easy peasy. One thing I had to do was add an async message from the bottom of content-sessionStore.js to reset the last message ID in TabState, since the frame script will be reloaded during remoteness flips.</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=22792b42a9e3"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=22792b42a9e3">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=22792b42a9e3</a></div>
+<div><br/></div>
+<div>Ah, looks like there’s greater simplification I can do. We don’t need IDs at all anymore! Hurray!</div>
+<div><br/></div>
+<div>Okay, my new patch passes both non-e10s and e10s states. Waiting on review!</div>
+<div><br/></div>
+<div>Woo! We’re good - just fixed some documentation. Waiting on a try build now:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ca01730bf69d"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ca01730bf69d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ca01730bf69d</a></div>
+<div><br/></div>
+<div>Hummm…. some test failures. :/</div>
+<div><br/></div>
+<div>562 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_tab_detach_restore.js | Should have restore data for the closed window - Got 0, expected 1</div>
+<div><br/></div>
+<div>Another try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d559836d00d0" rel="noreferrer" target="_blank">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d559836d00d0</a></div>
+<div><br/></div>
+<div>Huh. Still no good.</div>
+<div><br/></div>
+<div>AAAAAND another: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d5e1bde735e3"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d5e1bde735e3">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d5e1bde735e3</a></div>
+<div><br/></div>
+<div>Okay, fixed! Now I just need review on my fixes, I guess.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Test to see if a hung plugin no longer blocks shutdown for jimm. We seem to spin the event loop for like 5s, and then we just shut ‘er down. No hangs.</div>
+<div><br/></div>
+<div>Crap - this got backed out. <span style="-evernote-sentoj-emoticon:true">😔</span> Waiting on ting to fix the memory leak in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1220517"/><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1220517">https://bugzilla.mozilla.org/show_bug.cgi?id=1220517</a></div>
+<div><br/></div>
+<div>Hey - I think I’ve figured this out. I think we need to clear out the data map after flushing the message queue.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1b1377860df8"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1b1377860df8">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1b1377860df8</a></div>
+<div><br/></div>
+<div>Hm. Nope. That wasn’t it. Maybe I need to clear the timeout and clear out the data on uninit instead?</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b46be79c6070"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b46be79c6070">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b46be79c6070</a></div>
+<div><br/></div>
+<div>New idea - maybe there is data being pushed to the MessageQueue after uninit. Let’s prevent that.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0b0446d54dc1"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0b0446d54dc1">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0b0446d54dc1</a></div>
+<div><br/></div>
+<div>DAMN IT. Nope. WTF???</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=798022ebbe7b"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=798022ebbe7b">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=798022ebbe7b</a></div>
+<div><br/></div>
+<div>Hypothesis: <a href="https://hg.mozilla.org/try/rev/582c8e1fffe6">https://hg.mozilla.org/try/rev/582c8e1fffe6</a> creates a cycle. HOW???</div>
+<div><br/></div>
+<div>I DUNNO. :((( Let’s… try everything.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f70d1cbcfa95"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f70d1cbcfa95">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f70d1cbcfa95</a></div>
+<div><br/></div>
+<div>GARARH! MOTHER FUCKER</div>
+<div><br/></div>
+<div>Without patch:</div>
+<div><br/></div>
+<div>Object frequency. Showing no more than 5 classes of objects, with at least 5 objects each.</div>
+<div>    2853 JS Object (Function)</div>
+<div>    2845 JS Object (other)</div>
+<div>    2138 JS Script</div>
+<div>     235 nsGenericDOMDataNode</div>
+<div>     142 nsXPCWrappedJS</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:32DED600 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1C33D9C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1B101A60 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:12B0AD20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:12B0AE20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:17912A30 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27751B50 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27751B80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:179129D0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:2283EFE0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E449C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E449A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E44980 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E44960 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E44940 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:27E44920 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:333A3DC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:333A3DA0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:333A3D80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:2AF12820 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:2AF12800 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:2AF127E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A679E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A679C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A679A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:2009BA20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1D8EB900 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1D8EB8E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:198273A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:19827380 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:19827360 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1B110B60 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:32E814C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:32E814A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:32E81480 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:20050220 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:20050200 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:200501E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1FE8A0A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1FE8A080 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1FE8A060 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:310739E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:310739C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:310739A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A073A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A07380 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:31A07360 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1C34C1C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1F44D780 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:1F44D760 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:19479100 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:194790E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:194790C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:277518E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:179127F0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:133CFCD0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2548.log:133CFD00 [gc] JS Object (Function)</span></div>
+<div><br/></div>
+<div>With patch:</div>
+<div><br/></div>
+<div>   10497 JS Object (Function)</div>
+<div>    6288 JS Object (other)</div>
+<div>    4493 JS Script</div>
+<div>     235 nsGenericDOMDataNode</div>
+<div>     187 XPCWrappedNative</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:129E6BA0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:20A74E90 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:129E6BC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D10F240 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120800 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D10F260 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120040 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D11AFE0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D1200C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120080 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120140 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120100 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120180 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D1201C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120200 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:129E6C20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:20A74EF0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:129E6C60 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BA9020 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BB35E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BA9040 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACE00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACDC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACE80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACE40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACF00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACEC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACF40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACF80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BACFC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1E527610 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:12EEBAF0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1E5275D0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:17503980 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26CDA4E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:175039A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625C80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625C40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625D00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625CC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625D80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625D40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625DC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625E00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27625E40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:15449E00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:14DF0BC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:15449E40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:16784120 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44DC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:16784140 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44380 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44340 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44400 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD443C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44500 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD444C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44560 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD445E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44620 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:133E26F0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:129E69B0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:133E2750 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:28D30360 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5FE40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:28D30380 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F660 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F620 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F6E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F6A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F760 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F720 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F7A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F7E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5F820 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:21EDC3C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D330E00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1B148610 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:12B0AD20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:12B0AE20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:154B23D0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:154B23A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:31CEE760 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:31CEE730 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D120900 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BB36E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26CDA5E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD44F20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5FF40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:12B872A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27508960 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27508940 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27508920 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27508900 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:275088E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:275088C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29EE76A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29EE7680 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29EE7640 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:175036C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:175036A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:17503680 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32312CC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32312CA0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32312C80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB99BA0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB99B80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB99B60 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:19913280 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:19913260 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:19913240 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D3288C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D158480 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D158460 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D158440 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BD3260 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BD3240 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BD3220 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1DCD6340 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1DCD6320 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1DCD6300 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:300E29C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:300E29A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:300E2980 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32F85B20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32F85B00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32F85AE0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB4FB00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB4FAE0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2CB4FAC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1955AE40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1955AE20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1955AE00 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD1DF20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BFA460 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D132310 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2ACBC0E0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2AD1D8C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BBD3A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27752920 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:27752580 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:3178B580 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1F2D18A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1F2D17A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:32F8C430 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BA76300 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BA76200 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BA73AF0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D1B2620 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D1B20C0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:1D11FA30 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BFA400 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BD3E80 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:26BB0AC0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:28905660 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:28905100 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:253F1B20 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BAC8F40 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BAC8960 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2D6BB910 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5ECE0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:29D5E760 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:2BA73220 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:154B2310 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:31CEE6A0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:133CFCD0 [gc] JS Object (Function)</span></div>
+<div><span style="font-family: 'Andale Mono';">cc-edges.2168.log:133CFD00 [gc] JS Object (Function)</span></div>
+<div><br/></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fa4159003aa8"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fa4159003aa8">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=fa4159003aa8</a></div>
+<div><br/></div>
+<div><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-cfhap5.mtv2.mozilla.com)">mccr8</a>&gt; mconley : then you can try doing another run with your patch with MOZ_CC_ALL_TRACES=1 and MOZ_CC_LOG_ALL=1 set, and look at logs before those shutdown CCs, and see what is holding those object alive earlier.</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=052e81420748"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=052e81420748">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=052e81420748</a></div>
+<div><br/></div>
+<div><br/></div>
+<div><b>Experiments:</b></div>
+<div><br/></div>
+<div>Try re-setting up the timer if timerDisabled is then set to false?</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=03cc331a02c0"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=03cc331a02c0">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=03cc331a02c0</a></div>
+<div><br/></div>
+<div>Try adding a sync message</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=62b1867968a0"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=62b1867968a0">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=62b1867968a0</a></div>
+<div><br/></div>
+<div>FUCK IT. Let’s break the patch up into chunks and bisect the motherfucker.</div>
+<div><br/></div>
+<div>DOING SO.</div>
+<div><br/></div>
+<div>Chunk 1: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bd0c471ec83e">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bd0c471ec83e</a></div>
+<div>Chunk 2: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e1c170a77644">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e1c170a77644</a> CULPRIT</div>
+<div><br/></div>
+<div>  Chunk 2 - 1: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=908fee87eacf"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=908fee87eacf">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=908fee87eacf</a></div>
+<div>  Chunk 2 - 2: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=273b2c2bda56">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=273b2c2bda56</a> CULPRIT</div>
+<div><br/></div>
+<div>     Remove _latestMessageID: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=61c5c0b25240"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=61c5c0b25240">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=61c5c0b25240</a></div>
+<div>     Make setSyncHandler a no-op: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1dc6b98cdfd6">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1dc6b98cdfd6</a></div>
+<div>     Don’t respond to setupSyncHandler message: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba95840be976"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba95840be976">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba95840be976</a></div>
+<div>     Don’t listen for setupSyncHandler on closed:  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=67bc80826d4d"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=67bc80826d4d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=67bc80826d4d</a></div>
+<div>     Don’t listen for setupSyncHandler at all: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f129ec2ca7f6">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f129ec2ca7f6</a></div>
+<div><br/></div>
+<div>Chunk 3: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a0f9c2f1ec43">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a0f9c2f1ec43</a></div>
+<div>Chunk 4: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=54e9ee9cbf6f">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=54e9ee9cbf6f</a></div>
+<div>Chunk 5: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=54e9ee9cbf6f"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=54e9ee9cbf6f">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=54e9ee9cbf6f</a></div>
+<div><br/></div>
+<div>Some dump WeakMap: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f538df7ec1e"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f538df7ec1e">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f538df7ec1e</a></div>
+<div>Boooo, no better. :/</div>
+<div><br/></div>
+<div>New tactic: Start eliminating tests to see if we can make this leak go away.</div>
+<div><br/></div>
+<div>ALSO - try just eliminating the timer in general: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=12b29774ece6"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=12b29774ece6">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=12b29774ece6</a></div>
+<div><br/></div>
+<div>Nope. <span style="-evernote-sentoj-emoticon:true">😔</span></div>
+<div><br/></div>
+<div>Shot-in-the-dark logging: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=24e03ba65bb4"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=24e03ba65bb4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=24e03ba65bb4</a></div>
+<div><br/></div>
+<div>Gut sync-ui: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=332fc2c4394f"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=332fc2c4394f">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=332fc2c4394f</a></div>
+<div><br/></div>
+<div>Nope. Though again, it looks like the ones that succeed have all of those errors, and the ones that don’t have no errors...</div>
+<div><br/></div>
+<div>Disable the sync tests: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=868c894fd7a4"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=868c894fd7a4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=868c894fd7a4</a></div>
+<div><br/></div>
+<div>Huh… I wonder if these Promise rejections have something to do with it...</div>
+<div><br/></div>
+<div>mccr8 says:</div>
+<div><br/></div>
+<div>"I looked at this a little bit. The DETH in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1195295#c36">comment 36</a> is whatever is implementing ContentFrameMessageManager. You can tell because an XPCWN (ContentFrameMessageManager) has an mIdentity field that points to it, so that's the underlying native for the XPCWN. I think. I was looking at a different set of objects, JS Functions for SpecialPowersAPI.prototype.* methods, but they were also being held alive by ContentFrameMessageManager, through mAnonymousGlobalScopes. I'm not sure why all of this JS is being entrained there."</div>
+<div><br/></div>
+<div>Gut a bunch of tests that cause Promise rejections: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1536ac8ea9f4"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1536ac8ea9f4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1536ac8ea9f4</a></div>
+<div><br/></div>
+<div>Force GC / CC between tests: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=25f217365060"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=25f217365060">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=25f217365060</a></div>
+<div><br/></div>
+<div>FUUUUUUUCK FUCK FUCK FUCK FUCK</div>
+<div><br/></div>
+<div>GAOUJAS:LKJSDL:KJSJKRLS:KDRJ RAGE OUT RAGE</div>
+<div><br/></div>
+<div>Okay, let’s see if I can reproduce locally. I’ll run browser-syncui.js with a debug build.</div>
+<div><br/></div>
+<div>Try a bunch of stuff: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88afa06cb4ea"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88afa06cb4ea">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=88afa06cb4ea</a></div>
+<div><br/></div>
+<div>More random stabs:  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=485d814d33e5">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=485d814d33e5</a></div>
+<div><br/></div>
+<div>Delete everything: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=57e1311374dd">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=57e1311374dd</a></div>
+<div><br/></div>
+<div>Unload logging: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=63b079bc943c"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=63b079bc943c">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=63b079bc943c</a></div>
+<div><br/></div>
+<div>Just break syncui. <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ea76ae8944b7"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ea76ae8944b7">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ea76ae8944b7</a></div>
+<div><br/></div>
+<div>MacBook-Pro-104:leakthing mikeconley$ grep "G mAnonymousGlobal" patch-applied | wc -l</div>
+<div>      87</div>
+<div>MacBook-Pro-104:leakthing mikeconley$ grep "B mAnonymousGlobal" patch-applied | wc -l</div>
+<div>      44</div>
+<div><br/></div>
+<div><b>Sum: 131</b></div>
+<div><b><br/></b></div>
+<div>
+<div>MacBook-Pro-104:leakthing mikeconley$ grep "G mAnonymousGlobal" patch-not-applied | wc -l</div>
+</div>
+<div>      52</div>
+<div>MacBook-Pro-104:leakthing mikeconley$ grep "B mAnonymousGlobal" patch-not-applied | wc -l</div>
+<div>      79</div>
+<div><br/></div>
+<div><b>Sum: 131</b></div>
+<div><b><br/></b></div>
+<div>Okay, ting’s last comment is really interesting:</div>
+<div><br/></div>
+<div>"The ContentFrameMessageManager was marked gray during GC, but without the patch, it will be unmarked to black when FixWeakMappingGrayBitsTracer::trace() is called for the WeakMap |_syncHandlers|:<br/>
+<br/>
+  <a href="https://dxr.mozilla.org/mozilla-central/source/xpcom/base/nsCycleCollector.cpp#3791">https://dxr.mozilla.org/mozilla-central/source/xpcom/base/nsCycleCollector.cpp#3791</a><br/>
+  <a href="https://dxr.mozilla.org/mozilla-central/source/xpcom/base/nsCycleCollector.cpp#3478">https://dxr.mozilla.org/mozilla-central/source/xpcom/base/nsCycleCollector.cpp#3478</a><br/>
+<br/>
+which winds up calling JS::UnmarkGrayGCThingRecursively() and unmark everything SyncHandler instances reference to:<br/>
+<br/>
+  <a href="https://dxr.mozilla.org/mozilla-central/source/xpcom/base/CycleCollectedJSRuntime.cpp#269">https://dxr.mozilla.org/mozilla-central/source/xpcom/base/CycleCollectedJSRuntime.cpp#269</a><br/>
+<br/>
+This is why there're much less CC participants without the patch. But I don't know should CC check all these things when the patch is applied, it's a lot of them.<br/>
+<br/>
+So it's not there're more anon global scopes, it's just they are marked gray or black. For example, from the log of <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1195295#c36">comment 36</a>, without the patch:<br/>
+<br/>
+cc-edges.2548.log:<br/>
+  18AAA600 [rc=1] DOMEventTargetHelper <br/>
+  &gt; 18083900 mAnonymousGlobalScopes[i]<br/>
+  &gt; 180B4340 mAnonymousGlobalScopes[i]<br/>
+  &gt; 18C0AEA0 mAnonymousGlobalScopes[i]<br/>
+  &gt; 18C2C020 mAnonymousGlobalScopes[i]<br/>
+  &gt; 18C2CE40 mAnonymousGlobalScopes[i]<br/>
+  &gt; 194697E0 mAnonymousGlobalScopes[i]<br/>
+  &gt; 1B153C00 mAnonymousGlobalScopes[i]<br/>
+<br/>
+gc-edges.2548.log:<br/>
+  18083860 B mAnonymousGlobalScopes[i]<br/>
+  18083900 G mAnonymousGlobalScopes[i]<br/>
+  18083980 B mAnonymousGlobalScopes[i]<br/>
+  18083F00 B mAnonymousGlobalScopes[i]<br/>
+  180B41C0 B mAnonymousGlobalScopes[i]<br/>
+  180B4340 G mAnonymousGlobalScopes[i]<br/>
+  183D7940 B mAnonymousGlobalScopes[i]<br/>
+  18C0A360 B mAnonymousGlobalScopes[i]<br/>
+  18C0AEA0 G mAnonymousGlobalScopes[i]<br/>
+  18C2C020 G mAnonymousGlobalScopes[i]<br/>
+  18C2CE40 G mAnonymousGlobalScopes[i]</div>
+<div>  194697E0 G mAnonymousGlobalScopes[i]"</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=439ef7a7aea4">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=439ef7a7aea4</a></div>
+<div><br/></div>
+<div><br/></div>
+<div>Logging:</div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=32904b840f39">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=32904b840f39</a></div>
+<div>Patch: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cbadf116d5ec"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cbadf116d5ec">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cbadf116d5ec</a></div>
+<div><br/></div>
+<div>With bug 1249439 applied...</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=455c72d322bc"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=455c72d322bc">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=455c72d322bc</a></div>
+<div><br/></div>
+<div>With smaug stuff:</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=73570b27131d"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=73570b27131d">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=73570b27131d</a></div>
+<div><br/></div>
+<div>SUCCESS! HOLY CRAP FINALLY</div>
+<div><br/></div>
+<div>Without smaug stuff (just in case his earlier patches fixed it):</div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=db90213e0e76"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=db90213e0e76">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=db90213e0e76</a></div>
+<div><br/></div>
+<div>Final try push on inbound:</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=abdbe2d31707"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=abdbe2d31707">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=abdbe2d31707</a></div>
+<div><br/></div>
+<div>
+<div><span title="Friday, February 19, 2016 5:46:20 PM">5:46 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey%7Cpto" title="khuey|pto (khuey@moz-nqgs58.mozilla.com)">khuey|pto</a>&gt; smaug: what did that crazy leak bug of mconley's end up being?</div>
+<div><span title="Friday, February 19, 2016 5:47:07 PM">5:47 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; khuey|pto: so at least there were cases when observer service kept xul:browser elements alive</div>
+<div><span title="Friday, February 19, 2016 5:47:18 PM">5:47 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; those elements registered themselves as strong observers</div>
+<div><span title="Friday, February 19, 2016 5:47:28 PM">5:47 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; and then JS is keeping frameloaders alive too long</div>
+<div><span title="Friday, February 19, 2016 5:47:53 PM">5:47 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; so we have option to fix js and/or frameloader to not keep inprocesstabchildglobal alive so long</div>
+<div><span title="Friday, February 19, 2016 5:48:24 PM">5:48 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; (and then there was, which I think is unrelated, a missing unlink in XBL code)</div>
+<div><span title="Friday, February 19, 2016 5:49:09 PM">5:49 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey%7Cpto" title="khuey|pto (khuey@moz-nqgs58.mozilla.com)">khuey|pto</a>&gt; smaug: in mconley's patch? or that existed already?</div>
+<div><span title="Friday, February 19, 2016 5:49:48 PM">5:49 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; khuey|pto: oh, I wasn't really even looking at mconley's patch, just whatever I saw in graph</div>
+<div><span title="Friday, February 19, 2016 5:50:10 PM">5:50 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; but I need to check whether this is just about the test doing something unusual, which I do expect</div>
+<div><span title="Friday, February 19, 2016 5:50:36 PM">5:50 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; since tabbrowser code itself does for example call destroy() on xul:browsers which clears the strong observer service ref</div>
+<div><span title="Friday, February 19, 2016 5:51:02 PM">5:51 PM</span> → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/marcosc" title="marcosc (marcosc@moz-29a.do1.52.113.IP)">marcosc</a> joined (marcosc@moz-29a.do1.52.113.IP)</div>
+<div><span title="Friday, February 19, 2016 5:51:11 PM">5:51 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; khuey|pto: I somehow get the impression that smaug has one half of the story, and ting has the other half</div>
+<div><span title="Friday, February 19, 2016 5:51:34 PM">5:51 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; yeah, ting has a patch for the js keeping frameloaders alive too long</div>
+<div><span title="Friday, February 19, 2016 5:51:45 PM">5:51 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; we should probably land that patch or a variant of it to branches too</div>
+<div><span title="Friday, February 19, 2016 5:53:05 PM">5:53 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey%7Cpto" title="khuey|pto (khuey@moz-nqgs58.mozilla.com)">khuey|pto</a>&gt; ok, so it did turn out to be a preexisting problem</div>
+<div><span title="Friday, February 19, 2016 5:53:13 PM">5:53 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey%7Cpto" title="khuey|pto (khuey@moz-nqgs58.mozilla.com)">khuey|pto</a>&gt; that mconley was unlucky enough to exacerbate</div>
+<div><span title="Friday, February 19, 2016 5:55:27 PM">5:55 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; story of my life</div>
+<div><span title="Friday, February 19, 2016 5:55:35 PM">5:55 PM</span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/marcosc" title="marcosc (marcosc@moz-29a.do1.52.113.IP)">marcosc</a> quit (marcosc@moz-29a.do1.52.113.IP) Ping timeout: 121 seconds</div>
+<div><span title="Friday, February 19, 2016 5:57:48 PM">5:57 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; oh, and mconley's patch is actually removing one bizarre edge</div>
+<div><span title="Friday, February 19, 2016 5:58:23 PM">5:58 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; from browser element's property 'foo' via WeakMap to some object in inprocess tabchild global</div>
+<div><span title="Friday, February 19, 2016 5:59:05 PM">5:59 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-cfhap5.mtv2.mozilla.com)">mccr8</a>&gt; <b>yeah so maybe he fixed part of the leak, but the part that kept the leak out of the CC graph, or something.</b></div>
+<div><span title="Friday, February 19, 2016 6:00:23 PM">6:00 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; JS is so good language to leak stuff accidentally</div>
+<div><span title="Friday, February 19, 2016 6:01:36 PM">6:01 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-cfhap5.mtv2.mozilla.com)">mccr8</a>&gt; yeah. :(</div>
+<div><span title="Friday, February 19, 2016 6:01:50 PM">6:01 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; I won't lie, WeakMap's and WeakSet's make us front-end feel like we can't do wrong.</div>
+<div><span title="Friday, February 19, 2016 6:02:03 PM">6:02 PM</span> bholley → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bholley_away" title="bholley_away (bholley@moz-as2.alo.75.170.IP)">bholley_away</a></div>
+<div><span title="Friday, February 19, 2016 6:02:35 PM">6:02 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-cfhap5.mtv2.mozilla.com)">mccr8</a>&gt; apparently some JS people want real weak refs too</div>
+<div><span title="Friday, February 19, 2016 6:02:47 PM">6:02 PM</span>  ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jdm" title="jdm (jdm@moz-qghali.3t38.sij7.f0c8.2607.IP)">jdm</a> quit  ↔ <span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/peterv" title="peterv (peterv@moz-rcb22e.access.telenet.be)">peterv</a> (opped) nipped out  </div>
+<div><span title="Friday, February 19, 2016 6:05:59 PM">6:05 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-ecr3a1.elisa-laajakaista.fi)">smaug</a>&gt; I think it was a mistake to call the thing WeakMap, since its behavior is rather surprising</div>
+<div><span title="Friday, February 19, 2016 6:06:28 PM">6:06 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mccr8" title="mccr8 (mccr8@moz-cfhap5.mtv2.mozilla.com)">mccr8</a>&gt; the other name is "ephemeron table"</div>
+<div><span title="Friday, February 19, 2016 6:07:05 PM">6:07 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/shu" title="shu (sguo@moz-nqgs58.mozilla.com)">shu</a>&gt; all hail ephemeron</div>
+</div>
+<div><span title="Friday, February 19, 2016 6:07:35 PM">6:07 PM</span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey%7Cpto" title="khuey|pto (khuey@moz-nqgs58.mozilla.com)">khuey|pto</a>&gt; sounds like "ephemeron" belongs next to cthulu in the pantheon</div>
+<div><br/></div>
+<div>HOLY CRAP DONE</div>
+</body></html>

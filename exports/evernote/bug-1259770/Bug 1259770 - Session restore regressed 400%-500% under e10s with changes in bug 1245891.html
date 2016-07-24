@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, perf"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-04-02 03:05:00 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1259770"/><meta name="updated" content="2016-04-03 21:42:18 +0000"/><title>Bug 1259770 - Session restore regressed 400%-500% under e10s with changes in bug 1245891</title></head><body>
+<div>non-e10s:  [{"subtests": [{"replicates": [1046.0, 837.0, 876.0, 840.0, 867.0, 870.0, 841.0, 871.0, 860.0, 854.0], "name": "sessionrestore", "value": 860.0}]</div>
+<div><br/></div>
+<div>e10s: [{"subtests": [{"replicates": [1231.0, 918.0, 912.0, 859.0, 819.0, 801.0, 859.0, 778.0, 838.0, 822.0], "name": "sessionrestore", "value": 838.0}]</div>
+<div><br/></div>
+<div>Okay, I think I know what's going on.</div>
+<div><br/></div>
+<div>The work in bug 1245891 takes advantage of a module that got added called StartupPerformance.jsm.</div>
+<div><br/></div>
+<div>Briefly, StartupPerformance.jsm works by noticing when session restore init has begun, and then records that time. It also starts a 10 second timer. It then starts listening for SSTabRestored events to be fired. Every time one of the SSTabRestored events comes in, we record the current time, and the 10 second timer is reset.</div>
+<div><br/></div>
+<div>Once the timer finally goes off (so we haven't seen an SSTabRestored event in 10 seconds), the SSTabRestored event listener detaches itself, and the observer that the sessionrestore talos test is listening for is fired off. The talos test then takes the delta between sessionrestore init and the last SSTabRestored event time.</div>
+<div><br/></div>
+<div>So that's how the sessionrestore test is supposed to work.</div>
+<div><br/></div>
+<div>There's a small problem though, and I think it's causing us to report different results in the e10s case (even though e10s is not performing worse).</div>
+<div><br/></div>
+<div>The problem is that the talos test loads an index.html file along with the session it's restoring from. That index.html file is not part of the sessionrestore set, and is passed in the cmdline args to Firefox in order to do the reporting of the test results back to talos. It's also the selected tab.</div>
+<div><br/></div>
+<div>The final puzzle piece is that the initial browser in a new browser window is non-remote by default. In order for it to go anywhere, some DocShell / SessionStore stuff occurs where any pre-existing state is scooped out of the browser, the remoteness is flipped, and then the scooped out state is sent back down to the new browser / DocShell.</div>
+<div><br/></div>
+<div>That's important, because that scoop/remoteness-flip/sending of state results in an SSTabRestored event to be fired, since we're using the same tab restoration mechanism to do the sending of state.</div>
+<div><br/></div>
+<div>So how this ties all together is that the browser starts up, it loads up the session, and in the non-e10s case, because a non-session tab is selected and loaded (the index.html file), an SSTabRestored event never fires (since index.html wasn’t in the old session, remember - it was loaded as part of the cmdline). When StartupPerformance never gets any SSTabRestored events, the delta that gets computed is the delta between session restore init and when restoration starts.</div>
+<div><br/></div>
+<div>For e10s, it’s the same up until the index.html load. In order to load that into the initial tab, we do the remoteness flip, which fires an SSTabRestored event, which StartupPerformance notices.</div>
+<div><br/></div>
+<div>That’s where the discrepancy is.</div>
+<div><br/></div>
+<div>TL;DR:</div>
+<div><br/></div>
+<div>non-e10s is measuring the delta between session restore init and when tab restoration starts.</div>
+<div><br/></div>
+<div>e10s is measuring the delta between session restore init, and when the index.html of the talos test content page has finished being restored.</div>
+<div><br/></div>
+<div>To prove my case, here's a try push where I forced the initial browser in the window to be remote (this might also contribute to wins to tpaint, so this was a thing I was already pursuing):<br/>
+<br/>
+<a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba7b791b1ac8095ffd090b295909c2663c6c2cbe">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba7b791b1ac8095ffd090b295909c2663c6c2cbe</a><br/>
+<br/>
+Try to ignore the high scores from the Linux64 spot instances - I'm not sure how to hide those, and unfortunately, Perfherder mixes the AWS-instance results with the normal Linux64 talos machine results, which kinda throws off the numbers (see <a title="NEW - Perfherder mixes in talos-aws results" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1260926">bug 1260926</a>).<br/>
+<br/>
+In this case, we appear to at least match non-e10s. On some platforms e10s beats non-e10s significantly.<br/>
+<br/></div>
+<div>So, to sum, I think e10s is not regressing sessionstore performance when we're restoring tabs on demand. In fact, I think it performs better. We just need to make sure the test starts comparing things properly.</div>
+<div><br/></div>
+<div><b>Potential solutions:</b></div>
+<ul>
+<li>Make initial browser remote in the e10s case (useful for tpaint too)</li>
+<li>Make initial browser remote by default, force non-remote in non-e10s case</li>
+<li>Make StartupPerformance.jsm ignore SSTabRestored for remoteness flips
+<ul>
+<li>Hey, this was easy! I did this one in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1261657">bug 1261657</a>, which I just opened a note for.</li>
+</ul>
+</li>
+<li>Add test index.html to sessionstore.json as the selected tab. Will this help? Or will it just use the initial browser for that one too?</li>
+<li>Make test open index.html after the test has finished recording. Probably pretty cheap!
+<ul>
+<li>Would need to make the window have about:home selected in order to ensure that it loads.</li>
+<li>Will that work? Will that ensure that we don’t SSTabRestore?</li>
+</ul>
+</li>
+</ul>
+<div><br/></div>
+<div><br/></div>
+<div>WOOOO THIS IS FIXED MOTHERFUCKER</div>
+</body></html>

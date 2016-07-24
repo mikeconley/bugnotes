@@ -1,0 +1,277 @@
+---
+layout: post
+title:  "Bug 1231422 - Intermittent browser_async_window_flushing.js | We should not have added the window to the closed windows array - Got 1, expected 0"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1231422">
+ Bug 1231422 - Intermittent browser_async_window_flushing.js | We should not have added the window to the closed windows array - Got 1, expected 0
+</a>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2befbfc27b7f">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2befbfc27b7f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2befbfc27b7f
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 07:09:52     INFO -  mconley: THE INTERESTING STUFF IS STARTING
+ <br/>
+ 07:09:52     INFO -  ++DOCSHELL 0x7ff05b71d000 == 66 [pid = 2056] [id = 625]
+ <br/>
+ 07:09:52     INFO -  ++DOMWINDOW == 155 (0x7ff056e73800) [pid = 2056] [serial = 1896] [outer = (nil)]
+ <br/>
+ 07:09:52     INFO -  ++DOMWINDOW == 156 (0x7ff056e77c00) [pid = 2056] [serial = 1897] [outer = 0x7ff056e73800]
+ <br/>
+ 07:09:52     INFO -  ++DOCSHELL 0x7ff05b73b000 == 67 [pid = 2056] [id = 626]
+ <br/>
+ 07:09:52     INFO -  ++DOMWINDOW == 157 (0x7ff0576cc800) [pid = 2056] [serial = 1898] [outer = (nil)]
+ <br/>
+ 07:09:52     INFO -  ++DOCSHELL 0x7ff05b73b800 == 68 [pid = 2056] [id = 627]
+ <br/>
+ 07:09:52     INFO -  ++DOMWINDOW == 158 (0x7ff0576cd000) [pid = 2056] [serial = 1899] [outer = (nil)]
+ <br/>
+ 07:09:52     INFO -  ++DOMWINDOW == 159 (0x7ff0576cf400) [pid = 2056] [serial = 1900] [outer = 0x7ff0576cd000]
+ <br/>
+ 07:09:53     INFO -  ++DOCSHELL 0x7ff05bb63800 == 69 [pid = 2056] [id = 628]
+ <br/>
+ 07:09:53     INFO -  ++DOMWINDOW == 160 (0x7ff0576cc400) [pid = 2056] [serial = 1901] [outer = (nil)]
+ <br/>
+ 07:09:53     INFO -  ++DOMWINDOW == 161 (0x7ff057edbc00) [pid = 2056] [serial = 1902] [outer = 0x7ff0576cc400]
+ <br/>
+ 07:09:53     INFO -  ++DOMWINDOW == 162 (0x7ff0580afc00) [pid = 2056] [serial = 1903] [outer = 0x7ff0576cc800]
+ <br/>
+ 07:09:53     INFO -  ++DOMWINDOW == 163 (0x7ff058154800) [pid = 2056] [serial = 1904] [outer = 0x7ff0576cd000]
+ <br/>
+ 07:09:53     INFO -  ++DOMWINDOW == 164 (0x7ff058159c00) [pid = 2056] [serial = 1905] [outer = 0x7ff0576cc400]
+ <br/>
+ 07:09:54     INFO -  ++DOMWINDOW == 165 (0x7ff058bcb000) [pid = 2056] [serial = 1906] [outer = 0x7ff0576cc400]
+ <br/>
+ 07:09:54     INFO -  mconley: CLOSING THE WINDOW
+ <br/>
+ 07:09:54     INFO -  mconley: A window closed
+ <br/>
+ 07:09:54     INFO -  mconley: Determining if {
+ <br/>
+ 07:09:54     INFO -     "tabs": [
+ <br/>
+ 07:09:54     INFO -             {
+ <br/>
+ 07:09:54     INFO -                     "entries": [
+ <br/>
+ 07:09:54     INFO -                             {
+ <br/>
+ 07:09:54     INFO -                                     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 07:09:54     INFO -                                     "charset": "UTF-8",
+ <br/>
+ 07:09:54     INFO -                                     "ID": 734,
+ <br/>
+ 07:09:54     INFO -                                     "docshellID": 628,
+ <br/>
+ 07:09:54     INFO -                                     "docIdentifier": 734,
+ <br/>
+ 07:09:54     INFO -                                     "persist": true
+ <br/>
+ 07:09:54     INFO -                             }
+ <br/>
+ 07:09:54     INFO -                     ],
+ <br/>
+ 07:09:54     INFO -                     "lastAccessed": 1453475394888,
+ <br/>
+ 07:09:54     INFO -                     "hidden": false,
+ <br/>
+ 07:09:54     INFO -                     "attributes": {},
+ <br/>
+ 07:09:54     INFO -                     "userContextId": 0,
+ <br/>
+ 07:09:54     INFO -                     "index": 1,
+ <br/>
+ 07:09:54     INFO -                     "image": null
+ <br/>
+ 07:09:54     INFO -             }
+ <br/>
+ 07:09:54     INFO -     ],
+ <br/>
+ 07:09:54     INFO -     "selected": 1,
+ <br/>
+ 07:09:54     INFO -     "_closedTabs": [],
+ <br/>
+ 07:09:54     INFO -     "width": 1280,
+ <br/>
+ 07:09:54     INFO -     "height": 1040,
+ <br/>
+ 07:09:54     INFO -     "screenX": 66,
+ <br/>
+ 07:09:54     INFO -     "screenY": 52,
+ <br/>
+ 07:09:54     INFO -     "sizemode": "normal",
+ <br/>
+ 07:09:54     INFO -     "title": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 07:09:54     INFO -     "_shouldRestore": true,
+ <br/>
+ 07:09:54     INFO -     "closedAt": 1453475394901
+ <br/>
+ 07:09:54     INFO -  } is worth saving.
+ <br/>
+ 07:09:54     INFO -  mconley: Testing if we should save tab state: {
+ <br/>
+ 07:09:54     INFO -     "entries": [
+ <br/>
+ 07:09:54     INFO -             {
+ <br/>
+ 07:09:54     INFO -                     "url": "
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br/>
+ 07:09:54     INFO -                     "charset": "UTF-8",
+ <br/>
+ 07:09:54     INFO -                     "ID": 734,
+ <br/>
+ 07:09:54     INFO -                     "docshellID": 628,
+ <br/>
+ 07:09:54     INFO -                     "docIdentifier": 734,
+ <br/>
+ 07:09:54     INFO -                     "persist": true
+ <br/>
+ 07:09:54     INFO -             }
+ <br/>
+ 07:09:54     INFO -     ],
+ <br/>
+ 07:09:54     INFO -     "lastAccessed": 1453475394888,
+ <br/>
+ 07:09:54     INFO -     "hidden": false,
+ <br/>
+ 07:09:54     INFO -     "attributes": {},
+ <br/>
+ 07:09:54     INFO -     "userContextId": 0,
+ <br/>
+ 07:09:54     INFO -     "index": 1,
+ <br/>
+ 07:09:54     INFO -     "image": null
+ <br/>
+ 07:09:54     INFO -  }
+ <br/>
+ 07:09:54     INFO -  mconley: hasSaveableTabs: true - isLastWindow: false
+ <br/>
+ 07:09:54     INFO -  mconley: Inserting tabData
+ <br/>
+ 07:09:55     INFO -  mconley: DOMWindowClosed has fired - now checking the current closed window count
+ <br/>
+ 07:09:55     INFO -  The count is: 1
+ <br/>
+ 07:09:55     INFO -  TEST-INFO | started process screentopng
+ <br/>
+ 07:09:56     INFO -  TEST-INFO | screentopng: exit 0
+ <br/>
+ 07:09:56     INFO -  195 INFO checking window state
+ <br/>
+ 07:09:56     INFO -  196 INFO Console message: [JavaScript Error: "TelemetryStopwatch: requesting elapsed time for nonexisting stopwatch. Histogram: "FX_PAGE_LOAD_MS", key: "null"" {file: "resource://gre/modules/TelemetryStopwatch.jsm" line: 297}]
+ <br/>
+ 07:09:56     INFO -  197 INFO Entering test test_add_interesting_window
+ <br/>
+ 07:09:56     INFO -  198 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_window_flushing.js | We should not have added the window to the closed windows array - Got 1, expected 0
+ <br/>
+ 07:09:56     INFO -  Stack trace:
+ <br/>
+ 07:09:56     INFO -      chrome://mochikit/content/browser-test.js:test_is:979
+ <br/>
+ 07:09:56     INFO -      chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_async_window_flushing.js:test_add_interesting_window:74
+ <br/>
+ 07:09:56     INFO -      Tester_execTest@chrome://mochikit/content/browser-test.js:803:9
+ <br/>
+ 07:09:56     INFO -      Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:723:7
+</div>
+<div>
+ 07:09:56     INFO -      SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh noooooooooooo. I know what’s happening.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ My observer for the browser.sessionstore.debug.no_auto_updates pref isn’t working because the observer function is comparing the _topic_ against browser.sessionstore.debug.no_auto_updates and not the data! WOE IS ME.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36b3f28cd14b">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36b3f28cd14b">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36b3f28cd14b
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh. And this landed, and the bug remains. WTactualF?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ MOAR LOGGING:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e3b88268ddf8">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e3b88268ddf8">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e3b88268ddf8
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Aw cripes, this is another embarrassing thing - when timeoutDisabled is set to true, active timers aren’t canceled.
+ <span style="-evernote-sentoj-emoticon:true">
+  😔
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try build:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=03c1b1945fdb">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=03c1b1945fdb
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Could… could this be somehow related to bug 1195295?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I don’t think so. Still, patch posted.
+</div>

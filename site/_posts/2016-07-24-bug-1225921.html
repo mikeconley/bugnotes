@@ -1,0 +1,81 @@
+---
+layout: post
+title:  "Bug 1225921 - Async tab and window flushing may make it possible to accidentally save tabs we want to forget"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1225921">
+ Bug 1225921 - Async tab and window flushing may make it possible to accidentally save tabs we want to forget
+</a>
+<div>
+ Question: How come whenever we send browser:purge-session-history notification, we don’t accidentally save tabs? I ask this because it doesn’t look like we clear out the SessionStore._closedTabs WeakMap...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This works because on purge history, we destroy the _closedTabs array per window, and the SessionStore:update handler for closed tabs checks to see if the tab is in the closedTabs array before choosing whether or not to save it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay - so we can’t use the same model for closed windows here because closedWindows are global, and closedTabs are per window, meaning that if the closedTab ends up being interesting after having been purged, even if it gets added to the closedTabs array for the window, the window got a _new_ closedTabs array, so we’re just inserting the tab data into something that nobody cares about.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Because closedWindows is global, it’s not as simple. Technically, we could pass a reference to the closedWindows array to maybeSaveClosedWindow, and on purge history when that closedWindows array is overwritten, the old reference will have stuff saved to it without mattering much (that’s how tab closing works). However, for the forgetClosedWindow case, we can’t really use this - or if we do, it feels shaky. For example, forgetClosedWindow could also overwrite the _closedWindows array with a new array containing all items except for the window data we’ve forgotten, and if maybeSaveClosedWindow after the flush chooses to insert the window after finding it suddenly interesting, it’d insert it into an array that no longer is referred to by SessionStore._closedWindows. This feels error prone though - suppose we have two windows closed simultaneously… and then choose to forget one while flushing. We change the _closedWindows array reference for both, except for the second window that we didn’t forget will actually update the right thing because the arrays are holding references to the same objects. So technically, that’d work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But it’s weird! And it’s hard to understand. It’s too clever. Maybe we should be changing the closedTab mechanism to more match what I’m currently doing with this set.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So blocked on bug 1226333 because we depend on browser.sessionstore.debug.no_auto_updates
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  TODO:
+ </b>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Get bug 1226333 in the tree
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <b>
+  Follow-ups:
+ </b>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to write tests for async tab flushing similar to async window flushing - or just tag this work onto bug 1226333.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1230644">
+  <b>
+   Bug 1230644
+  </b>
+ </a>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File a bug to update the tab-case to use the same technique as we do here. Filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1230636">
+  <b>
+   Bug 1230636
+  </b>
+ </a>
+</div>

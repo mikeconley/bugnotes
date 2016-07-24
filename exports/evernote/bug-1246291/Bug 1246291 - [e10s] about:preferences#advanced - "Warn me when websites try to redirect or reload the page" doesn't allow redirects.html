@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M9, Needs export, regression"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2016-02-12 20:31:03 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1246291"/><meta name="updated" content="2016-02-17 21:43:17 +0000"/><title>Bug 1246291 - [e10s] about:preferences#advanced - "Warn me when websites try to redirect or reload the page" doesn't allow redirects</title></head><body>
+<div>WTF is going on? It looks like we’re asking the parent to show the notification… what gives?</div>
+<div><br/></div>
+<div>Oh jeebus, <b>this never worked properly in non-e10s</b>, even before my patch. What the heck.</div>
+<div><br/></div>
+<div>The problem is that the child gets onRefreshAttempted, and after that, onLocationChange.</div>
+<div><br/></div>
+<div>The parent, in the e10s case, hears the onRefreshAttempted message and puts up the notification. Then, in a onLocationChange handler in browser.js, we do  gBrowser.getNotificationBox(aBrowser).removeTransientNotifications(); which just gets rid of it again.</div>
+<div><br/></div>
+<div>Order of events in the MXR case:</div>
+<div><br/></div>
+<div>onStateChange</div>
+<div>onStatusChange</div>
+<div>onRefreshAttempted</div>
+<div>onLocationChange</div>
+<div>onSecurityChange</div>
+<div>onProgressChange</div>
+<div>onStateChange</div>
+<div><br/></div>
+<div>Order of events in the refresh meta tag case:</div>
+<div><br/></div>
+<div>onStateChange</div>
+<div>onStatusChange</div>
+<div>onLocationChange</div>
+<div>onSecurityChange</div>
+<div>onSecurityChange</div>
+<div>onRefreshAttempted</div>
+<div>onStatusChange</div>
+<div>onProgressChange</div>
+<div>onStateChange</div>
+<div><br/></div>
+<div>Root of RefreshAttempted: <a href="https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp#6567"/><a href="https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp#6567">https://dxr.mozilla.org/mozilla-central/source/docshell/base/nsDocShell.cpp#6567</a></div>
+<div><br/></div>
+<div>Here’s MXR’s case:</div>
+<div><br/></div>
+<div><span style="font-style: normal; font-variant: normal; font-weight: normal;"><span style="font-size: 11px;"><span style="font-family: Menlo;">* thread #1: tid = 0x53eb33, 0x00000001029211e7 XUL`nsDocShell::RefreshURI(this=0x000000011a3c1000, aURI=0x000000011a340a80, aDelay=0, aRepeat=false, aMetaRefresh=true) + 39 at nsDocShell.cpp:6546, queue = 'com.apple.main-thread', stop reason = breakpoint 8.1<br/>
+  * frame #0: 0x00000001029211e7 XUL`nsDocShell::RefreshURI(this=0x000000011a3c1000, aURI=0x000000011a340a80, aDelay=0, aRepeat=false, aMetaRefresh=true) + 39 at nsDocShell.cpp:6546<br/>
+    frame #1: 0x0000000102921d6d XUL`nsDocShell::SetupRefreshURIFromHeader(this=0x000000011a3c1000, aBaseURI=0x000000011a340990, aPrincipal=0x0000000111af3280, aHeader=&lt;unavailable&gt;) + 1453 at nsDocShell.cpp:6946<br/>
+    frame #2: 0x00000001010cdc98 XUL`nsDocument::SetHeaderData(this=0x00000001139df000, aHeaderField=u"refresh", aData=u"0; url=../mozilla-central/search?string=test") + 504 at nsDocument.cpp:3662<br/>
+    frame #3: 0x00000001010c9e2f XUL`nsDocument::RetrieveRelevantHeaders(this=0x00000001139df000, aChannel=&lt;unavailable&gt;) + 687 at nsDocument.cpp:8540<br/>
+    frame #4: 0x00000001010c96ae XUL`nsDocument::StartDocumentLoad(this=0x00000001139df000, aCommand=&lt;unavailable&gt;, aChannel=0x00000001139dd800, aLoadGroup=&lt;unavailable&gt;, aContainer=0x000000011a3c1000, aDocListener=&lt;unavailable&gt;, aReset=&lt;unavailable&gt;, aSink=0x0000000000000000) + 814 at nsDocument.cpp:2521<br/>
+    frame #5: 0x0000000101cf99ea XUL`nsHTMLDocument::StartDocumentLoad(this=0x00000001139df000, aCommand="view", aChannel=0x00000001139dd800, aLoadGroup=0x000000011a31afe0, aContainer=0x000000011a3c1000, aDocListener=0x0000000111f876c0, aReset=&lt;unavailable&gt;, aSink=0x0000000000000000) + 922 at nsHTMLDocument.cpp:578<br/>
+    frame #6: 0x000000010279150d XUL`nsContentDLF::CreateDocument(this=&lt;unavailable&gt;, aCommand="view", aChannel=0x00000001139dd800, aLoadGroup=0x000000011a31afe0, aContainer=0x000000011a3c1000, aDocumentCID=&lt;unavailable&gt;, aDocListener=0x0000000111f876c0, aContentViewer=0x0000000111f876c0) + 253 at nsContentDLF.cpp:374<br/>
+    frame #7: 0x00000001027910c3 XUL`nsContentDLF::CreateInstance(this=&lt;unavailable&gt;, aCommand=&lt;unavailable&gt;, aChannel=&lt;unavailable&gt;, aLoadGroup=0x000000011a31afe0, aContentType=&lt;unavailable&gt;, aContainer=0x000000011a3c1000, aExtraInfo=0x0000000000000000, aDocListener=&lt;unavailable&gt;, aDocViewer=&lt;unavailable&gt;) + 931 at nsContentDLF.cpp:183<br/>
+    frame #8: 0x0000000102906100 XUL`nsDocShell::CreateContentViewer(nsACString_internal const&amp;, nsIRequest*, nsIStreamListener**) [inlined] nsDocShell::NewContentViewerObj(this=0x000000011a3c1000, aContentType="text/html", aRequest=0x00000001139dd800, aLoadGroup=0x000000011a31afe0, aContentHandler=0x0000000111f876c0) + 143 at nsDocShell.cpp:9094<br/>
+    frame #9: 0x0000000102906071 XUL`nsDocShell::CreateContentViewer(this=0x000000011a3c1000, aContentType="text/html", aRequest=0x00000001139dd800, aContentHandler=0x0000000111f876c0) + 81 at nsDocShell.cpp:8895<br/>
+    frame #10: 0x00000001029059de XUL`nsDSURIContentListener::DoContent(this=0x000000011a45c830, aContentType="text/html", aIsContentPreferred=&lt;unavailable&gt;, aRequest=0x00000001139dd800, aContentHandler=0x0000000111f876c0, aAbortProcess=0x00007fff5fbfb827) + 398 at nsDSURIContentListener.cpp:129<br/>
+    frame #11: 0x0000000100cd2079 XUL`nsDocumentOpenInfo::TryContentListener(this=&lt;unavailable&gt;, aListener=0x000000011a45c830, aChannel=0x00000001139dd800) + 441 at nsURILoader.cpp:721<br/>
+    frame #12: 0x0000000100cd1313 XUL`nsDocumentOpenInfo::DispatchContent(this=0x0000000111f876a0, request=0x00000001139dd800, aCtxt=&lt;unavailable&gt;) + 643 at nsURILoader.cpp:398<br/>
+    frame #13: 0x0000000100cd0f94 XUL`nsDocumentOpenInfo::OnStartRequest(this=0x0000000111f876a0, request=0x00000001139dd800, aCtxt=0x0000000000000000) + 276 at nsURILoader.cpp:259<br/>
+    frame #14: 0x00000001006273a0 XUL`mozilla::net::HttpChannelChild::DoOnStartRequest(this=0x00000001139dd800, aRequest=0x00000001139dd800, aContext=0x0000000000000000) + 112 at HttpChannelChild.cpp:534<br/>
+    frame #15: 0x000000010062a6ff XUL`mozilla::net::HttpChannelChild::OnStartRequest(this=&lt;unavailable&gt;, channelStatus=&lt;unavailable&gt;, responseHead=&lt;unavailable&gt;, useResponseHead=&lt;unavailable&gt;, requestHeaders=&lt;unavailable&gt;, isFromCache=0x00007fff5fbfbe87, cacheEntryAvailable=&lt;unavailable&gt;, cacheExpirationTime=&lt;unavailable&gt;, cachedCharset=&lt;unavailable&gt;, securityInfoSerialization=&lt;unavailable&gt;, selfAddr=&lt;unavailable&gt;, peerAddr=&lt;unavailable&gt;, cacheKey=&lt;unavailable&gt;) + 735 at HttpChannelChild.cpp:472<br/>
+    frame #16: 0x000000010062a336 XUL`mozilla::net::HttpChannelChild::RecvOnStartRequest(this=0x00000001139dd800, channelStatus=0x00007fff5fbfbeec, responseHead=0x00007fff5fbfbe98, useResponseHead=0x00007fff5fbfbe97, requestHeaders=0x00007fff5fbfbe88, isFromCache=0x00007fff5fbfbe87, cacheEntryAvailable=&lt;unavailable&gt;, cacheExpirationTime=&lt;unavailable&gt;, cachedCharset=0x00007fff5fbfbe70, securityInfoSerialization=&lt;unavailable&gt;, selfAddr=&lt;unavailable&gt;, peerAddr=&lt;unavailable&gt;, redirectCount=&lt;unavailable&gt;, cacheKey=&lt;unavailable&gt;) + 742 at HttpChannelChild.cpp:395<br/>
+    frame #17: 0x000000010081aa1d XUL`mozilla::net::PHttpChannelChild::OnMessageReceived(this=0x00000001139dd800, msg__=&lt;unavailable&gt;) + 8909 at PHttpChannelChild.cpp:555<br/>
+    frame #18: 0x000000010077b0d1 XUL`mozilla::ipc::MessageChannel::DispatchAsyncMessage(this=0x000000010985b098, aMsg=0x00007fff5fbfc348) + 161 at MessageChannel.cpp:1444<br/>
+    frame #19: 0x000000010077a28c XUL`mozilla::ipc::MessageChannel::DispatchMessage(this=0x000000010985b098, aMsg=0x00007fff5fbfc348) + 268 at MessageChannel.cpp:1384<br/>
+    frame #20: 0x000000010077538d XUL`mozilla::ipc::MessageChannel::OnMaybeDequeueOne(this=0x000000010985b098) + 173 at MessageChannel.cpp:1353<br/>
+    frame #21: 0x0000000100750744 XUL`MessageLoop::DeferOrRunPendingTask(MessageLoop::PendingTask const&amp;) [inlined] MessageLoop::RunTask(this=0x00007fff5fbfee68, task=&lt;unavailable&gt;) + 17 at <a href="http://message_loop.cc:364">message_loop.cc:364</a><br/>
+    frame #22: 0x0000000100750733 XUL`MessageLoop::DeferOrRunPendingTask(this=0x00007fff5fbfee68, pending_task=&lt;unavailable&gt;) + 115 at <a href="http://message_loop.cc:372">message_loop.cc:372</a><br/>
+    frame #23: 0x0000000100750a6b XUL`MessageLoop::DoWork(this=0x00007fff5fbfee68) + 219 at <a href="http://message_loop.cc:459">message_loop.cc:459</a><br/>
+    frame #24: 0x000000010077d5a0 XUL`mozilla::ipc::DoWorkRunnable::Run(this=&lt;unavailable&gt;) + 48 at MessagePump.cpp:220<br/>
+    frame #25: 0x000000010046376a XUL`nsThread::ProcessNextEvent(this=0x000000010986c1b0, aMayWait=false, aResult=0x00007fff5fbfc517) + 1146 at nsThread.cpp:1018<br/>
+    frame #26: 0x000000010048d49e XUL`NS_ProcessPendingEvents(aThread=&lt;unavailable&gt;, aTimeout=10) + 94 at nsThreadUtils.cpp:239<br/>
+    frame #27: 0x00000001022979d4 XUL`nsBaseAppShell::NativeEventCallback(this=0x0000000111a9d3e0) + 116 at nsBaseAppShell.cpp:97<br/>
+    frame #28: 0x00000001022ef2d4 XUL`nsAppShell::ProcessGeckoEvents(aInfo=0x0000000111a9d3e0) + 308 at <a href="http://nsAppShell.mm:387">nsAppShell.mm:387</a><br/>
+    frame #29: 0x00007fff8e093a01 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17<br/>
+    frame #30: 0x00007fff8e085b8d CoreFoundation`__CFRunLoopDoSources0 + 269<br/>
+    frame #31: 0x00007fff8e0851bf CoreFoundation`__CFRunLoopRun + 927<br/>
+    frame #32: 0x00007fff8e084bd8 CoreFoundation`CFRunLoopRunSpecific + 296<br/>
+    frame #33: 0x00007fff8d79456f HIToolbox`RunCurrentEventLoopInMode + 235<br/>
+    frame #34: 0x00007fff8d7942ea HIToolbox`ReceiveNextEventCommon + 431<br/>
+    frame #35: 0x00007fff8d79412b HIToolbox`_BlockUntilNextEventMatchingListInModeWithFilter + 71<br/>
+    frame #36: 0x00007fff931dd8ab AppKit`_DPSNextEvent + 978<br/>
+    frame #37: 0x00007fff931dce58 AppKit`-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] + 346<br/>
+    frame #38: 0x00000001022eea16 XUL`-[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:](self=0x0000000111a9d470, _cmd=&lt;unavailable&gt;, mask=18446744073709551615, expiration=4001-01-01 00:00:00 UTC, mode=@"kCFRunLoopDefaultMode", flag=YES) + 86 at <a href="http://nsAppShell.mm:121">nsAppShell.mm:121</a><br/>
+    frame #39: 0x00007fff931d2af3 AppKit`-[NSApplication run] + 594<br/>
+    frame #40: 0x00000001022ef868 XUL`nsAppShell::Run(this=&lt;unavailable&gt;) + 232 at <a href="http://nsAppShell.mm:661">nsAppShell.mm:661</a><br/>
+    frame #41: 0x0000000102be76ee XUL`::XRE_RunAppShell() + 206 at nsEmbedFunctions.cpp:789<br/>
+    frame #42: 0x0000000100750309 XUL`MessageLoop::Run() [inlined] MessageLoop::RunInternal(this=&lt;unavailable&gt;) + 73 at <a href="http://message_loop.cc:234">message_loop.cc:234</a><br/>
+    frame #43: 0x00000001007502fa XUL`MessageLoop::Run() [inlined] MessageLoop::RunHandler(this=&lt;unavailable&gt;) at <a href="http://message_loop.cc:227">message_loop.cc:227</a><br/>
+    frame #44: 0x00000001007502fa XUL`MessageLoop::Run(this=&lt;unavailable&gt;) + 58 at <a href="http://message_loop.cc:201">message_loop.cc:201</a><br/>
+    frame #45: 0x0000000102be72aa XUL`::XRE_InitChildProcess(aArgc=&lt;unavailable&gt;, aArgv=&lt;unavailable&gt;, aGMPLoader=&lt;unavailable&gt;) + 1754 at nsEmbedFunctions.cpp:625<br/>
+    frame #46: 0x0000000100004016 plugin-container`content_process_main(argc=&lt;unavailable&gt;, argv=0x00007fff5fbff140) + 214 at plugin-container.cpp:237</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">    frame #47: 0x0000000100001154 plugin-container`start + 52</span></span></div>
+<div><br/></div>
+<div>And the meta tag case:</div>
+<div><br/></div>
+<div><span style="font-style: normal; font-variant: normal; font-weight: normal;"><span style="font-size: 11px;"><span style="font-family: Menlo;">* thread #1: tid = 0x53eb33, 0x00000001029211e7 XUL`nsDocShell::RefreshURI(this=0x000000011a3c1000, aURI=0x000000011a341980, aDelay=5000, aRepeat=false, aMetaRefresh=true) + 39 at nsDocShell.cpp:6546, queue = 'com.apple.main-thread', stop reason = breakpoint 8.1<br/>
+  * frame #0: 0x00000001029211e7 XUL`nsDocShell::RefreshURI(this=0x000000011a3c1000, aURI=0x000000011a341980, aDelay=5000, aRepeat=false, aMetaRefresh=true) + 39 at nsDocShell.cpp:6546<br/>
+    frame #1: 0x0000000102921d6d XUL`nsDocShell::SetupRefreshURIFromHeader(this=0x000000011a3c1000, aBaseURI=0x000000011a3413e0, aPrincipal=0x00000001139ae680, aHeader=&lt;unavailable&gt;) + 1453 at nsDocShell.cpp:6946<br/>
+    frame #2: 0x00000001010cdc98 XUL`nsDocument::SetHeaderData(this=0x00000001139dc800, aHeaderField=u"refresh", aData=u"5;url=https://support.<a href="http://mozilla.org/kb/advanced-panel-accessibility-browsing-network-upda">mozilla.org/kb/advanced-panel-accessibility-browsing-network-upda</a>") + 504 at nsDocument.cpp:3662<br/>
+    frame #3: 0x00000001010a5a93 XUL`nsContentSink::ProcessHeaderData(this=0x000000011b62b400, aHeader=u"refresh", aValue=u"5;url=https://support.<a href="http://mozilla.org/kb/advanced-panel-accessibility-browsing-network-upda">mozilla.org/kb/advanced-panel-accessibility-browsing-network-upda</a>", aContent=&lt;unavailable&gt;) + 67 at nsContentSink.cpp:292<br/>
+    frame #4: 0x00000001010a77e6 XUL`nsContentSink::ProcessMETATag(this=0x000000011b62b400, aContent=0x000000011a38a550) + 390 at nsContentSink.cpp:806<br/>
+    frame #5: 0x0000000100d453fa XUL`nsHtml5TreeOpExecutor::RunFlushLoop(this=0x000000011b62b400) + 794 at nsHtml5TreeOpExecutor.cpp:451<br/>
+    frame #6: 0x0000000100d53b8d XUL`nsHtml5ExecutorFlusher::Run(this=&lt;unavailable&gt;) + 29 at nsHtml5StreamParser.cpp:128<br/>
+    frame #7: 0x000000010046376a XUL`nsThread::ProcessNextEvent(this=0x000000010986c1b0, aMayWait=false, aResult=0x00007fff5fbfc517) + 1146 at nsThread.cpp:1018<br/>
+    frame #8: 0x000000010048d49e XUL`NS_ProcessPendingEvents(aThread=&lt;unavailable&gt;, aTimeout=10) + 94 at nsThreadUtils.cpp:239<br/>
+    frame #9: 0x00000001022979d4 XUL`nsBaseAppShell::NativeEventCallback(this=0x0000000111a9d3e0) + 116 at nsBaseAppShell.cpp:97<br/>
+    frame #10: 0x00000001022ef2d4 XUL`nsAppShell::ProcessGeckoEvents(aInfo=0x0000000111a9d3e0) + 308 at <a href="http://nsAppShell.mm:387">nsAppShell.mm:387</a><br/>
+    frame #11: 0x00007fff8e093a01 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17<br/>
+    frame #12: 0x00007fff8e085b8d CoreFoundation`__CFRunLoopDoSources0 + 269<br/>
+    frame #13: 0x00007fff8e0851bf CoreFoundation`__CFRunLoopRun + 927<br/>
+    frame #14: 0x00007fff8e084bd8 CoreFoundation`CFRunLoopRunSpecific + 296<br/>
+    frame #15: 0x00007fff8d79456f HIToolbox`RunCurrentEventLoopInMode + 235<br/>
+    frame #16: 0x00007fff8d7942ea HIToolbox`ReceiveNextEventCommon + 431<br/>
+    frame #17: 0x00007fff8d79412b HIToolbox`_BlockUntilNextEventMatchingListInModeWithFilter + 71<br/>
+    frame #18: 0x00007fff931dd8ab AppKit`_DPSNextEvent + 978<br/>
+    frame #19: 0x00007fff931dce58 AppKit`-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] + 346<br/>
+    frame #20: 0x00000001022eea16 XUL`-[GeckoNSApplication nextEventMatchingMask:untilDate:inMode:dequeue:](self=0x0000000111a9d470, _cmd=&lt;unavailable&gt;, mask=18446744073709551615, expiration=4001-01-01 00:00:00 UTC, mode=@"kCFRunLoopDefaultMode", flag=YES) + 86 at <a href="http://nsAppShell.mm:121">nsAppShell.mm:121</a><br/>
+    frame #21: 0x00007fff931d2af3 AppKit`-[NSApplication run] + 594<br/>
+    frame #22: 0x00000001022ef868 XUL`nsAppShell::Run(this=&lt;unavailable&gt;) + 232 at <a href="http://nsAppShell.mm:661">nsAppShell.mm:661</a><br/>
+    frame #23: 0x0000000102be76ee XUL`::XRE_RunAppShell() + 206 at nsEmbedFunctions.cpp:789<br/>
+    frame #24: 0x0000000100750309 XUL`MessageLoop::Run() [inlined] MessageLoop::RunInternal(this=&lt;unavailable&gt;) + 73 at <a href="http://message_loop.cc:234">message_loop.cc:234</a><br/>
+    frame #25: 0x00000001007502fa XUL`MessageLoop::Run() [inlined] MessageLoop::RunHandler(this=&lt;unavailable&gt;) at <a href="http://message_loop.cc:227">message_loop.cc:227</a><br/>
+    frame #26: 0x00000001007502fa XUL`MessageLoop::Run(this=&lt;unavailable&gt;) + 58 at <a href="http://message_loop.cc:201">message_loop.cc:201</a><br/>
+    frame #27: 0x0000000102be72aa XUL`::XRE_InitChildProcess(aArgc=&lt;unavailable&gt;, aArgv=&lt;unavailable&gt;, aGMPLoader=&lt;unavailable&gt;) + 1754 at nsEmbedFunctions.cpp:625<br/>
+    frame #28: 0x0000000100004016 plugin-container`content_process_main(argc=&lt;unavailable&gt;, argv=0x00007fff5fbff140) + 214 at plugin-container.cpp:237</span></span></span></div>
+<div><span style="font-size: 11px;"><span style="font-family: Menlo;">    frame #29: 0x0000000100001154 plugin-container`start + 52</span></span></div>
+<div><br/></div>
+<div>Ah… okay...</div>
+<div><br/></div>
+<div>For non-e10s, in the parent, here are the events we get for the MXR case:</div>
+<div><br/></div>
+<div>onStateChange</div>
+<div>onRefreshAttempted</div>
+<div>onProgressChange</div>
+<div>onSecurityChange</div>
+<div>onLocationChange</div>
+<div>onProgressChange</div>
+<div>onStateChange</div>
+<div><br/></div>
+<div>and for the meta tag case:</div>
+<div><br/></div>
+<div>onStateChange</div>
+<div>onStatusChange</div>
+<div>onSecurityChange</div>
+<div>onLocationChange</div>
+<div>onSecurityChange</div>
+<div>onRefreshAttempted</div>
+<div>onStatusChange</div>
+<div>onProgressChange</div>
+<div>onStateChange</div>
+<div><br/></div>
+<div>So the general problem is that for onRefreshAttempted and onLocationChange, we’re not always consistent with which one runs first between the HTTP header case and the meta tag case (onRefreshAttempted runs first in HTTP header case, onLocationChange runs first in meta tag case).</div>
+<div><br/></div>
+<div>But we only ever want to show the notification in the parent after both have run.</div>
+<div><br/></div>
+<div>Idea: Have the onLocationChange handler in the parent call the RefreshBlocker thing after it has cleared any transient notifications, passing the nsIWebProgress. If the RefreshBlocker had seen that same nsIWebProgress and had seen us block that refresh, then kick off the notification. If the RefreshBlocker has not seen the nsIWebProgress before, have it hold onto it in a WeakSet, and if we see an onRefreshAttempted come in with that same nsIWebProgress, then show the notification.</div>
+<div><br/></div>
+<div>The current state of things is that in the bad case, the content process hears the onRefreshAttempted first, sends a message to the parent which is received before onLocationChange. The parent hears the message and bubbles an event that is consumed by RefreshBlocker, which then shows the notification. The problem is that afterwards, onLocationChange is sent from the child, which then clears the notification.</div>
+<div><br/></div>
+<div>One shitty idea is to defer onRefreshAttempted using a setTimeout. The problem with this is that it assumes that the other handlers (onStateChange, onLocationChange, etc) are going to run synchronously after onRefreshAttempted is fired. Is that a safe assumption?</div>
+<div><br/></div>
+<div>What if I use the “WeakSet” plan, but down in RefreshBlocker in tab-content.js? Would that work?</div>
+<div><br/></div>
+<div>In that plan, we add an onLocationChange handler, and a WeakSet. Let’s run through the scenarios.</div>
+<div><br/></div>
+<div>Scenario 1: onLocationChange is fired first, and then onRefreshAttempted.</div>
+<div><br/></div>
+<div>In that case, we add the nsIWebProgress to the WeakSet. When onRefreshAttempted is fired we see if the nsIWebProgress is in the Set, and if so, send the message.</div>
+<div><br/></div>
+<div>Scenario 2: onRefreshAttempted is fired first, and then onLocationChange.</div>
+<div><br/></div>
+<div>In that case, we add the nsIWebProgress to the WeakSet. When onLocationChange is fired, we see if the nsIWebProgress is in the Set, and if so, send the message.</div>
+<div><br/></div>
+<div><s>This might actually work.</s></div>
+<div><br/></div>
+<div>What’s interesting is that an nsIWebProgress exists per docShell, so we’re going to get the same one each time for each docShell (unless it’s a subframe that’s doing the reload / refresh).</div>
+<div><br/></div>
+<div>So that changes the design somewhat.</div>
+<div><br/></div>
+<div>Maybe we can listen to STATE_STOP in onStateChange, and only send messages if we saw a onRefreshAttempted before getting there.</div>
+<div><br/></div>
+<div>That appears to work - and I think we’re going to go with that plan, with the tradeoff being that we can handle this case, but we have to wait until the nsIWebProgress has hit STATE_STOP before we’ll show the notification bar. Should make sure canuckistani is aware of that.</div>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=mozilla-central&amp;revision=6ea654cad929"/><a href="https://treeherder.mozilla.org/#/jobs?repo=mozilla-central&amp;revision=6ea654cad929">https://treeherder.mozilla.org/#/jobs?repo=mozilla-central&amp;revision=6ea654cad929</a></div>
+<div>Patch: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d7b5afc401d0">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d7b5afc401d0</a></div>
+<div>Comparison: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=mozilla-central&amp;originalRevision=6ea654cad929&amp;newProject=try&amp;newRevision=d7b5afc401d0">https://treeherder.mozilla.org/perf.html#/compare?originalProject=mozilla-central&amp;originalRevision=6ea654cad929&amp;newProject=try&amp;newRevision=d7b5afc401d0</a></div>
+</body></html>

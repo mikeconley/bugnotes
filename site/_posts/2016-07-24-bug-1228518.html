@@ -1,0 +1,66 @@
+---
+layout: post
+title:  "Bug 1228518 - [e10s] Scroll position is lost after restoring session"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1228518">
+ Bug 1228518 - [e10s] Scroll position is lost after restoring session
+</a>
+<div>
+ Theory:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We’re receiving an update message with empty fields for scroll (and other data) for the unrestored background tabs.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes, that’s what’s happening.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why don’t we do this for the non-e10s case?
+</div>
+<div>
+ <b>
+  <br/>
+ </b>
+</div>
+<div>
+ Ah, okay, I think I understand.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When unrestored background tabs are set up, their frame trees at some point reset, and so content-sessionStore.js ends up sending a message to the parent saying with pagestyle, storage, and scroll being null.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Because background tabs are now non-remote, we flip their remoteness, and re-send the history from the TabState cache to the newly remote browser - but at this point, that state has been tainted by the above message that wiped out the pagestyle, storage and scroll properties. So we end up not sending any values down for those properties to the newly remote browser.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I’ve written a patch that causes us to not trigger the onFrameTreeReset and onFrameTreeCollected if the docShell has never loaded a non-about:blank URI before. And a test is written!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ r+! Able to land once the tree re-opens.
+</div>
+<div>
+ <br/>
+</div>
