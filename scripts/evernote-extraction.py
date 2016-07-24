@@ -23,8 +23,8 @@ and toss it into a Jekyll post.
 """
 
 
-DEFAULT_DEST = "../_posts"
-DEFAULT_ASSETS = "../assets"
+DEFAULT_DEST = "../site/_posts"
+DEFAULT_ASSETS = "../site/assets"
 EXPECTED_BUG_HOSTNAME = "bugzilla.mozilla.org"
 DEFAULT_FRONT_MATTER = """---
 layout: post
