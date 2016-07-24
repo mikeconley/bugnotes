@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1110511 - Implement about:tabcrashed spec</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1110511.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201110511%20-%20Implement%20about_tabcrashed%20spec_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1110511 - Implement about:tabcrashed spec</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1110511">
+ Bug 1110511 - Implement about:tabcrashed spec
+</a>
+<div>
+ This should be pretty straight-forward, I think. Ursula got me started, and I need to just drive it through to the end.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ She's got a draft of the front-end done, and I think it's just matter 
+of figuring out what POST parameters I need to send along… I think.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, here's some useful info from
+ <a href="https://github.com/mozilla/socorro/blob/9b6c1ad54648594865b410bb15e9a32e54949207/socorro/unittest/processor/test_mozilla_transform_rules.py#L39">
+  here
+ </a>
+ :
+</div>
+<div>
+ <br>
+</div>
+<div>
+ canonical_standard_raw_crash&nbsp;=&nbsp;DotDict({
+</div>
+<div>
+ "uuid":&nbsp;'00000000-0000-0000-0000-000002140504',
+</div>
+<div>
+ "InstallTime":&nbsp;"1335439892",
+</div>
+<div>
+ "AdapterVendorID":&nbsp;"0x1002",
+</div>
+<div>
+ "TotalVirtualMemory":&nbsp;"4294836224",
+</div>
+<div>
+ "Comments":&nbsp;"why&nbsp;did&nbsp;my&nbsp;browser&nbsp;crash?&nbsp; #fail",
+</div>
+<div>
+ "Theme":&nbsp;"classic/1.0",
+</div>
+<div>
+ "Version":&nbsp;"12.0",
+</div>
+<div>
+ "Email":&nbsp;"noreply@mozilla.com",
+</div>
+<div>
+ "Vendor":&nbsp;"Mozilla",
+</div>
+<div>
+ "EMCheckCompatibility":&nbsp;"true",
+</div>
+<div>
+ "Throttleable":&nbsp;"1",
+</div>
+<div>
+ "id":&nbsp;"{ec8030f7-c20a-464f-9b0e-13a3a9e97384}",
+</div>
+<div>
+ "buildid":&nbsp;"20120420145725",
+</div>
+<div>
+ "AvailablePageFile":&nbsp;"10641510400",
+</div>
+<div>
+ "version":&nbsp;"12.0",
+</div>
+<div>
+ "AdapterDeviceID":&nbsp;"0x7280",
+</div>
+<div>
+ "ReleaseChannel":&nbsp;"release",
+</div>
+<div>
+ "submitted_timestamp":&nbsp;"2012-05-08T23:26:33.454482+00:00",
+</div>
+<div>
+ "URL":&nbsp;"http://www.mozilla.com",
+</div>
+<div>
+ "timestamp":&nbsp;1336519593.454627,
+</div>
+<div>
+ "Notes":&nbsp;"AdapterVendorID:&nbsp;0x1002,&nbsp;AdapterDeviceID:&nbsp;0x7280,&nbsp;"
+</div>
+<div>
+ "AdapterSubsysID:&nbsp;01821043,&nbsp;"
+</div>
+<div>
+ "AdapterDriverVersion:&nbsp;8.593.100.0\nD3D10&nbsp;Layers?&nbsp;D3D10&nbsp;"
+</div>
+<div>
+ "Layers-&nbsp;D3D9&nbsp;Layers?&nbsp;D3D9&nbsp;Layers-&nbsp;",
+</div>
+<div>
+ "CrashTime":&nbsp;"1336519554",
+</div>
+<div>
+ "Winsock_LSP":&nbsp;"MSAFD&nbsp;Tcpip&nbsp;[TCP/IPv6]&nbsp;:&nbsp;2&nbsp;:&nbsp;1&nbsp;:&nbsp; \n&nbsp;"
+</div>
+<div>
+ "MSAFD&nbsp;Tcpip&nbsp;[UDP/IPv6]&nbsp;:&nbsp;2&nbsp;:&nbsp;2&nbsp;:&nbsp;"
+</div>
+<div>
+ "%SystemRoot%\\system32\\mswsock.dll&nbsp;\n&nbsp;"
+</div>
+<div>
+ "MSAFD&nbsp;Tcpip&nbsp;[RAW/IPv6]&nbsp;:&nbsp;2&nbsp;:&nbsp;3&nbsp;:&nbsp; \n&nbsp;"
+</div>
+<div>
+ "MSAFD&nbsp;Tcpip&nbsp;[TCP/IP]&nbsp;:&nbsp;2&nbsp;:&nbsp;1&nbsp;:&nbsp;"
+</div>
+<div>
+ "%SystemRoot%\\system32\\mswsock.dll&nbsp;\n&nbsp;"
+</div>
+<div>
+ "MSAFD&nbsp;Tcpip&nbsp;[UDP/IP]&nbsp;:&nbsp;2&nbsp;:&nbsp;2&nbsp;:&nbsp; \n&nbsp;"
+</div>
+<div>
+ "MSAFD&nbsp;Tcpip&nbsp;[RAW/IP]&nbsp;:&nbsp;2&nbsp;:&nbsp;3&nbsp;:&nbsp;"
+</div>
+<div>
+ "%SystemRoot%\\system32\\mswsock.dll&nbsp;\n&nbsp;"
+</div>
+<div>
+ "\u041f\u043e\u0441\u0442\u0430\u0432\u0449\u0438\u043a&nbsp;"
+</div>
+<div>
+ "\u0443\u0441\u043b\u0443\u0433&nbsp;RSVP&nbsp;TCPv6&nbsp;:&nbsp;2&nbsp;:&nbsp;1&nbsp;:&nbsp; \n&nbsp;"
+</div>
+<div>
+ "\u041f\u043e\u0441\u0442\u0430\u0432\u0449\u0438\u043a&nbsp;"
+</div>
+<div>
+ "\u0443\u0441\u043b\u0443\u0433&nbsp;RSVP&nbsp;TCP&nbsp;:&nbsp;2&nbsp;:&nbsp;1&nbsp;:&nbsp;"
+</div>
+<div>
+ "%SystemRoot%\\system32\\mswsock.dll&nbsp;\n&nbsp;"
+</div>
+<div>
+ "\u041f\u043e\u0441\u0442\u0430\u0432\u0449\u0438\u043a&nbsp;"
+</div>
+<div>
+ "\u0443\u0441\u043b\u0443\u0433&nbsp;RSVP&nbsp;UDPv6&nbsp;:&nbsp;2&nbsp;:&nbsp;2&nbsp;:&nbsp; \n&nbsp;"
+</div>
+<div>
+ "\u041f\u043e\u0441\u0442\u0430\u0432\u0449\u0438\u043a&nbsp;"
+</div>
+<div>
+ "\u0443\u0441\u043b\u0443\u0433&nbsp;RSVP&nbsp;UDP&nbsp;:&nbsp;2&nbsp;:&nbsp;2&nbsp;:&nbsp;"
+</div>
+<div>
+ "%SystemRoot%\\system32\\mswsock.dll",
+</div>
+<div>
+ "FramePoisonBase":&nbsp;"00000000f0de0000",
+</div>
+<div>
+ "AvailablePhysicalMemory":&nbsp;"2227773440",
+</div>
+<div>
+ "FramePoisonSize":&nbsp;"65536",
+</div>
+<div>
+ "StartupTime":&nbsp;"1336499438",
+</div>
+<div>
+ "Add-ons":&nbsp;"adblockpopups@jessehakanen.net:0.3,"
+</div>
+<div>
+ "dmpluginff%40westbyte.com:1%2C4.8,"
+</div>
+<div>
+ "firebug@software.joehewitt.com:1.9.1,"
+</div>
+<div>
+ "killjasmin@pierros14.com:2.4,"
+</div>
+<div>
+ "support@surfanonymous-free.com:1.0,"
+</div>
+<div>
+ "uploader@adblockfilters.mozdev.org:2.1,"
+</div>
+<div>
+ "{a0d7ccb3-214d-498b-b4aa-0e8fda9a7bf7}:20111107,"
+</div>
+<div>
+ "{d10d0bf8-f5b5-c8b4-a8b2-2b9879e08c5d}:2.0.3,"
+</div>
+<div>
+ "anttoolbar@ant.com:2.4.6.4,"
+</div>
+<div>
+ "{972ce4c6-7e08-4474-a285-3208198ce6fd}:12.0,"
+</div>
+<div>
+ "elemhidehelper@adblockplus.org:1.2.1",
+</div>
+<div>
+ "BuildID":&nbsp;"20120420145725",
+</div>
+<div>
+ "SecondsSinceLastCrash":&nbsp;"86985",
+</div>
+<div>
+ "ProductName":&nbsp;"Firefox",
+</div>
+<div>
+ "legacy_processing":&nbsp;0,
+</div>
+<div>
+ "AvailableVirtualMemory":&nbsp;"3812708352",
+</div>
+<div>
+ "SystemMemoryUsePercentage":&nbsp;"48",
+</div>
+<div>
+ "ProductID":&nbsp;"{ec8030f7-c20a-464f-9b0e-13a3a9e97384}",
+</div>
+<div>
+ "Distributor":&nbsp;"Mozilla",
+</div>
+<div>
+ "Distributor_version":&nbsp;"12.0",
+</div>
+<div>
+ })
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And it looks like CrashSubmit will allow us to send the "extra keyvals" here… so that's good.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So the things we've added:
+</div>
+<ol>
+ <li>
+  addComment -&gt; Comments
+ </li>
+ <li>
+  includeAddress -&gt; URL
+ </li>
+ <li>
+  addEmail -&gt; Email
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201110511%20-%20Implement%20about_tabcrashed%20spec_files/1110511-B6E6292D-985F-48CE-9C50-406C1B19B020.png" height="769" width="940">
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Bold the "Mozilla Crash Reporter" string
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Adding a regression test now...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input type="checkbox">
+ Find out what the default values should be for the checkboxes, and where to store the user preferences
+</div>
+<div>
+ <br>
+</div>
+<div>
+ For the toolkit crash reporter, on Windows, we save the final values to
+ the registry. On Linux, to a file. On OS X, we use some kind of
+ <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSUserDefaults_Class/index.html">
+  NSUserDefaults
+ </a>
+ thing...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So we can use the standard prefs service with tab crashing, which is good. What defaults do we use for the crash reporter?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Uh… ok, this is interesting:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/891ee0d0ba3ec42b6484cf0205b3c95e21c58f74/toolkit/crashreporter/client/crashreporter.cpp#410">
+  
+https://dxr.mozilla.org/mozilla-central/rev/891ee0d0ba3ec42b6484cf0205b3c95e21c58f74/toolkit/crashreporter/client/crashreporter.cpp#410
+
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So if the user hasn't specified whether they'd like to send a crash report, we choose semi-randomly based on a probability...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Y'know what - I'm just going to file a follow-up to determine what the defaults should be.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But we should save the preferences from the user once they come in.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File follow-up to figure out defaults.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212057">
+  Done
+ </a>
+ .
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up to add a transition to show the Submission thing.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212061">
+  Done
+ </a>
+ .
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up to change extraExtraKeyVals to just extraKeyVals.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212062">
+  Done
+ </a>
+ .
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up to ask privacy if it’s okay that we’re storing the email address in prefs like this.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212064">
+  Done
+ </a>
+ .
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up to see if we can maybe get the email address from the Form History stuff.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212065">
+  Done
+ </a>
+ .
+</div>
+<table style="width:423px;">
+ <tbody><tr>
+  <td style="width:99.05437352245863%;">
+   <div>
+    <br>
+   </div>
+  </td>
+ </tr>
+</tbody></table>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

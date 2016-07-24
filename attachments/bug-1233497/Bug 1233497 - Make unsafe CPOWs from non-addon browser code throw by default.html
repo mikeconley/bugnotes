@@ -1,0 +1,3651 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1233497 - Make unsafe CPOWs from non-addon browser code throw by default</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1233497.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201233497%20-%20Make%20unsafe%20CPOWs%20from%20non-addon%20browser%20code%20throw%20by%20default_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1233497 - Make unsafe CPOWs from non-addon browser code throw by default</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1233497">
+ Bug 1233497 - Make unsafe CPOWs from non-addon browser code throw by default
+</a>
+<div>
+ Anti-pattern: Resolve a DOM Promise with a CPOW. Do not do this!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4141c99c0de7&amp;selectedJob=14916334">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4141c99c0de7&amp;selectedJob=14916334
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug329212.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/source/layout/xul/test/browser_bug706743.js">
+  https://dxr.mozilla.org/mozilla-central/source/layout/xul/test/browser_bug706743.js
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug331772_xul_tooltiptext_in_html.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug561623.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug581947.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug710878.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_clipboard.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_plainTextLinks.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_selectpopup.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_typeAheadFind.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_visibleFindSelection.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ browser/base/content/test/general/browser_bug517902.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=1fa96804ef81
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+browser/components/sessionstore/test/browser_broadcast.js | Uncaught 
+exception - at resource://app/modules/sessionstore/TabState.jsm:98 - 
+Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <br>
+</div>
+<div>
+ These 3 are failing for non-e10s:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_broadcast.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+browser/components/sessionstore/test/browser_capabilities.js | A promise
+ chain failed to handle a rejection: - at 
+chrome://mochikit/content/browser-test.js:817 - TypeError:
+ <a href="http://this.simpletest.info/">
+  this.SimpleTest.info
+ </a>
+ is not a function
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | dom/ipc/tests/test_bug1086684.html | Test timed out.
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+toolkit/components/perfmonitoring/tests/browser/browser_addonPerformanceAlerts_2.js
+ | Got the CPOW burner -
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=990869e5f112
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Devtools failures below
+ </b>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/inspector/test/browser_inspector_keyboard-shortcuts.js | Test timed out -
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/markupview/test/browser_markupview_keybindings_04.js | 
+Uncaught exception - at chrome://browser/content/nsContextMenu.js:581 - 
+Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_keybindings_delete_attributes.js | Test timed out -
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/markupview/test/browser_markupview_links_02.js | 
+Uncaught exception - at 
+chrome://mochitests/content/browser/devtools/client/markupview/test/head.js:377
+ - TypeError: inplaceEditor(...) is undefined
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/markupview/test/browser_markupview_navigation.js | Found
+ the doctype after pressing pageup - Got 1, expected 10
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/markupview/test/browser_markupview_search_01.js | A 
+promise chain failed to handle a rejection: - at 
+resource://gre/modules/PlacesUtils.jsm:1045 - Component returned failure
+ code: 0x80070057 (NS_ERROR_ILLEGAL_VALUE) 
+[nsINavBookmarksService.getBookmarkIdsForURI]
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/markupview/test/browser_markupview_search_01.js | Test timed out -
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/storage/test/browser_storage_basic.js | Uncaught 
+exception - at resource://gre/modules/Task.jsm:275 - Error: unsafe CPOW 
+usage forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_dynamic_updates.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_sidebar.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/client/storage/test/browser_storage_values.js | Test timed out -
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_emitMutations.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_getFrames.js | Uncaught 
+exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_getMultipleStates.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_getPlayers.js | Uncaught
+ exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_getStateAfterFinished.js
+ | Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_getSubTreeAnimations.js |
+ Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_keepFinished.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_playPauseIframe.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_playPauseSeveral.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/server/tests/browser/browser_animation_playerState.js | 
+Uncaught exception - at resource://gre/modules/Promise.jsm -&gt; 
+resource://gre/modules/Promise-backend.js:700 - Error: unsafe CPOW usage
+ forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_reconstructState.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_refreshTransitions.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_setCurrentTime.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_setPlaybackRate.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_animation_simple.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-cycle-collection.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-01.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-02.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-docloading-03.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-gc.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-parse-html.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-styles.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_markers-timestamp.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-profiler-01.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-realtime-markers.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-samples-01.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_perf-samples-02.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_dynamic_windows.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_listings.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_storage_updates.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_stylesheets_getTextEmpty.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_stylesheets_nested-iframes.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline_actors.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | devtools/server/tests/browser/browser_timeline_iframes.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ TEST-UNEXPECTED-FAIL | 
+devtools/client/inspector/test/browser_inspector_initialization.js | 
+Uncaught exception - at chrome://browser/content/nsContextMenu.js:581 - 
+Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Fix the&nbsp;devtools/client/inspector/test/ context menu bug
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edc550cb6099
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Two more fixed failures...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5a91058a71f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f5a91058a71f
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f" rel="noreferrer" target="_blank">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=043bf61ee25f
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending NoSuchElementError: EM_find@chrome://marionette/content/elements.js:555:51
+</div>
+<div>
+ findElementContent/&lt;@chrome://marionette/content/listener.js:1421:5
+</div>
+<div>
+ findElementContent@chrome://marionette/content/listener.js:1420:10
+</div>
+<div>
+ dispatch/&lt;/req&lt;@chrome://marionette/content/listener.js:175:22
+</div>
+<div>
+ TaskImpl_run@resource://gre/modules/Task.jsm:315:40
+</div>
+<div>
+ TaskImpl@resource://gre/modules/Task.jsm:276:3
+</div>
+<div>
+ createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:250:14
+</div>
+<div>
+ Task_spawn@resource://gre/modules/Task.jsm:164:12
+</div>
+<div>
+ dispatch/&lt;@chrome://marionette/content/listener.js:171:15
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 0:01.90 TEST_START: MainThread test_click.py TestClick.test_clicking_a_link_made_up_of_numbers_is_handled_correctly
+</div>
+<div>
+ 1452273267889&nbsp; &nbsp; Marionette&nbsp; &nbsp; INFO&nbsp; &nbsp; Accepted connection conn3 from 127.0.0.1:55635
+</div>
+<div>
+ 1452273267893&nbsp; &nbsp; Marionette&nbsp; &nbsp; INFO&nbsp; &nbsp; Accepted connection conn4 from 127.0.0.1:55636
+</div>
+<div>
+ 1452273267894&nbsp; &nbsp; Marionette&nbsp; &nbsp; INFO&nbsp; &nbsp; Closed connection conn4
+</div>
+<div>
+ 1452273267899&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 1, name: "newSession", parameters: 
+{"sessionId":null,"capabilities":null}}
+</div>
+<div>
+ 1452273267903&nbsp; &nbsp; Marionette&nbsp; &nbsp; INFO&nbsp; &nbsp; loaded listener.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:register
+</div>
+<div>
+ 1452273267907&nbsp; &nbsp; Marionette&nbsp; &nbsp; INFO&nbsp; &nbsp; loaded listener.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:register
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:listenersAttached
+</div>
+<div>
+ 1452273267908&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 &lt;- Response {id: 1, error: null, body: 
+{"sessionId":"09a0c746-a046-da4c-8f9c-e90ecdba2752","capabilities":{"browserName":"Firefox","browserVersion":"46.0a1","platformName":"Darwin","platformVersion":"14.5.0","specificationLevel":"1","raisesAccessibilityExceptions":false,"rotatable":false,"acceptSslCerts":false,"takesElementScreenshot":true,"takesScreenshot":true,"proxy":{},"platform":"DARWIN","XULappId":"{ec8030f7-c20a-464f-9b0e-13a3a9e97384}","appBuildId":"20160107160939","device":"desktop","version":"46.0a1"}}}
+</div>
+<div>
+ 1452273267910&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 2, name: "timeouts", parameters: {"type":"page 
+load","ms":30000}}
+</div>
+<div>
+ 1452273267910&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; conn3 &lt;- Response {id: 2, error: null, body: {}}
+</div>
+<div>
+ 1452273267911&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 3, name: "setTestName", parameters: 
+{"value":"test_click.py 
+TestClick.test_clicking_a_link_made_up_of_numbers_is_handled_correctly"}}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273267912&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; conn3 &lt;- Response {id: 3, error: null, body: {}}
+</div>
+<div>
+ 1452273267918&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 4, name: "executeScript", parameters: 
+{"scriptTimeout":null,"newSandbox":true,"args":[],"filename":"marionette_test.py","script":"log('TEST-START:
+ 
+/Users/mikeconley/Projects/mozilla-central/testing/marionette/client/marionette/tests/unit/test_click.py:test_clicking_a_link_made_up_of_numbers_is_handled_correctly')","sandbox":"default","line":737}}
+</div>
+<div>
+ MARIONETTE LOG: INFO: TEST-START: 
+/Users/mikeconley/Projects/mozilla-central/testing/marionette/client/marionette/tests/unit/test_click.py:test_clicking_a_link_made_up_of_numbers_is_handled_correctly
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:shareData
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:done
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:done
+</div>
+<div>
+ 1452273267920&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 &lt;- Response {id: 4, error: null, body: {"value":null}}
+</div>
+<div>
+ 1452273267921&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 5, name: "get", parameters: 
+{"url":"http://127.0.0.1:55634/clicks.html"}}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:switchedToFrame
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  Driver received message: Marionette:register
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  Driver received message: Marionette:listenersAttached
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273268466&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; conn3 &lt;- Response {id: 5, error: null, body: {}}
+</div>
+<div>
+ 1452273268467&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 6, name: "findElement", parameters: 
+{"using":"link text","value":"333333"}}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FINDING AN ELEMENT!!!!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FIND entered
+</div>
+<div>
+ <br>
+</div>
+<div>
+ CHECKING RESPONSE??
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:done
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:done
+</div>
+<div>
+ 1452273268470&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 &lt;- Response {id: 6, error: null, body: 
+{"value":{"ELEMENT":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216","element-6066-11e4-a52e-4f735466cecf":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216"}}}
+</div>
+<div>
+ 1452273268471&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 7, name: "clickElement", parameters: 
+{"id":"3d7c2c8b-0db5-584d-b66a-ce7972c0a216"}}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ TOLD TO CLICK ON: 3d7c2c8b-0db5-584d-b66a-ce7972c0a216
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Getting accessibile thing...
+</div>
+<div>
+ ENTERING
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Trying to get accessible for thing...100
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GOT THE ACCESSIBLE OBJECT
+</div>
+<div>
+ <br>
+</div>
+<div>
+ CHECKING RESPONSE??
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:ok
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:ok
+</div>
+<div>
+ 1452273268493&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; conn3 &lt;- Response {id: 7, error: null, body: {}}
+</div>
+<div>
+ 1452273268494&nbsp; &nbsp; Marionette&nbsp; &nbsp; DEBUG&nbsp; &nbsp; 
+conn3 -&gt; Command {id: 8, name: "findElement", parameters: 
+{"using":"id","value":"username"}}
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FINDING AN ELEMENT!!!!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FIND entered
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Entered first block
+</div>
+<div>
+ <br>
+</div>
+<div>
+ RU ROH 1
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending NoSuchElementError: EM_find@chrome://marionette/content/elements.js:555:51
+</div>
+<div>
+ findElementContent/&lt;@chrome://marionette/content/listener.js:1423:5
+</div>
+<div>
+ findElementContent@chrome://marionette/content/listener.js:1422:10
+</div>
+<div>
+ dispatch/&lt;/req&lt;@chrome://marionette/content/listener.js:175:22
+</div>
+<div>
+ TaskImpl_run@resource://gre/modules/Task.jsm:315:40
+</div>
+<div>
+ TaskImpl@resource://gre/modules/Task.jsm:276:3
+</div>
+<div>
+ createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:250:14
+</div>
+<div>
+ Task_spawn@resource://gre/modules/Task.jsm:164:12
+</div>
+<div>
+ dispatch/&lt;@chrome://marionette/content/listener.js:171:15
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sent it!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Sending message: Marionette:error
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Driver received message: Marionette:error
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The Exception that we’re raising is the CPOW? Yes indeed!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Need to post a concern message to the bug… something like:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "Having worked on fixing up these tests, I’m slightly worried about how this is going to affect add-ons going forward.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The CPOW restriction that billm’s patch adds does a great job of making
+ sure that CPOWs can only be used within add-on compartments. It is 
+trivial (and likely common), however, for an add-on to pass arguments 
+like CPOWs into other compartments, and this is going to cause 
+explosions.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Imagine some built-in JSM that we ship with the browser, like E10SUtils
+ or BrowserUtils. Each JSM has their own compartment. As soon as an 
+add-on attempts to pass a CPOW to one of these, it’ll explode.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I’m seeing this as I’m fixing tests - the two common cases being the 
+Promise-backend.jsm and Task.jsm compartments (essentially meaning that 
+add-ons can no longer resolve Promises or yield in Tasks with CPOWs). 
+These two cases are actually particularly interesting because something 
+like a Promise resolution with a CPOW will occur in a later tick of the 
+event loop, meaning that the add-on code will no longer be on the stack.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ To break down my concern: &nbsp;It’s possible that this change can 
+break add-ons and it’s not clear how many add-ons this will break, nor 
+how bad the breakages will be.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ A few possible approaches:
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  Don’t care. Just flip the bit, damn the torpedoes, full speed ahead.
+ </li>
+ <li>
+  Only flip the bit when running tests. This has the advantage of 
+letting us know when code that we’ve written tests for uses CPOWs, but 
+it will mean that we could miss untested browser code that uses CPOWs.
+ </li>
+ <li>
+  Throw exceptions when accessing CPOWs in pre-release channels, but 
+warn in release channels in order to get the word out to our add-on 
+authors that passing CPOWs around to other modules is no-bueno. Perhaps 
+measure how many warnings we’re seeing via Telemetry, and when the 
+warnings drops beneath some threshold, flip the bit.
+ </li>
+ <li>
+  Find some way of marking a CPOW as having been passed by add-on code 
+(and the mark persists beyond returns to the event loop), and then allow
+ browser code to handle it. I have no idea if this is possible or even 
+desirable.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ There might be other options, but these are the ones that came to my head right off the bat. How do we want to proceed?"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Rebased and pushed to try, now with ALL tests:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9063ea97b577
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AND AGAIN:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53
+ </a>
+ . There are some Windows failures in there that I want to check out.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  TEST-UNEXPECTED-FAIL | ShutdownLeaks | process() called before end of test suite
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1155861" target="_blank">
+    1155861 Intermittent browser_panel_toggle.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for tabs to finish closing","state":"(none)","filename":"chrome
+   </a>
+  </li>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1185045" target="_blank">
+    1185045 Intermittent browser_net_timing-division.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)","filename":" ...
+   </a>
+  </li>
+ </ul>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1235148" target="_blank">
+    1235148 Intermittent browser_toolbox_sidebar_overflow_menu.js | FATAL ERROR: AsyncShutdown timeout in
+    <strong>
+     ShutdownLeaks
+    </strong>
+    : Wait for cleanup to be finished
+    <strong>
+     before
+    </strong>
+    checking for leaks Conditions: [{"name":"DevTools: Wait until toolbox is destroyed","state":"(none)"
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  TEST-UNEXPECTED-FAIL | devtools/client/webconsole/test/browser_webconsole_split.js | application terminated with exit code 1
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1236316" target="_blank">
+    1236316 Intermittent
+    <strong>
+     browser_
+    </strong>
+    webconsole_split.
+    <strong>
+     js
+    </strong>
+    |
+    <strong>
+     application
+    </strong>
+    <strong>
+     terminated
+    </strong>
+    <strong>
+     with
+    </strong>
+    <strong>
+     exit
+    </strong>
+    <strong>
+     code
+    </strong>
+    <strong>
+     1
+    </strong>
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  PROCESS-CRASH | 
+devtools/client/webconsole/test/browser_webconsole_split.js | 
+application crashed [@ js::jit::DoTypeMonitorFallback]
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1236316" target="_blank">
+    1236316 Intermittent
+    <strong>
+     browser_
+    </strong>
+    webconsole_split.
+    <strong>
+     <strong>
+      js
+     </strong>
+    </strong>
+    |
+    <strong>
+     application
+    </strong>
+    terminated with exit code 1
+   </a>
+  </li>
+ </ul>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+ <div>
+  TEST-UNEXPECTED-FAIL | leakcheck | default process: missing output line for total leaks!
+ </div>
+ <div>
+  Return code: 1
+ </div>
+ <div>
+  No tests run or test summary not found
+ </div>
+ <ul>
+  <li>
+   <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1160010" target="_blank">
+    1160010 Intermittent Android 2.3/4.3 mochi
+    <strong>
+     test
+    </strong>
+    /ref
+    <strong>
+     test
+    </strong>
+    <strong>
+     No
+    </strong>
+    <strong>
+     <strong>
+      test
+     </strong>
+     s
+    </strong>
+    <strong>
+     run
+    </strong>
+    <strong>
+     or
+    </strong>
+    <strong>
+     test
+    </strong>
+    <strong>
+     summary
+    </strong>
+    <strong>
+     <strong>
+      no
+     </strong>
+     t
+    </strong>
+    <strong>
+     found
+    </strong>
+    due to an | application ran f
+    <strong>
+     or
+    </strong>
+    longer than allowed maximum time
+   </a>
+  </li>
+ </ul>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d8289c37ae53&amp;selectedJob=15284916">
+  Show / Hide more
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://developer.mozilla.org/en-US/docs/Debugging_a_minidump">
+  https://developer.mozilla.org/en-US/docs/Debugging_a_minidump
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Thread 0 (crashed)
+</div>
+<div>
+ 0&nbsp; KERNELBASE.dll + 0x3381b
+</div>
+<div>
+ eip = 0x758c381b&nbsp; &nbsp;esp = 0x0024bb4c&nbsp; &nbsp;ebp = 0x0024bf7c&nbsp; &nbsp;ebx = 0x00000000
+</div>
+<div>
+ esi = 0x00000000&nbsp; &nbsp;edi = 0x693c42b5&nbsp; &nbsp;eax = 0x00000000&nbsp; &nbsp;ecx = 0x00000005
+</div>
+<div>
+ edx = 0x0000001a&nbsp; &nbsp;efl = 0x00200246
+</div>
+<div>
+ Found by: given as instruction pointer in context
+</div>
+<div>
+ 1&nbsp; xul.dll!nsDebugImpl::Abort(char const *,int) [nsDebugImpl.cpp:d8289c37ae53 : 146 + 0x11]
+</div>
+<div>
+ eip = 0x5ea7b2e1&nbsp; &nbsp;esp = 0x0024bf84&nbsp; &nbsp;ebp = 0x0024bf98
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 2&nbsp; xul.dll!NS_InvokeByIndex + 0x27
+</div>
+<div>
+ eip = 0x5eafed57&nbsp; &nbsp;esp = 0x0024bfa0&nbsp; &nbsp;ebp = 0x0024bfb4
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 3&nbsp; xul.dll!CallMethodHelper::Invoke() [XPCWrappedNative.cpp:d8289c37ae53 : 2097 + 0xf]
+</div>
+<div>
+ eip = 0x5f1f433c&nbsp; &nbsp;esp = 0x0024bfbc&nbsp; &nbsp;ebp = 0x0024bfe0
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 4&nbsp; xul.dll!CallMethodHelper::Call() [XPCWrappedNative.cpp:d8289c37ae53 : 1414 + 0x7]
+</div>
+<div>
+ eip = 0x5f1e70a1&nbsp; &nbsp;esp = 0x0024bfd0&nbsp; &nbsp;ebp = 0x0024bfe0
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 5&nbsp; xul.dll!XPCWrappedNative::CallMethod(XPCCallContext 
+&amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 
+1381 + 0x12]
+</div>
+<div>
+ eip = 0x5f1e717f&nbsp; &nbsp;esp = 0x0024bfe8&nbsp; &nbsp;ebp = 0x0024c0b8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 6&nbsp; xul.dll!js::ObjectGroupHasProperty(JSContext *,js::ObjectGroup 
+*,jsid,JS::Value const &amp;) [TypeInference.cpp:d8289c37ae53 : 242 + 
+0xe]
+</div>
+<div>
+ eip = 0x6170549f&nbsp; &nbsp;esp = 0x0024c018&nbsp; &nbsp;ebp = 0x0024c07c
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 7&nbsp; xul.dll!XPCNativeMember::GetCallInfo(JSObject 
+*,XPCNativeInterface * *,XPCNativeMember * *) 
+[XPCWrappedNativeInfo.cpp:d8289c37ae53 : 32 + 0x8]
+</div>
+<div>
+ eip = 0x5f1ee048&nbsp; &nbsp;esp = 0x0024c0a0&nbsp; &nbsp;ebp = 0x6148384d
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 8&nbsp; xul.dll!XPCCallContext::SetCallInfo(XPCNativeInterface 
+*,XPCNativeMember *,bool) [XPCCallContext.cpp:d8289c37ae53 : 148 + 0x9]
+</div>
+<div>
+ eip = 0x5f1d8f34&nbsp; &nbsp;esp = 0x0024c0b4&nbsp; &nbsp;ebp = 0x6148384d
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 9&nbsp; xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae&nbsp; &nbsp;esp = 0x0024c0c0&nbsp; &nbsp;ebp = 0x6148384d
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 10&nbsp; xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae&nbsp; &nbsp;esp = 0x0024c0c8&nbsp; &nbsp;ebp = 0x0024c888
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 11&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa&nbsp; &nbsp;esp = 0x0024c1a8&nbsp; &nbsp;ebp = 0x0024e3c4
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 12&nbsp; xul.dll!XPCWrappedNative::CallMethod(XPCCallContext 
+&amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 
+1381 + 0x20]
+</div>
+<div>
+ eip = 0x5f1e718d&nbsp; &nbsp;esp = 0x0024c220&nbsp; &nbsp;ebp = 0x0024c1fc
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 13&nbsp; xul.dll!js::ObjectGroupHasProperty(JSContext *,js::ObjectGroup
+ *,jsid,JS::Value const &amp;) [TypeInference.cpp:d8289c37ae53 : 242 + 
+0xe]
+</div>
+<div>
+ eip = 0x6170549f&nbsp; &nbsp;esp = 0x0024c250&nbsp; &nbsp;ebp = 0x0024c1fc
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 14&nbsp; xul.dll!AssertActivityIsLegal [nsTraceRefcnt.cpp:d8289c37ae53 : 163 + 0x11]
+</div>
+<div>
+ eip = 0x5ea966d9&nbsp; &nbsp;esp = 0x0024c2c8&nbsp; &nbsp;ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 15&nbsp; nss3.dll!_MD_CURRENT_THREAD [w95thred.c:d8289c37ae53 : 312 + 0xc]
+</div>
+<div>
+ eip = 0x67fd569c&nbsp; &nbsp;esp = 0x0024c2dc&nbsp; &nbsp;ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 16&nbsp; xul.dll!js::CurrentThreadCanAccessRuntime(JSRuntime *) [Runtime.cpp:d8289c37ae53 : 847 + 0x6]
+</div>
+<div>
+ eip = 0x616880b9&nbsp; &nbsp;esp = 0x0024c2e4&nbsp; &nbsp;ebp = 0x0024c26c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 17&nbsp; xul.dll!XPCCallContext::~XPCCallContext() [XPCCallContext.cpp:d8289c37ae53 : 234 + 0x1e]
+</div>
+<div>
+ eip = 0x5f1beb5e&nbsp; &nbsp;esp = 0x0024c2fc&nbsp; &nbsp;ebp = 0x0024c314
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 18&nbsp; xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0x2d]
+</div>
+<div>
+ eip = 0x5f1fcccd&nbsp; &nbsp;esp = 0x0024c308&nbsp; &nbsp;ebp = 0x0024c314
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 19&nbsp; 
+xul.dll!js::Debugger::FrameRange::FrameRange(js::AbstractFramePtr,js::GlobalObject
+ *) [Debugger.cpp:d8289c37ae53 : 197 + 0x7]
+</div>
+<div>
+ eip = 0x615ebf57&nbsp; &nbsp;esp = 0x0024c3dc&nbsp; &nbsp;ebp = 0x0024e3c4
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 20&nbsp; xul.dll!js::detail::BumpChunk::setBump(void *) [LifoAlloc.h:d8289c37ae53 : 76 + 0xe]
+</div>
+<div>
+ eip = 0x6149f73c&nbsp; &nbsp;esp = 0x0024c3fc&nbsp; &nbsp;ebp = 0x0024cabc
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 21&nbsp; xul.dll!JS::PersistentRooted&lt;JSString *&gt;::set(JSString *) [RootingAPI.h:d8289c37ae53 : 1100 + 0x5]
+</div>
+<div>
+ eip = 0x5ea586be&nbsp; &nbsp;esp = 0x0024c424&nbsp; &nbsp;ebp = 0x0024c424
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 22&nbsp; xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 4005 + 0xf]
+</div>
+<div>
+ eip = 0x6164454b&nbsp; &nbsp;esp = 0x0024c448&nbsp; &nbsp;ebp = 0x0024cd28
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 23&nbsp; xul.dll!xpc::WrapperFactory::PrepareForWrapping(JSContext 
+*,JS::Handle&lt;JSObject *&gt;,JS::Handle&lt;JSObject 
+*&gt;,JS::Handle&lt;JSObject *&gt;) [WrapperFactory.cpp:d8289c37ae53 : 
+188 + 0x19]
+</div>
+<div>
+ eip = 0x5f196cbe&nbsp; &nbsp;esp = 0x0024ce24&nbsp; &nbsp;ebp = 0x0024c800
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 24&nbsp; xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext 
+*,unsigned int,JS::Value *),JS::CallArgs const &amp;) 
+[jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a&nbsp; &nbsp;esp = 0x0024cf20&nbsp; &nbsp;ebp = 0x0024ce00
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 25&nbsp; xul.dll + 0x2a4e580
+</div>
+<div>
+ eip = 0x6142e580&nbsp; &nbsp;esp = 0x0024cf50&nbsp; &nbsp;ebp = 0x0024cf90
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 26&nbsp; xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value
+ const &amp;,unsigned int,JS::Value const 
+*,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 
+529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d&nbsp; &nbsp;esp = 0x0024cf98&nbsp; &nbsp;ebp = 0x0024d050
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 27&nbsp; xul.dll!js::DirectProxyHandler::call(JSContext 
+*,JS::Handle&lt;JSObject *&gt;,JS::CallArgs const &amp;) 
+[DirectProxyHandler.cpp:d8289c37ae53 : 77 + 0x1f]
+</div>
+<div>
+ eip = 0x615b8a0e&nbsp; &nbsp;esp = 0x0024d058&nbsp; &nbsp;ebp = 0x0024d090
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 28&nbsp; xul.dll!js::CrossCompartmentWrapper::call(JSContext 
+*,JS::Handle&lt;JSObject *&gt;,JS::CallArgs const &amp;) 
+[CrossCompartmentWrapper.cpp:d8289c37ae53 : 289 + 0xd]
+</div>
+<div>
+ eip = 0x615a6404&nbsp; &nbsp;esp = 0x0024d098&nbsp; &nbsp;ebp = 0x0024d0c0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 29&nbsp; xul.dll!js::Proxy::call(JSContext *,JS::Handle&lt;JSObject 
+*&gt;,JS::CallArgs const &amp;) [Proxy.cpp:d8289c37ae53 : 391 + 0xe]
+</div>
+<div>
+ eip = 0x615b8b31&nbsp; &nbsp;esp = 0x0024d0c8&nbsp; &nbsp;ebp = 0x0024d120
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 30&nbsp; xul.dll!js::proxy_Call(JSContext *,unsigned int,JS::Value *) [Proxy.cpp:d8289c37ae53 : 683 + 0x12]
+</div>
+<div>
+ eip = 0x615bf348&nbsp; &nbsp;esp = 0x0024d128&nbsp; &nbsp;ebp = 0x0024d158
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 31&nbsp; xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext 
+*,unsigned int,JS::Value *),JS::CallArgs const &amp;) 
+[jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a&nbsp; &nbsp;esp = 0x0024d160&nbsp; &nbsp;ebp = 0x0024d180
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 32&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 465 + 0x8]
+</div>
+<div>
+ eip = 0x61644f3d&nbsp; &nbsp;esp = 0x0024d188&nbsp; &nbsp;ebp = 0x0024d1d0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 33&nbsp; xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 2803 + 0xf]
+</div>
+<div>
+ eip = 0x6163dc8a&nbsp; &nbsp;esp = 0x0024d1d8&nbsp; &nbsp;ebp = 0x0024db84
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 34&nbsp; xul.dll!js::RunScript(JSContext *,js::RunState &amp;) [Interpreter.cpp:d8289c37ae53 : 424 + 0xd]
+</div>
+<div>
+ eip = 0x61648f17&nbsp; &nbsp;esp = 0x0024db8c&nbsp; &nbsp;ebp = 0x0024dc34
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 35&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 495 + 0xa]
+</div>
+<div>
+ eip = 0x61645057&nbsp; &nbsp;esp = 0x0024dc3c&nbsp; &nbsp;ebp = 0x0024dc80
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 36&nbsp; xul.dll!js::CallOrConstructBoundFunction(JSContext *,unsigned int,JS::Value *) [jsfun.cpp:d8289c37ae53 : 1595 + 0x12]
+</div>
+<div>
+ eip = 0x61456d63&nbsp; &nbsp;esp = 0x0024dc88&nbsp; &nbsp;ebp = 0x0024de40
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 37&nbsp; xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext 
+*,unsigned int,JS::Value *),JS::CallArgs const &amp;) 
+[jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a&nbsp; &nbsp;esp = 0x0024de48&nbsp; &nbsp;ebp = 0x0024de68
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 38&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa&nbsp; &nbsp;esp = 0x0024de70&nbsp; &nbsp;ebp = 0x0024deb8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 39&nbsp; xul.dll!js::CallOrConstructBoundFunction(JSContext *,unsigned int,JS::Value *) [jsfun.cpp:d8289c37ae53 : 1595 + 0x12]
+</div>
+<div>
+ eip = 0x61456d63&nbsp; &nbsp;esp = 0x0024dec0&nbsp; &nbsp;ebp = 0x0024e078
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 40&nbsp; xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext 
+*,unsigned int,JS::Value *),JS::CallArgs const &amp;) 
+[jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a&nbsp; &nbsp;esp = 0x0024e080&nbsp; &nbsp;ebp = 0x0024e0a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 41&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa&nbsp; &nbsp;esp = 0x0024e0a8&nbsp; &nbsp;ebp = 0x0024e0f0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 42&nbsp; xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value
+ const &amp;,unsigned int,JS::Value const 
+*,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 
+529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d&nbsp; &nbsp;esp = 0x0024e0f8&nbsp; &nbsp;ebp = 0x0024e1b0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 43&nbsp; xul.dll!JS_CallFunctionValue(JSContext 
+*,JS::Handle&lt;JSObject 
+*&gt;,JS::Handle&lt;JS::Value&gt;,JS::HandleValueArray const 
+&amp;,JS::MutableHandle&lt;JS::Value&gt;) [jsapi.cpp:d8289c37ae53 : 2817
+ + 0x36]
+</div>
+<div>
+ eip = 0x614fe926&nbsp; &nbsp;esp = 0x0024e1b8&nbsp; &nbsp;ebp = 0x0024e1f0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 44&nbsp; 
+xul.dll!nsXPCComponents_Utils::CallFunctionWithAsyncStack(JS::Handle&lt;JS::Value&gt;,nsIStackFrame
+ *,nsAString_internal const &amp;,JSContext 
+*,JS::MutableHandle&lt;JS::Value&gt;) [XPCComponents.cpp:d8289c37ae53 : 
+2704 + 0x21]
+</div>
+<div>
+ eip = 0x5f1a88eb&nbsp; &nbsp;esp = 0x0024e1f8&nbsp; &nbsp;ebp = 0x0024e268
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 45&nbsp; xul.dll!NS_InvokeByIndex + 0x27
+</div>
+<div>
+ eip = 0x5eafed57&nbsp; &nbsp;esp = 0x0024e270&nbsp; &nbsp;ebp = 0x0024e29c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 46&nbsp; xul.dll!CallMethodHelper::Invoke() [XPCWrappedNative.cpp:d8289c37ae53 : 2097 + 0xf]
+</div>
+<div>
+ eip = 0x5f1f433c&nbsp; &nbsp;esp = 0x0024e2a4&nbsp; &nbsp;ebp = 0x0024e2c8
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 47&nbsp; xul.dll!CallMethodHelper::Call() [XPCWrappedNative.cpp:d8289c37ae53 : 1414 + 0x7]
+</div>
+<div>
+ eip = 0x5f1e70a1&nbsp; &nbsp;esp = 0x0024e2b8&nbsp; &nbsp;ebp = 0x0024e2c8
+</div>
+<div>
+ Found by: call frame info with scanning
+</div>
+<div>
+ 48&nbsp; xul.dll!XPCWrappedNative::CallMethod(XPCCallContext 
+&amp;,XPCWrappedNative::CallMode) [XPCWrappedNative.cpp:d8289c37ae53 : 
+1381 + 0x12]
+</div>
+<div>
+ eip = 0x5f1e717f&nbsp; &nbsp;esp = 0x0024e2d0&nbsp; &nbsp;ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 49&nbsp; xul.dll!JSFunction::toExtended() [jsfun.h:d8289c37ae53 : 769 + 0x5]
+</div>
+<div>
+ eip = 0x614a47e8&nbsp; &nbsp;esp = 0x0024e360&nbsp; &nbsp;ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: stack scanning
+</div>
+<div>
+ 50&nbsp; xul.dll!js::GetFunctionNativeReserved(JSObject *,unsigned int) [jsfriendapi.cpp:d8289c37ae53 : 464 + 0xf]
+</div>
+<div>
+ eip = 0x6145e619&nbsp; &nbsp;esp = 0x0024e378&nbsp; &nbsp;ebp = 0x0024e3a0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 51&nbsp; xul.dll!XPC_WN_CallMethod(JSContext *,unsigned int,JS::Value *) [XPCWrappedNativeJSOps.cpp:d8289c37ae53 : 1115 + 0xe]
+</div>
+<div>
+ eip = 0x5f1fccae&nbsp; &nbsp;esp = 0x0024e3a8&nbsp; &nbsp;ebp = 0x0024e460
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 52&nbsp; xul.dll!js::CallJSNative(JSContext *,bool (*)(JSContext 
+*,unsigned int,JS::Value *),JS::CallArgs const &amp;) 
+[jscntxtinlines.h:d8289c37ae53 : 235 + 0xe]
+</div>
+<div>
+ eip = 0x6163080a&nbsp; &nbsp;esp = 0x0024e468&nbsp; &nbsp;ebp = 0x0024e488
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 53&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 477 + 0xf]
+</div>
+<div>
+ eip = 0x61644ffa&nbsp; &nbsp;esp = 0x0024e490&nbsp; &nbsp;ebp = 0x0024e4d8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 54&nbsp; xul.dll!Interpret [Interpreter.cpp:d8289c37ae53 : 2803 + 0xf]
+</div>
+<div>
+ eip = 0x6163dc8a&nbsp; &nbsp;esp = 0x0024e4e0&nbsp; &nbsp;ebp = 0x0024ee8c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 55&nbsp; xul.dll!js::RunScript(JSContext *,js::RunState &amp;) [Interpreter.cpp:d8289c37ae53 : 424 + 0xd]
+</div>
+<div>
+ eip = 0x61648f17&nbsp; &nbsp;esp = 0x0024ee94&nbsp; &nbsp;ebp = 0x0024ef3c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 56&nbsp; xul.dll!js::Invoke(JSContext *,JS::CallArgs const &amp;,js::MaybeConstruct) [Interpreter.cpp:d8289c37ae53 : 495 + 0xa]
+</div>
+<div>
+ eip = 0x61645057&nbsp; &nbsp;esp = 0x0024ef44&nbsp; &nbsp;ebp = 0x0024ef88
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 57&nbsp; xul.dll!js::Invoke(JSContext *,JS::Value const &amp;,JS::Value
+ const &amp;,unsigned int,JS::Value const 
+*,JS::MutableHandle&lt;JS::Value&gt;) [Interpreter.cpp:d8289c37ae53 : 
+529 + 0xf]
+</div>
+<div>
+ eip = 0x6164527d&nbsp; &nbsp;esp = 0x0024ef90&nbsp; &nbsp;ebp = 0x0024f048
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 58&nbsp; xul.dll!JS::Call(JSContext 
+*,JS::Handle&lt;JS::Value&gt;,JS::Handle&lt;JS::Value&gt;,JS::HandleValueArray
+ const &amp;,JS::MutableHandle&lt;JS::Value&gt;) [jsapi.cpp:d8289c37ae53
+ : 2864 + 0x14]
+</div>
+<div>
+ eip = 0x614f4d31&nbsp; &nbsp;esp = 0x0024f050&nbsp; &nbsp;ebp = 0x0024f080
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 59&nbsp; xul.dll!mozilla::dom::AnyCallback::Call(JSContext 
+*,JS::Handle&lt;JS::Value&gt;,JS::Handle&lt;JS::Value&gt;,JS::MutableHandle&lt;JS::Value&gt;,mozilla::ErrorResult
+ &amp;) [PromiseBinding.cpp:d8289c37ae53 : 79 + 0x51]
+</div>
+<div>
+ eip = 0x5fa33ba5&nbsp; &nbsp;esp = 0x0024f088&nbsp; &nbsp;ebp = 0x0024f16c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 60&nbsp; 
+xul.dll!mozilla::dom::AnyCallback::Call(JS::Handle&lt;JS::Value&gt;,JS::MutableHandle&lt;JS::Value&gt;,mozilla::ErrorResult
+ &amp;,char const 
+*,mozilla::dom::CallbackObject::ExceptionHandling,JSCompartment *) 
+[PromiseBinding.h:d8289c37ae53 : 149 + 0x1a]
+</div>
+<div>
+ eip = 0x60562867&nbsp; &nbsp;esp = 0x0024f174&nbsp; &nbsp;ebp = 0x0024f2dc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 61&nbsp; xul.dll!mozilla::dom::WrapperPromiseCallback::Call(JSContext 
+*,JS::Handle&lt;JS::Value&gt;) [PromiseCallback.cpp:d8289c37ae53 : 336 +
+ 0x39]
+</div>
+<div>
+ eip = 0x60562d61&nbsp; &nbsp;esp = 0x0024f2e4&nbsp; &nbsp;ebp = 0x0024f490
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 62&nbsp; xul.dll!mozilla::dom::PromiseReactionJob::Run() [Promise.cpp:d8289c37ae53 : 105 + 0x28]
+</div>
+<div>
+ eip = 0x605687a7&nbsp; &nbsp;esp = 0x0024f498&nbsp; &nbsp;ebp = 0x0024f5b0
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 63&nbsp; xul.dll!mozilla::dom::Promise::PerformMicroTaskCheckpoint() [Promise.cpp:d8289c37ae53 : 567 + 0x11]
+</div>
+<div>
+ eip = 0x6056632f&nbsp; &nbsp;esp = 0x0024f5b8&nbsp; &nbsp;ebp = 0x0024f654
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 64&nbsp; 
+xul.dll!mozilla::CycleCollectedJSRuntime::AfterProcessTask(unsigned int)
+ [CycleCollectedJSRuntime.cpp:d8289c37ae53 : 1157 + 0x5]
+</div>
+<div>
+ eip = 0x5ea8341c&nbsp; &nbsp;esp = 0x0024f65c&nbsp; &nbsp;ebp = 0x0024f660
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 65&nbsp; xul.dll!XPCJSRuntime::AfterProcessTask(unsigned int) [XPCJSRuntime.cpp:d8289c37ae53 : 3648 + 0xa]
+</div>
+<div>
+ eip = 0x5f1c120a&nbsp; &nbsp;esp = 0x0024f668&nbsp; &nbsp;ebp = 0x0024f690
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 66&nbsp; xul.dll!nsThread::ProcessNextEvent(bool,bool *) [nsThread.cpp:d8289c37ae53 : 1004 + 0x8]
+</div>
+<div>
+ eip = 0x5eaefb1d&nbsp; &nbsp;esp = 0x0024f698&nbsp; &nbsp;ebp = 0x0024f778
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 67&nbsp; xul.dll!NS_ProcessNextEvent(nsIThread *,bool) [nsThreadUtils.cpp:d8289c37ae53 : 297 + 0xd]
+</div>
+<div>
+ eip = 0x5eb1d1be&nbsp; &nbsp;esp = 0x0024f780&nbsp; &nbsp;ebp = 0x0024f78c
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 68&nbsp; xul.dll!mozilla::ipc::MessagePump::Run(base::MessagePump::Delegate *) [MessagePump.cpp:d8289c37ae53 : 127 + 0xa]
+</div>
+<div>
+ eip = 0x5edccb73&nbsp; &nbsp;esp = 0x0024f794&nbsp; &nbsp;ebp = 0x0024f7bc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 69&nbsp; xul.dll!MessageLoop::RunInternal() [message_loop.cc:d8289c37ae53 : 234 + 0xf]
+</div>
+<div>
+ eip = 0x5ed9c4b5&nbsp; &nbsp;esp = 0x0024f7c4&nbsp; &nbsp;ebp = 0x0024f7dc
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 70&nbsp; xul.dll!MessageLoop::RunHandler() [message_loop.cc:d8289c37ae53 : 227 + 0x5]
+</div>
+<div>
+ eip = 0x5ed9c46d&nbsp; &nbsp;esp = 0x0024f7e4&nbsp; &nbsp;ebp = 0x0024f810
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 71&nbsp; xul.dll!MessageLoop::Run() [message_loop.cc:d8289c37ae53 : 201 + 0x7]
+</div>
+<div>
+ eip = 0x5ed9c1e6&nbsp; &nbsp;esp = 0x0024f818&nbsp; &nbsp;ebp = 0x0024f830
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 72&nbsp; xul.dll!nsBaseAppShell::Run() [nsBaseAppShell.cpp:d8289c37ae53 : 156 + 0xc]
+</div>
+<div>
+ eip = 0x6068693d&nbsp; &nbsp;esp = 0x0024f838&nbsp; &nbsp;ebp = 0x0024f840
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 73&nbsp; xul.dll!nsAppShell::Run() [nsAppShell.cpp:d8289c37ae53 : 257 + 0x8]
+</div>
+<div>
+ eip = 0x606d813f&nbsp; &nbsp;esp = 0x0024f848&nbsp; &nbsp;ebp = 0x0024f850
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 74&nbsp; xul.dll!nsAppStartup::Run() [nsAppStartup.cpp:d8289c37ae53 : 281 + 0x12]
+</div>
+<div>
+ eip = 0x60e2c9c2&nbsp; &nbsp;esp = 0x0024f858&nbsp; &nbsp;ebp = 0x0024f864
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 75&nbsp; xul.dll!XREMain::XRE_mainRun() [nsAppRunner.cpp:d8289c37ae53 : 4326 + 0x11]
+</div>
+<div>
+ eip = 0x60e7ce36&nbsp; &nbsp;esp = 0x0024f86c&nbsp; &nbsp;ebp = 0x0024fa44
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 76&nbsp; xul.dll!XREMain::XRE_main(int,char * * const,nsXREAppData const *) [nsAppRunner.cpp:d8289c37ae53 : 4423 + 0x7]
+</div>
+<div>
+ eip = 0x60e7b272&nbsp; &nbsp;esp = 0x0024fa4c&nbsp; &nbsp;ebp = 0x0024fa60
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 77&nbsp; xul.dll!XRE_main [nsAppRunner.cpp:d8289c37ae53 : 4525 + 0x12]
+</div>
+<div>
+ eip = 0x60e7dc95&nbsp; &nbsp;esp = 0x0024fa68&nbsp; &nbsp;ebp = 0x0024fb74
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 78&nbsp; firefox.exe!do_main [nsBrowserApp.cpp:d8289c37ae53 : 212 + 0x15]
+</div>
+<div>
+ eip = 0x013a294d&nbsp; &nbsp;esp = 0x0024fb7c&nbsp; &nbsp;ebp = 0x0024fd14
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 79&nbsp; firefox.exe!NS_internal_main(int,char * *) [nsBrowserApp.cpp:d8289c37ae53 : 352 + 0xc]
+</div>
+<div>
+ eip = 0x013a225e&nbsp; &nbsp;esp = 0x0024fd1c&nbsp; &nbsp;ebp = 0x0024fdb8
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 80&nbsp; firefox.exe!wmain [nsWindowsWMain.cpp:d8289c37ae53 : 131 + 0x7]
+</div>
+<div>
+ eip = 0x013a2d09&nbsp; &nbsp;esp = 0x0024fdc0&nbsp; &nbsp;ebp = 0x0024fdec
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 81&nbsp; firefox.exe!__tmainCRTStartup [crt0.c : 255 + 0x12]
+</div>
+<div>
+ eip = 0x013a50bf&nbsp; &nbsp;esp = 0x0024fdf4&nbsp; &nbsp;ebp = 0x0024fe34
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 82&nbsp; kernel32.dll + 0x53c45
+</div>
+<div>
+ eip = 0x76753c45&nbsp; &nbsp;esp = 0x0024fe3c&nbsp; &nbsp;ebp = 0x0024fe40
+</div>
+<div>
+ Found by: call frame info
+</div>
+<div>
+ 83&nbsp; ntdll.dll + 0x637f5
+</div>
+<div>
+ eip = 0x776c37f5&nbsp; &nbsp;esp = 0x0024fe48&nbsp; &nbsp;ebp = 0x0024fe80
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ 84&nbsp; ntdll.dll + 0x637c8
+</div>
+<div>
+ eip = 0x776c37c8&nbsp; &nbsp;esp = 0x0024fe88&nbsp; &nbsp;ebp = 0x0024fe98
+</div>
+<div>
+ Found by: previous frame's frame pointer
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, to sum, it looks like the toolbox is taking too long to shutdown, and AsyncShutdown is killing us.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 10:01:50&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+WARNING:&nbsp;At&nbsp;least&nbsp;one&nbsp;completion&nbsp;condition&nbsp;is&nbsp;taking&nbsp;too&nbsp;long&nbsp;to&nbsp;complete.&nbsp;Conditions:&nbsp;[{"name":"DevTools:&nbsp;Wait&nbsp;until&nbsp;toolbox&nbsp;is&nbsp;destroyed","state":"(none)","filename":"resource://gre/modules/commonjs/toolkit/loader.js&nbsp;-&gt;&nbsp;resource://devtools/client/framework/toolbox.js","lineNumber":2018,"stack":["resource://gre/modules/commonjs/toolkit/loader.js&nbsp;-&gt;&nbsp;resource://devtools/client/framework/toolbox.js:Toolbox.prototype.destroy/leakCheckObserver:2018","chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:687","chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:741"]}]&nbsp;Barrier:&nbsp;ShutdownLeaks:&nbsp;Wait&nbsp;for&nbsp;cleanup&nbsp;to&nbsp;be&nbsp;finished&nbsp;before&nbsp;checking&nbsp;for&nbsp;leaks
+
+ <br>
+ 10:01:51&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+[Parent&nbsp;3380]&nbsp;WARNING:&nbsp;NS_ENSURE_SUCCESS(rv,&nbsp;rv)&nbsp;failed&nbsp;with&nbsp;result&nbsp;0x80520012:&nbsp;file&nbsp;c:/builds/moz2_slave/try-w32-d-00000000000000000000/build/src/widget/windows/WinUtils.cpp,&nbsp;line&nbsp;1364
+
+ <br>
+ 10:01:54&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+--DOMWINDOW&nbsp;==&nbsp;20&nbsp;(1A835C00)&nbsp;[pid&nbsp;=&nbsp;3380]&nbsp;[serial&nbsp;=&nbsp;473]&nbsp;[outer&nbsp;=&nbsp;00000000]&nbsp;[url&nbsp;=&nbsp;about:blank]
+
+ <br>
+ 10:01:54&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+--DOMWINDOW&nbsp;==&nbsp;19&nbsp;(1352E800)&nbsp;[pid&nbsp;=&nbsp;3380]&nbsp;[serial&nbsp;=&nbsp;471]&nbsp;[outer&nbsp;=&nbsp;00000000]&nbsp;[url&nbsp;=&nbsp;chrome://devtools/content/framework/toolbox.xul]
+
+ <br>
+ 10:01:54&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+--DOMWINDOW&nbsp;==&nbsp;18&nbsp;(1B248400)&nbsp;[pid&nbsp;=&nbsp;3380]&nbsp;[serial&nbsp;=&nbsp;475]&nbsp;[outer&nbsp;=&nbsp;00000000]&nbsp;[url&nbsp;=&nbsp;about:blank]
+
+ <br>
+ 10:01:54&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+--DOMWINDOW&nbsp;==&nbsp;17&nbsp;(1DB5C800)&nbsp;[pid&nbsp;=&nbsp;3380]&nbsp;[serial&nbsp;=&nbsp;20]&nbsp;[outer&nbsp;=&nbsp;00000000]&nbsp;[url&nbsp;=&nbsp;about:newtab]
+
+ <br>
+ 10:01:54&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+--DOMWINDOW&nbsp;==&nbsp;16&nbsp;(11BED800)&nbsp;[pid&nbsp;=&nbsp;3380]&nbsp;[serial&nbsp;=&nbsp;28]&nbsp;[outer&nbsp;=&nbsp;00000000]&nbsp;[url&nbsp;=&nbsp;data:application/vnd.mozilla.xul+xml;charset=utf-8,&lt;window%20id='win'/&gt;]
+</div>
+<div>
+ 10:02:41&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+FATAL&nbsp;ERROR:&nbsp;AsyncShutdown&nbsp;timeout&nbsp;in&nbsp;ShutdownLeaks:&nbsp;Wait&nbsp;for&nbsp;cleanup&nbsp;to&nbsp;be&nbsp;finished&nbsp;before&nbsp;checking&nbsp;for&nbsp;leaks&nbsp;Conditions:&nbsp;[{"name":"DevTools:&nbsp;Wait&nbsp;until&nbsp;toolbox&nbsp;is&nbsp;destroyed","state":"(none)","filename":"resource://gre/modules/commonjs/toolkit/loader.js&nbsp;-&gt;&nbsp;resource://devtools/client/framework/toolbox.js","lineNumber":2018,"stack":["resource://gre/modules/commonjs/toolkit/loader.js&nbsp;-&gt;&nbsp;resource://devtools/client/framework/toolbox.js:Toolbox.prototype.destroy/leakCheckObserver:2018","chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:687","chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:741"]}]&nbsp;At&nbsp;least&nbsp;one&nbsp;completion&nbsp;condition&nbsp;failed&nbsp;to&nbsp;complete&nbsp;within&nbsp;a&nbsp;reasonable&nbsp;amount&nbsp;of&nbsp;time.&nbsp;Causing&nbsp;a&nbsp;crash&nbsp;to&nbsp;ensure&nbsp;that&nbsp;we&nbsp;do&nbsp;not&nbsp;leave&nbsp;the&nbsp;user&nbsp;with&nbsp;an&nbsp;unresponsive&nbsp;process&nbsp;draining&nbsp;resources.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay, I’ve added some async shutdown state logging, let’s see if that helps
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=d3ed8322c21f
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Fuck. Now I have a different crash for different reasons. WTF??
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay…. let’s just try dumping then.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a1967f4cc0af">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a1967f4cc0af
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh. Now it’s not a shutdown hang. This crash is suspicious:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+544&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;The&nbsp;command&nbsp;button&nbsp;is&nbsp;selected.&nbsp;-
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+545&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;Splitter&nbsp;is&nbsp;hidden&nbsp;after&nbsp;toggling&nbsp;-
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+546&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;Deck&nbsp;has&nbsp;a&nbsp;height&nbsp;&gt;&nbsp;0&nbsp;after&nbsp;toggling&nbsp;-
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+547&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;Web&nbsp;console&nbsp;is&nbsp;collapsed&nbsp;after&nbsp;toggling&nbsp;-
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+548&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;The&nbsp;console&nbsp;panel&nbsp;is&nbsp;not&nbsp;the&nbsp;current&nbsp;tool&nbsp;-
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+549&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;The&nbsp;command&nbsp;button&nbsp;is&nbsp;not&nbsp;selected.&nbsp;-
+
+  <br>
+  17:08:46&nbsp; WARNING&nbsp;-&nbsp; 
+TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;application&nbsp;terminated&nbsp;with&nbsp;exit&nbsp;code&nbsp;1
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-
+  <a href="http://runtests.py/">
+   runtests.py
+  </a>
+  |&nbsp;Application&nbsp;ran&nbsp;for:&nbsp;0:13:34.124250
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+zombiecheck&nbsp;|&nbsp;Reading&nbsp;PID&nbsp;log:&nbsp;/var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmp5l0oXppidlog
+
+  <br>
+  17:08:46&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+mozcrash&nbsp;Copy/paste:&nbsp;/builds/slave/test/build/macosx64-minidump_stackwalk&nbsp;/var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmpURI2mt.mozrunner/minidumps/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp&nbsp;/builds/slave/test/build/symbols
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+mozcrash&nbsp;Saved&nbsp;minidump&nbsp;as&nbsp;/builds/slave/test/build/blobber_upload_dir/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+mozcrash&nbsp;Saved&nbsp;app&nbsp;info&nbsp;as&nbsp;/builds/slave/test/build/blobber_upload_dir/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.extra
+
+  <br>
+  17:09:06&nbsp; WARNING&nbsp;-&nbsp; 
+PROCESS-CRASH&nbsp;|&nbsp;devtools/client/webconsole/test/browser_webconsole_split.js&nbsp;|&nbsp;application&nbsp;crashed&nbsp;[@&nbsp;js::jit::DoTypeMonitorFallback]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Crash&nbsp;dump&nbsp;filename:&nbsp;/var/folders/ZM/ZMD23mmYG3C09jizBlR3k++++-k/-Tmp-/tmpURI2mt.mozrunner/minidumps/BF535D2A-DFBF-421D-8ED3-DB28E51D1C3E.dmp
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Operating&nbsp;system:&nbsp;Mac&nbsp;OS&nbsp;X
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 10.6.8&nbsp;10K549
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; CPU:&nbsp;amd64
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp;family&nbsp;6&nbsp;model&nbsp;23&nbsp;stepping&nbsp;10
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp;2&nbsp;CPUs
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Crash&nbsp;reason:&nbsp; EXC_BAD_ACCESS&nbsp;/&nbsp;0x0000000d
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Crash&nbsp;address:&nbsp;0x0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Process&nbsp;uptime:&nbsp;812&nbsp;seconds
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Thread&nbsp;0&nbsp;(crashed)
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;0&nbsp; 
+XUL!js::jit::DoTypeMonitorFallback&nbsp;[jsscript.h:a1967f4cc0af&nbsp;:&nbsp;1276&nbsp;+&nbsp;0x0]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rax&nbsp;=&nbsp;0xfffc2b2b2b2b2b2b&nbsp; 
+&nbsp;rdx&nbsp;=&nbsp;0x0000000122f7acd0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rcx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbx&nbsp;=&nbsp;0x0000000122fea650
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsi&nbsp;=&nbsp;0x00007fff5fbfaea8&nbsp; 
+&nbsp;rdi&nbsp;=&nbsp;0x0000000120b7f810
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbp&nbsp;=&nbsp;0x00007fff5fbfae20&nbsp; 
+&nbsp;rsp&nbsp;=&nbsp;0x00007fff5fbfadb0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+&nbsp;r8&nbsp;=&nbsp;0x00007fff5fbfae48&nbsp; &nbsp; 
+r9&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r10&nbsp;=&nbsp;0x00007fff5fbfae70&nbsp; 
+&nbsp;r11&nbsp;=&nbsp;0xfff9000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r12&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r13&nbsp;=&nbsp;0x00007fff5fbfae80
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r14&nbsp;=&nbsp;0x00007fff5fbfaea8&nbsp; 
+&nbsp;r15&nbsp;=&nbsp;0x0000000109e56c00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; rip&nbsp;=&nbsp;0x0000000105361cc8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+Found&nbsp;by:&nbsp;given&nbsp;as&nbsp;instruction&nbsp;pointer&nbsp;in&nbsp;context
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;1&nbsp; 0x1080cfe97
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000012a5614f0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfaee8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfae30&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfb570&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000121bca940
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0xffff800000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001080cfe97
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;2&nbsp; 0x1080ccdc4
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbp&nbsp;=&nbsp;0x00007fff5fbfaf50&nbsp; 
+&nbsp;rsp&nbsp;=&nbsp;0x00007fff5fbfaef8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; rip&nbsp;=&nbsp;0x00000001080ccdc4
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;previous&nbsp;frame's&nbsp;frame&nbsp;pointer
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;3&nbsp; 
+XUL!EnterBaseline&nbsp;[BaselineJIT.cpp:a1967f4cc0af&nbsp;:&nbsp;134&nbsp;+&nbsp;0xf]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbp&nbsp;=&nbsp;0x00007fff5fbfb260&nbsp; 
+&nbsp;rsp&nbsp;=&nbsp;0x00007fff5fbfaf60
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; rip&nbsp;=&nbsp;0x00000001051274ff
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;previous&nbsp;frame's&nbsp;frame&nbsp;pointer
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;4&nbsp; 
+XUL!js::jit::EnterBaselineMethod(JSContext*,&nbsp;js::RunState&amp;)&nbsp;[BaselineJIT.cpp:a1967f4cc0af&nbsp;:&nbsp;173&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb270&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfb330
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfb348&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfb480
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010512712c
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;5&nbsp; 
+XUL!js::RunScript(JSContext*,&nbsp;js::RunState&amp;)&nbsp;[Interpreter.cpp:a1967f4cc0af&nbsp;:&nbsp;414&nbsp;+&nbsp;0xb]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000013693aa50&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb450
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb3a0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000002&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfb480
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010568a69b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;6&nbsp; 
+XUL!js::Invoke(JSContext*,&nbsp;JS::CallArgs&nbsp;const&amp;,&nbsp;js::MaybeConstruct)&nbsp;[Interpreter.cpp:a1967f4cc0af&nbsp;:&nbsp;495&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfb510&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb4e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb460&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000002&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000109f08000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000105679c5d
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;7&nbsp; 
+XUL!js::Invoke(JSContext*,&nbsp;JS::Value&nbsp;const&amp;,&nbsp;JS::Value&nbsp;const&amp;,&nbsp;unsigned&nbsp;int,&nbsp;JS::Value&nbsp;const*,&nbsp;JS::MutableHandle&lt;JS::Value&gt;)&nbsp;[Interpreter.cpp:a1967f4cc0af&nbsp;:&nbsp;529&nbsp;+&nbsp;0xc]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb5e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb4f0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfb510
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfb600&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfb8f0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001056a08e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;8&nbsp; 
+XUL!js::DirectProxyHandler::call(JSContext*,&nbsp;JS::Handle&lt;JSObject*&gt;,&nbsp;JS::CallArgs&nbsp;const&amp;)&nbsp;const&nbsp;[DirectProxyHandler.cpp:a1967f4cc0af&nbsp;:&nbsp;77&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb620
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb5f0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000106cfc780&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfb758
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfb5f0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001055ebfa2
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp;9&nbsp; 
+XUL!js::CrossCompartmentWrapper::call(JSContext*,&nbsp;JS::Handle&lt;JSObject*&gt;,&nbsp;JS::CallArgs&nbsp;const&amp;)&nbsp;const&nbsp;[CrossCompartmentWrapper.cpp:a1967f4cc0af&nbsp;:&nbsp;289&nbsp;+&nbsp;0x13]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb6a0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb630&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000106cfc780&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfb758
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfb750&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001055d040f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 10&nbsp; 
+XUL!js::Proxy::call(JSContext*,&nbsp;JS::Handle&lt;JSObject*&gt;,&nbsp;JS::CallArgs&nbsp;const&amp;)&nbsp;[Proxy.cpp:a1967f4cc0af&nbsp;:&nbsp;391&nbsp;+&nbsp;0x14]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb730
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb6b0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000107b525d8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000107cd7530&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000107c311c0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfb750&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001055f0b6b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 11&nbsp; 
+XUL!js::proxy_Call(JSContext*,&nbsp;unsigned&nbsp;int,&nbsp;JS::Value*)&nbsp;[Proxy.cpp:a1967f4cc0af&nbsp;:&nbsp;683&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb780
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb740&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfb890
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfb7a0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfb740
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00000000ffffffff&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001055f246e
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 12&nbsp; 
+XUL!js::CallJSNative(JSContext*,&nbsp;bool&nbsp;(*)(JSContext*,&nbsp;unsigned&nbsp;int,&nbsp;JS::Value*),&nbsp;JS::CallArgs&nbsp;const&amp;)&nbsp;[jscntxtinlines.h:a1967f4cc0af&nbsp;:&nbsp;235&nbsp;+&nbsp;0x5]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000001055f23e0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb7d0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb790&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfb890
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfb7a0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000109e56c00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00000000ffffffff&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001056ad045
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 13&nbsp; 
+XUL!js::Invoke(JSContext*,&nbsp;JS::CallArgs&nbsp;const&amp;,&nbsp;js::MaybeConstruct)&nbsp;[Interpreter.cpp:a1967f4cc0af&nbsp;:&nbsp;465&nbsp;+&nbsp;0xe]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfb890&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb860
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb7e0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000002&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000109f08000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000105679cbe
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 14&nbsp; 
+XUL!js::Invoke(JSContext*,&nbsp;JS::Value&nbsp;const&amp;,&nbsp;JS::Value&nbsp;const&amp;,&nbsp;unsigned&nbsp;int,&nbsp;JS::Value&nbsp;const*,&nbsp;JS::MutableHandle&lt;JS::Value&gt;)&nbsp;[Interpreter.cpp:a1967f4cc0af&nbsp;:&nbsp;529&nbsp;+&nbsp;0xc]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb960
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb870&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfb890
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfba30&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfba18&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001056a08e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 15&nbsp; 
+XUL!JS::Call(JSContext*,&nbsp;JS::Handle&lt;JS::Value&gt;,&nbsp;JS::Handle&lt;JS::Value&gt;,&nbsp;JS::HandleValueArray&nbsp;const&amp;,&nbsp;JS::MutableHandle&lt;JS::Value&gt;)&nbsp;[jsapi.cpp:a1967f4cc0af&nbsp;:&nbsp;2864&nbsp;+&nbsp;0x11]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfb9f8&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfb9d0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb970&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfba18
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfba50
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfba30&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001054b1673
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 16&nbsp; 
+XUL!mozilla::dom::EventListener::HandleEvent(JSContext*,&nbsp;JS::Handle&lt;JS::Value&gt;,&nbsp;mozilla::dom::Event&amp;,&nbsp;mozilla::ErrorResult&amp;)&nbsp;[EventListenerBinding.cpp:a1967f4cc0af&nbsp;:&nbsp;47&nbsp;+&nbsp;0xb]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109e56c00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfbb20
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfb9e0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfba20
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfba30&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000109e56c68
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfba08&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102c671a6
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 17&nbsp; 
+XUL!void&nbsp;mozilla::dom::EventListener::HandleEvent&lt;mozilla::dom::EventTarget*&gt;(mozilla::dom::EventTarget*&nbsp;const&amp;,&nbsp;mozilla::dom::Event&amp;,&nbsp;mozilla::ErrorResult&amp;,&nbsp;char&nbsp;const*,&nbsp;mozilla::dom::CallbackObject::ExceptionHandling,&nbsp;JSCompartment*)&nbsp;[EventListenerBinding.h:a1967f4cc0af&nbsp;:&nbsp;54&nbsp;+&nbsp;0x11]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfbb50&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfbd70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfbb30&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfbdb0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfbd98&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000122ad9d00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000012b4d5180&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fe26f3
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 18&nbsp; 
+XUL!mozilla::EventListenerManager::HandleEventSubType(mozilla::EventListenerManager::Listener*,&nbsp;nsIDOMEvent*,&nbsp;mozilla::dom::EventTarget*)&nbsp;[EventListenerManager.cpp:a1967f4cc0af&nbsp;:&nbsp;1032&nbsp;+&nbsp;0x24]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfbd98&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfbde0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfbd80&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012b4d5180
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfc1d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000015a2d46b0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000012b4d5180&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fc51db
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 19&nbsp; 
+XUL!mozilla::EventListenerManager::HandleEventInternal(nsPresContext*,&nbsp;mozilla::WidgetEvent*,&nbsp;nsIDOMEvent**,&nbsp;mozilla::dom::EventTarget*,&nbsp;nsEventStatus*)&nbsp;[EventListenerManager.cpp:a1967f4cc0af&nbsp;:&nbsp;1164&nbsp;+&nbsp;0x12]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000012291dd00&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfbfa0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfbdf0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000124717608
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfc1d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000015a2d46b0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fc5acf
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 20&nbsp; 
+XUL!mozilla::EventTargetChainItem::HandleEvent(mozilla::EventChainPostVisitor&amp;,&nbsp;mozilla::ELMCreationDetector&amp;)&nbsp;[EventListenerManager.h:a1967f4cc0af&nbsp;:&nbsp;349&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000001226e6008&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfbfd0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfbfb0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfc128
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00000001226e6008&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfc090
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000015a2d46b0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fb550f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 21&nbsp; 
+XUL!mozilla::EventTargetChainItem::HandleEventTargetChain(nsTArray&lt;mozilla::EventTargetChainItem&gt;&amp;,&nbsp;mozilla::EventChainPostVisitor&amp;,&nbsp;mozilla::EventDispatchingCallback*,&nbsp;mozilla::ELMCreationDetector&amp;)&nbsp;[EventDispatcher.cpp:a1967f4cc0af&nbsp;:&nbsp;315&nbsp;+&nbsp;0x12]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfc090&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc040
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfbfe0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00000000ffffffff
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00000001226e6008&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00000001226e6008
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fb2b16
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 22&nbsp; 
+XUL!mozilla::EventDispatcher::Dispatch(nsISupports*,&nbsp;nsPresContext*,&nbsp;mozilla::WidgetEvent*,&nbsp;nsIDOMEvent*,&nbsp;nsEventStatus*,&nbsp;mozilla::EventDispatchingCallback*,&nbsp;nsTArray&lt;mozilla::dom::EventTarget*&gt;*)&nbsp;[EventDispatcher.cpp:a1967f4cc0af&nbsp;:&nbsp;653&nbsp;+&nbsp;0xc]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc170
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc050&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfc120
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00000001226e6030&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00000001226e6030&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000102fb4349
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 23&nbsp; 
+XUL!nsDocumentViewer::LoadComplete(nsresult)&nbsp;[nsDocumentViewer.cpp:a1967f4cc0af&nbsp;:&nbsp;995&nbsp;+&nbsp;0x1d]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000001003260a0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc270
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc180&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012291dd00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000133ed4ed0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000136a081a8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000101128790&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000103dc6751
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 24&nbsp; 
+XUL!nsDocShell::EndPageLoad(nsIWebProgress*,&nbsp;nsIChannel*,&nbsp;nsresult)&nbsp;[nsDocShell.cpp:a1967f4cc0af&nbsp;:&nbsp;7478&nbsp;+&nbsp;0xd]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000136a081a8&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc660
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc280&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000136a08000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfc438&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000131889280
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000136a08318&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010429ceef
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 25&nbsp; 
+XUL!nsDocShell::OnStateChange(nsIWebProgress*,&nbsp;nsIRequest*,&nbsp;unsigned&nbsp;int,&nbsp;nsresult)&nbsp;[nsDocShell.cpp:a1967f4cc0af&nbsp;:&nbsp;7292&nbsp;+&nbsp;0xb]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000131889280&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc780
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc670&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00000000fffdffef
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x54c8680391b12bc6&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00000000805d0021
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000136a08000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010429b275
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 26&nbsp; 
+XUL!non-virtual&nbsp;thunk&nbsp;to&nbsp;nsDocShell::OnStateChange(nsIWebProgress*,&nbsp;nsIRequest*,&nbsp;unsigned&nbsp;int,&nbsp;nsresult)&nbsp;[nsDocShell.cpp:a1967f4cc0af&nbsp;:&nbsp;7189&nbsp;+&nbsp;0xc]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfc7f0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc790
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc790&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfc8a8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000136a08028&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000131889280
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000139a95ed8&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010429e3c0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 27&nbsp; 
+XUL!nsDocLoader::DoFireOnStateChange(nsIWebProgress*,&nbsp;nsIRequest*,&nbsp;int&amp;,&nbsp;nsresult)&nbsp;[nsDocLoader.cpp:a1967f4cc0af&nbsp;:&nbsp;1247&nbsp;+&nbsp;0x10]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfc7f0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc890
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc7a0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfc8a8
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000136a08028&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000131889280
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000139a95ed8&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca2078
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 28&nbsp; 
+XUL!nsDocLoader::doStopDocumentLoad(nsIRequest*,&nbsp;nsresult)&nbsp;[nsDocLoader.cpp:a1967f4cc0af&nbsp;:&nbsp;831&nbsp;+&nbsp;0x11]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000136a08028&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfc990
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc8a0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000131889280
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfc8a8&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00000000805d0021
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca198b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 29&nbsp; 
+XUL!nsDocLoader::DocLoaderIsEmpty(bool)&nbsp;[nsDocLoader.cpp:a1967f4cc0af&nbsp;:&nbsp;721&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfc9c8&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfca00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfc9a0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000136a08000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000136d90800&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00000001003c4920
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000131889280&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca06dc
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 30&nbsp; 
+XUL!nsDocLoader::DocLoaderIsEmpty(bool)&nbsp;[nsDocLoader.h:a1967f4cc0af&nbsp;:&nbsp;201&nbsp;+&nbsp;0xd]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfca38&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfca70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfca10&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000136d90800
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000136d90800&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000136a08000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000012dc2d7d0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca06fd
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 31&nbsp; 
+XUL!nsDocLoader::OnStopRequest(nsIRequest*,&nbsp;nsISupports*,&nbsp;nsresult)&nbsp;[nsDocLoader.cpp:a1967f4cc0af&nbsp;:&nbsp;605&nbsp;+&nbsp;0xd]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcb70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfca80&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000136d90800&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x54c8680391b12bc6
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000012ba2a580&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca1238
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 32&nbsp; 
+XUL!non-virtual&nbsp;thunk&nbsp;to&nbsp;nsDocLoader::OnStopRequest(nsIRequest*,&nbsp;nsISupports*,&nbsp;nsresult)&nbsp;[nsDocLoader.cpp:a1967f4cc0af&nbsp;:&nbsp;468&nbsp;+&nbsp;0x9]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcb80
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcb80&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012ba2a580
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000012a1bfe00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101ca175d
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 33&nbsp; 
+XUL!nsLoadGroup::RemoveRequest(nsIRequest*,&nbsp;nsISupports*,&nbsp;nsresult)&nbsp;[nsLoadGroup.cpp:a1967f4cc0af&nbsp;:&nbsp;634&nbsp;+&nbsp;0x13]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcc60
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcb90&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012ba2a580
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000012a1bfe00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101258df3
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 34&nbsp; 
+XUL!nsDocument::DoUnblockOnload()&nbsp;[nsDocument.cpp:a1967f4cc0af&nbsp;:&nbsp;9036&nbsp;+&nbsp;0xa]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000013968f000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcc90
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcc70&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012291dd00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfcd08&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000121dd3bb0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000013968f000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010223cbdc
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 35&nbsp; 
+XUL!nsDocument::DispatchContentLoadedEvents()&nbsp;[nsDocument.cpp:a1967f4cc0af&nbsp;:&nbsp;5105&nbsp;+&nbsp;0x11]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000012aa87380&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcd80
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcca0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000012291dd00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfcd08&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000121dd3bb0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000013968f000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010222bf41
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 36&nbsp; 
+XUL!nsRunnableMethodImpl&lt;void&nbsp;(nsDocument::*)(),&nbsp;true&gt;::Run&nbsp;[nsThreadUtils.h:a1967f4cc0af&nbsp;:&nbsp;663&nbsp;+&nbsp;0x13]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000010036d800&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcd90
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcd90&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000010039eb00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000010039eb20
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000010039eb90&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010228b347
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 37&nbsp; 
+XUL!nsThread::ProcessNextEvent(bool,&nbsp;bool*)&nbsp;[nsThread.cpp:a1967f4cc0af&nbsp;:&nbsp;989&nbsp;+&nbsp;0x6]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000010036d800&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfce30
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcda0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000010039eb00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000010039eb20
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x000000010039eb90&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000101180f95
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 38&nbsp; 
+XUL!NS_ProcessPendingEvents(nsIThread*,&nbsp;unsigned&nbsp;int)&nbsp;[nsThreadUtils.cpp:a1967f4cc0af&nbsp;:&nbsp;239&nbsp;+&nbsp;0xf]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfce70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfce40&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfce47
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x000000010039eb00&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000000000000a
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000106db6&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001011c113f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 39&nbsp; 
+XUL!nsBaseAppShell::NativeEventCallback()&nbsp;[nsBaseAppShell.cpp:a1967f4cc0af&nbsp;:&nbsp;97&nbsp;+&nbsp;0xa]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000121d59940&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcea0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfce80&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x000000010039eb00
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000121d59900&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001039d1184
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 40&nbsp; 
+XUL!nsAppShell::ProcessGeckoEvents(void*)&nbsp;[nsAppShell.mm:a1967f4cc0af&nbsp;:&nbsp;387&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000107f11b40&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcef0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfceb0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000107f11b54
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000100397000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000121d59940&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000103a3893d
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 41&nbsp; CoreFoundation!__CFRunLoopDoSources0&nbsp;+&nbsp;0x551
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000107f11b40&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfcf90
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcf00&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000107f11b54
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000100115c70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000100115c70&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff8573a401
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 42&nbsp; CoreFoundation!__CFRunLoopRun&nbsp;+&nbsp;0x369
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000100115da0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfd8b0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfcfa0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000100115c70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000100115c70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000100115da0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff857385f9
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 43&nbsp; CoreFoundation!CFRunLoopRunSpecific&nbsp;+&nbsp;0x23f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000100115da0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfd920
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfd8c0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000100115c70
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000100115c80
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff85737dbf
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 44&nbsp; HIToolbox!RunCurrentEventLoopInMode&nbsp;+&nbsp;0x14d
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfd960
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfd930&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff7087d390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x000000010a05d140&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff86b737ee
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 45&nbsp; HIToolbox!ReceiveNextEventCommon&nbsp;+&nbsp;0x136
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000000ffffd96d&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfd9e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfd970&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff86b735f3
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 46&nbsp; HIToolbox!BlockUntilNextEventMatchingListInMode&nbsp;+&nbsp;0x3b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000001001095f0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfd9f0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfd9f0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0xffffffffffffffff
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000121d599d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff7087d390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff86b734ac
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 47&nbsp; AppKit!_DPSNextEvent&nbsp;+&nbsp;0x2c4
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00000001001095f0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfde20
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfda00&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0xffffffffffffffff
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000121d599d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff7087d390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff85cd3eb2
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 48&nbsp; 
+AppKit!-[NSApplication&nbsp;nextEventMatchingMask:untilDate:inMode:dequeue:]&nbsp;+&nbsp;0x9b
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff7087d390&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe0d0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfde30&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0xffffffffffffffff
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000121d599d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff7087d390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000121d599d0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff85cd3801
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 49&nbsp; 
+XUL!-[GeckoNSApplication&nbsp;nextEventMatchingMask:untilDate:inMode:dequeue:]&nbsp;[nsAppShell.mm:a1967f4cc0af&nbsp;:&nbsp;121&nbsp;+&nbsp;0x2c]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000012a9fc7b0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe120
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe0e0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000001
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000121d599d0&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff7087d390
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0xffffffffffffffff&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000103a37c06
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 50&nbsp; AppKit!-[NSApplication&nbsp;run]&nbsp;+&nbsp;0x18b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000109f5c6a0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe180
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe130&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000121d599d0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000129846d90&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x0000000000000000
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff864108e0&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00007fff85c9968f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 51&nbsp; 
+XUL!nsAppShell::Run()&nbsp;[nsAppShell.mm:a1967f4cc0af&nbsp;:&nbsp;661&nbsp;+&nbsp;0x17]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000012aa235a0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe1d0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe190&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x54c8680391b12bc6
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfe520&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe679
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000105b4462d&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x0000000103a390c5
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 52&nbsp; 
+XUL!nsAppStartup::Run()&nbsp;[nsAppStartup.cpp:a1967f4cc0af&nbsp;:&nbsp;281&nbsp;+&nbsp;0x6]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000121d74e20&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe1f0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe1e0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x54c8680391b12bc6
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfe520&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe679
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfe39c&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001045eae01
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 53&nbsp; 
+XUL!XREMain::XRE_mainRun()&nbsp;[nsAppRunner.cpp:a1967f4cc0af&nbsp;:&nbsp;4326&nbsp;+&nbsp;0x6]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000124de3600&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe4b0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe200&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x54c8680391b12bc6
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfe520&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe679
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfe39c&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x00000001046647ad
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 54&nbsp; 
+XUL!XREMain::XRE_main(int,&nbsp;char**,&nbsp;nsXREAppData&nbsp;const*)&nbsp;[nsAppRunner.cpp:a1967f4cc0af&nbsp;:&nbsp;4423&nbsp;+&nbsp;0x8]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x0000000000000000&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe510
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe4c0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x00007fff5fbfec08
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x0000000000000005&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe520
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x0000000000000001&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010466517b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 55&nbsp; 
+XUL!XRE_main&nbsp;[nsAppRunner.cpp:a1967f4cc0af&nbsp;:&nbsp;4525&nbsp;+&nbsp;0x11]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x00007fff5fbfe638&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfe6b0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe520&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x0000000000000005
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x00007fff5fbfe520&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe7b0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x00007fff5fbfec08&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010466565b
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 56&nbsp; 
+firefox!main&nbsp;[nsBrowserApp.cpp:a1967f4cc0af&nbsp;:&nbsp;212&nbsp;+&nbsp;0x15]
+
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbx&nbsp;=&nbsp;0x000000010033e1c0&nbsp; 
+&nbsp;rbp&nbsp;=&nbsp;0x00007fff5fbfebe0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rsp&nbsp;=&nbsp;0x00007fff5fbfe6c0&nbsp; 
+&nbsp;r12&nbsp;=&nbsp;0x000000010113f230
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r13&nbsp;=&nbsp;0x000000010033dd40&nbsp; 
+&nbsp;r14&nbsp;=&nbsp;0x00007fff5fbfe6e0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+r15&nbsp;=&nbsp;0x54c8680391b12bc6&nbsp; 
+&nbsp;rip&nbsp;=&nbsp;0x000000010000208f
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;call&nbsp;frame&nbsp;info
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 57&nbsp; firefox!start&nbsp;+&nbsp;0x34
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; 
+rbp&nbsp;=&nbsp;0x00007fff5fbfebf8&nbsp; 
+&nbsp;rsp&nbsp;=&nbsp;0x00007fff5fbfebf0
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; rip&nbsp;=&nbsp;0x00000001000015b4
+  <br>
+  17:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; Found&nbsp;by:&nbsp;previous&nbsp;frame's&nbsp;frame&nbsp;pointer
+  <br>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let me see if I can reproduce on my Windows machine.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WHAAAA - and now these are passing:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=35a9829674b1
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Triggering on Windows now...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What did I need the specialpowersAPI.js CPOW permission for?:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=23e2690aa955
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, it was
+</div>
+<div>
+ TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;dom/ipc/tests/test_bug1086684.html
+</div>
+<div>
+ <br>
+</div>
+<div>
+ isWrapper@chrome://specialpowers/content/specialpowersAPI.js:84:31
+</div>
+<div>
+ wrapIfUnwrapped@chrome://specialpowers/content/specialpowersAPI.js:96:10
+</div>
+<div>
+ testStructure@http://mochi.test:8888/tests/dom/ipc/tests/test_bug1086684.html:66:10
+</div>
+<div>
+ testDone@http://mochi.test:8888/tests/dom/ipc/tests/test_bug1086684.html:52:9
+</div>
+<div>
+ JavaScript error: chrome://specialpowers/content/specialpowersAPI.js, line 84: Error: unsafe CPOW usage forbidden
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, it was just for this one test, and it’s pretty easy to fix the test.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=9f520c334590
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ BAHHHH - DevTools failure. Let’s see if this fixes it:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f431f45b150">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2f431f45b150
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It does! Okay, blocked on
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1240044">
+  bug&nbsp;1240044
+ </a>
+ now.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ New try push:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=096839135cb9
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Try push with jdescottes patch from bug 1240509:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ec223ffaffc9
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b0030d9d8f44">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b0030d9d8f44
+ </a>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

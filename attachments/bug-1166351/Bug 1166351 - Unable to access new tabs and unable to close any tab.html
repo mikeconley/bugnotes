@@ -1,0 +1,2671 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1166351 - Unable to access new tabs and unable to close any tab</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1166351.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201166351%20-%20Unable%20to%20access%20new%20tabs%20and%20unable%20to%20close%20any%20tab_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1166351 - Unable to access new tabs and unable to close any tab</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1166351">
+ Bug 1166351 - Unable to access new tabs and unable to close any tab
+</a>
+<div>
+ Hmmm...
+ <div>
+  <br>
+ </div>
+ I just closed the tab
+ <div>
+  <br>
+ </div>
+ Was on golem.de with machine under heavy load (building) after activating the Flash on the page.
+ <div>
+  <br>
+ </div>
+ Huh… looks like all of the browsers are missing their webNavigation.
+ <div>
+  <br>
+ </div>
+ TabSwitcher assumes the browser we're switching to has a currentURI… but the one I'm looking at doesn't seem to ahve one.
+ <div>
+  <br>
+ </div>
+ The browser doesn't seem to have destructed…
+ <div>
+  <br>
+ </div>
+ <a href="https://people.mozilla.org/%7Esguo/cleopatra/#report=8cd32dddd817eb7d5d2439c95f47b165d6020dec">
+  https://people.mozilla.org/~sguo/cleopatra/#report=8cd32dddd817eb7d5d2439c95f47b165d6020dec
+ </a>
+ <div>
+  <br>
+ </div>
+ Theory:
+ <div>
+  <br>
+ </div>
+ The &lt;xul:browser&gt; binding has been removed, but the browser is still being referred to.
+ <div>
+  <br>
+ </div>
+ Question:
+ <div>
+  <br>
+ </div>
+ Could this have something to do with pinned tabs? Mossop just saw a 
+loss of aBrowser.webProgress after a crash for his pinned tabs in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1175023">
+  bug 1175023
+ </a>
+ , and I see that kbrosnan has pinned tabs in his screenshot:
+ <br>
+</div>
+<div>
+ <img src="Bug%201166351%20-%20Unable%20to%20access%20new%20tabs%20and%20unable%20to%20close%20any%20tab_files/1166351-93AED577-45B1-4B0D-AEF8-7E4EA6453D44.png" height="568" width="1029">
+</div>
+<div>
+ <br>
+ So perhaps I'll try along that front.
+ <div>
+  <br>
+ </div>
+ Hrm. Nothing yet…
+ <div>
+  <br>
+ </div>
+ blassey has suggested I add and land some logging / instrumentation to try to confirm or discount some theories.
+ <div>
+  <br>
+ </div>
+ There are, as far as I can tell, only two ways an XBL binding can be removed:
+ <br>
+</div>
+<ol>
+ <li>
+  The node with the binding is removed from the DOM
+ </li>
+ <li>
+  The style that's applying the binding is removed.
+ </li>
+</ol>
+<div>
+ <br>
+ Let's look at this second case. What are the bindings we care about:
+ <div>
+  <br>
+ </div>
+ In order:
+ <div>
+  <br>
+ </div>
+ browser.xml#browser
+ <br>
+ remote-browser.xml#remote-browser
+ <br>
+ tabbrowser.xml#tabbrowser-remote-browser
+ <div>
+  <br>
+ </div>
+ Where are these styles applied?
+ <div>
+  <br>
+ </div>
+ browser.xml is applied to every &lt;xul:browser&gt;.
+ <br>
+ remote-browser.xml is never actually applied (except for the view-source case), but extended by tabbrowser-remote-browser.
+ <br>
+ tabbrowser-remote-browser is only applied when a browser with the remote attribute set to true is a child of .browserStack.
+ <div>
+  <br>
+ </div>
+ Perhaps the problem resides somewhere in the async tab switcher. This 
+thing has some logging facilities… maybe I can augment them.
+ <div>
+  <br>
+ </div>
+ Could it be that the async tab switcher is not prepared for cases where tabs / browsers stop existing?
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Come up with logging for theories
+</div>
+<div>
+ <br>
+ Ok, logging is in Nightly's. The trap is set. Let's see what happens.
+ <div>
+  <br>
+ </div>
+ Margaret ran into this during Whistler. I was able to dig into the busted newtab browser with the Browser Toolbox.
+ <div>
+  <br>
+ </div>
+ The bug appears to be that the tabbrowser-browser binding is properly 
+attached, but the binding that we're extending, the base browser 
+binding, is NOT attached.
+ <div>
+  <br>
+ </div>
+</div>
+<div>
+ OK, we can remove the trap now. Or maybe modify it.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ let utils = Cc["@mozilla.org/inspector/dom-utils;1"].getService(Ci.inIDOMUtils);
+</div>
+<div>
+ let urls = utils.getBindingURLs(browser);
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, new instrumentation patch written. Up for review.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Aaaand landed on integration. Let's see what we get.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Just happened again! But to tabs and not browsers! WTF!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The binding URLs are:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ "chrome://browser/content/tabbrowser.xml#tabbrowser-tab"
+</div>
+<div>
+ "chrome://global/content/bindings/tabbox.xml#tab"
+</div>
+<div>
+ "chrome://global/content/bindings/general.xml#control-item"
+</div>
+<div>
+ "chrome://global/content/bindings/general.xml#basetext"
+</div>
+<div>
+ "chrome://global/content/bindings/general.xml#basecontrol"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+"ATTRIBUTE_NODE,&nbsp;CDATA_SECTION_NODE,&nbsp;COMMENT_NODE,&nbsp;DOCUMENT_FRAGMENT_NODE,&nbsp;DOCUMENT_NODE,&nbsp;DOCUMENT_POSITION_CONTAINED_BY,&nbsp;DOCUMENT_POSITION_CONTAINS,&nbsp;DOCUMENT_POSITION_DISCONNECTED,&nbsp;DOCUMENT_POSITION_FOLLOWING,&nbsp;DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC,&nbsp;DOCUMENT_POSITION_PRECEDING,&nbsp;DOCUMENT_TYPE_NODE,&nbsp;ELEMENT_NODE,&nbsp;ENTITY_NODE,&nbsp;ENTITY_REFERENCE_NODE,&nbsp;NOTATION_NODE,&nbsp;PROCESSING_INSTRUCTION_NODE,&nbsp;TEXT_NODE,&nbsp;TelemetryStopwatch,&nbsp;_animStartTime,&nbsp;_fullyOpen,&nbsp;_lastAccessed,&nbsp;_mouseenter,&nbsp;_mouseleave,&nbsp;_selected,&nbsp;_tPos,&nbsp;accessKey,&nbsp;addEventListener,&nbsp;align,&nbsp;allowEvents,&nbsp;appendChild,&nbsp;attributes,&nbsp;baseURI,&nbsp;baseURIObject,&nbsp;blur,&nbsp;boxObject,&nbsp;builder,&nbsp;childElementCount,&nbsp;childNodes,&nbsp;children,&nbsp;classList,&nbsp;className,&nbsp;click,&nbsp;clientHeight,&nbsp;clientLeft,&nbsp;clientTop,&nbsp;clientWidth,&nbsp;cloneNode,&nbsp;closest,&nbsp;collapsed,&nbsp;command,&nbsp;compareDocumentPosition,&nbsp;contains,&nbsp;contextMenu,&nbsp;controllers,&nbsp;convertPointFromNode,&nbsp;convertQuadFromNode,&nbsp;convertRectFromNode,&nbsp;crop,&nbsp;database,&nbsp;datasources,&nbsp;dir,&nbsp;disabled,&nbsp;dispatchEvent,&nbsp;doCommand,&nbsp;firstChild,&nbsp;firstElementChild,&nbsp;flex,&nbsp;flexGroup,&nbsp;focus,&nbsp;fontSizeInflation,&nbsp;frameLoader,&nbsp;getAnimations,&nbsp;getAttribute,&nbsp;getAttributeNS,&nbsp;getAttributeNode,&nbsp;getAttributeNodeNS,&nbsp;getBoundMutationObservers,&nbsp;getBoundingClientRect,&nbsp;getBoxQuads,&nbsp;getClientRects,&nbsp;getElementsByAttribute,&nbsp;getElementsByAttributeNS,&nbsp;getElementsByClassName,&nbsp;getElementsByTagName,&nbsp;getElementsByTagNameNS,&nbsp;getEventHandler,&nbsp;getUserData,&nbsp;hasAttribute,&nbsp;hasAttributeNS,&nbsp;hasAttributes,&nbsp;hasChildNodes,&nbsp;height,&nbsp;hidden,&nbsp;id,&nbsp;image,&nbsp;innerHTML,&nbsp;insertAdjacentHTML,&nbsp;insertBefore,&nbsp;isDefaultNamespace,&nbsp;isEqualNode,&nbsp;label,&nbsp;lastAccessed,&nbsp;lastChild,&nbsp;lastElementChild,&nbsp;left,&nbsp;linkedBrowser,&nbsp;localName,&nbsp;lookupNamespaceURI,&nbsp;lookupPrefix,&nbsp;mCorrespondingMenuitem,&nbsp;mOverCloseButton,&nbsp;matches,&nbsp;maxHeight,&nbsp;maxWidth,&nbsp;menu,&nbsp;minHeight,&nbsp;minWidth,&nbsp;mozMatchesSelector,&nbsp;mozRequestFullScreen,&nbsp;mozRequestPointerLock,&nbsp;mozScrollSnap,&nbsp;namespaceURI,&nbsp;nextElementSibling,&nbsp;nextSibling,&nbsp;nodeName,&nbsp;nodePrincipal,&nbsp;nodeType,&nbsp;nodeValue,&nbsp;normalize,&nbsp;observes,&nbsp;onabort,&nbsp;onblur,&nbsp;oncanplay,&nbsp;oncanplaythrough,&nbsp;onchange,&nbsp;onclick,&nbsp;oncontextmenu,&nbsp;ondblclick,&nbsp;ondrag,&nbsp;ondragend,&nbsp;ondragenter,&nbsp;ondragleave,&nbsp;ondragover,&nbsp;ondragstart,&nbsp;ondrop,&nbsp;ondurationchange,&nbsp;onemptied,&nbsp;onended,&nbsp;onerror,&nbsp;onfocus,&nbsp;ongotpointercapture,&nbsp;oninput,&nbsp;oninvalid,&nbsp;onkeydown,&nbsp;onkeypress,&nbsp;onkeyup,&nbsp;onload,&nbsp;onloadeddata,&nbsp;onloadedmetadata,&nbsp;onloadstart,&nbsp;onlostpointercapture,&nbsp;onmousedown,&nbsp;onmouseenter,&nbsp;onmouseleave,&nbsp;onmousemove,&nbsp;onmouseout,&nbsp;onmouseover,&nbsp;onmouseup,&nbsp;onmozfullscreenchange,&nbsp;onmozfullscreenerror,&nbsp;onmozpointerlockchange,&nbsp;onmozpointerlockerror,&nbsp;onpause,&nbsp;onplay,&nbsp;onplaying,&nbsp;onpointercancel,&nbsp;onpointerdown,&nbsp;onpointerenter,&nbsp;onpointerleave,&nbsp;onpointermove,&nbsp;onpointerout,&nbsp;onpointerover,&nbsp;onpointerup,&nbsp;onprogress,&nbsp;onratechange,&nbsp;onreset,&nbsp;onresize,&nbsp;onscroll,&nbsp;onseeked,&nbsp;onseeking,&nbsp;onselect,&nbsp;onshow,&nbsp;onstalled,&nbsp;onsubmit,&nbsp;onsuspend,&nbsp;ontimeupdate,&nbsp;onvolumechange,&nbsp;onwaiting,&nbsp;onwheel,&nbsp;ordinal,&nbsp;orient,&nbsp;outerHTML,&nbsp;owner,&nbsp;ownerDocument,&nbsp;ownerGlobal,&nbsp;pack,&nbsp;parentElement,&nbsp;parentNode,&nbsp;persist,&nbsp;pinned,&nbsp;prefix,&nbsp;previousElementSibling,&nbsp;previousSibling,&nbsp;querySelector,&nbsp;querySelectorAll,&nbsp;ref,&nbsp;releaseCapture,&nbsp;releasePointerCapture,&nbsp;remove,&nbsp;removeAttribute,&nbsp;removeAttributeNS,&nbsp;removeAttributeNode,&nbsp;removeChild,&nbsp;removeEventListener,&nbsp;replaceChild,&nbsp;resource,&nbsp;scroll,&nbsp;scrollBy,&nbsp;scrollByNoFlush,&nbsp;scrollHeight,&nbsp;scrollIntoView,&nbsp;scrollLeft,&nbsp;scrollLeftMax,&nbsp;scrollTo,&nbsp;scrollTop,&nbsp;scrollTopMax,&nbsp;scrollWidth,&nbsp;setAttribute,&nbsp;setAttributeNS,&nbsp;setAttributeNode,&nbsp;setAttributeNodeNS,&nbsp;setCapture,&nbsp;setEventHandler,&nbsp;setIsPrerendered,&nbsp;setPointerCapture,&nbsp;setUserData,&nbsp;statusText,&nbsp;style,&nbsp;swapFrameLoaders,&nbsp;tabIndex,&nbsp;tagName,&nbsp;textContent,&nbsp;tmp,&nbsp;tooltip,&nbsp;tooltipText,&nbsp;top,&nbsp;value,&nbsp;visibleLabel,&nbsp;width"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:53:39 AM">
+    11:53 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: ping
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:53:48 AM">
+    11:53 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;hello
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:54:08 AM">
+    11:54 AM
+   </span>
+  </span>
+  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/AlexanderSalas" title="AlexanderSalas (Instantbird@moz-n40.2eh.84.200.IP)">
+   AlexanderSalas
+  </a>
+  quit (Instantbird@moz-n40.2eh.84.200.IP) Quit: Instantbird 1.6a1pre --
+  <a href="http://www.instantbird.com/" rel="noreferrer" target="_blank">
+   http://www.instantbird.com
+  </a>
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:54:14 AM">
+    11:54 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: hi! I'm in that really weird state right now in my 
+Nightly, where a parent binding doesn't appear to be attached
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:54:21 AM">
+    11:54 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;ok
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:54:25 AM">
+    11:54 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: this time, it seems to be for the tabbox.xml tab binding
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:54:40 AM">
+    11:54 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: where the tabbrowser-tab binding appears to be attached, but tabbox's tab is not
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:55:01 AM">
+    11:55 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: so, this is an opt build, and I'm not seeing anything particularly helpful in the Browser Console
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:55:34 AM">
+    11:55 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: and according to Ci.inIDOMUtils, the binding is _supposed_ to be attached - like, getBindingURLs is returning:
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:55:37 AM">
+    11:55 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;
+  <a href="https://irccloud.mozilla.com/pastebin/NalnTGgz" rel="noreferrer" target="_blank">
+   https://irccloud.mozilla.com/pastebin/NalnTGgz
+  </a>
+  <div>
+   <h1>
+    Plain Text • 5 lines
+    <a href="https://irccloud.mozilla.com/pastebin/raw/NalnTGgz" target="_blank&quot;">
+     raw
+    </a>
+    |
+    <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/%23xul">
+     line numbers
+    </a>
+   </h1>
+   <div style="">
+   </div>
+  </div>
+ </div>
+ <div>
+  <div>
+   <div style="">
+    <div style=" top: -100px; left: -100px; visibility: hidden; white-space: pre; font: inherit; overflow: hidden;">
+     <div style=" top: -100px; left: -100px; visibility: hidden; white-space: pre; font: inherit; overflow: visible;">
+     </div>
+     <div style="top: -100px; left: -100px; visibility: hidden; white-space: pre; font-family: inherit; font-style: inherit; font-size: inherit; font-size-adjust: inherit; font-stretch: inherit; font-feature-settings: inherit; font-language-override: inherit; font-kerning: inherit; font-synthesis: inherit; font-variant: inherit; overflow: visible;">
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:55:55 AM">
+    11:55 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: do you have any suggestions on how I can debug this in 
+my current state? Any XPCOM foo I can use to try to diagnose what's 
+going on?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:56:07 AM">
+    11:56 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;and unfortunately I'm not in the office today, otherwise I'd show you in person. :/
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:56:15 AM">
+    11:56 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;can you iterate over the properties? (for a in obj)
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:56:29 AM">
+    11:56 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Yes - one second.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:58:22 AM">
+    11:58 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: sorted property names:
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:58:24 AM">
+    11:58 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;
+  <a href="https://irccloud.mozilla.com/pastebin/6td931XR" rel="noreferrer" target="_blank">
+   https://irccloud.mozilla.com/pastebin/6td931XR
+  </a>
+  <div>
+   <h1>
+    Plain Text • 1 line
+    <a href="https://irccloud.mozilla.com/pastebin/raw/6td931XR" target="_blank&quot;">
+     raw
+    </a>
+    |
+    <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/%23xul">
+     line numbers
+    </a>
+   </h1>
+   <div style="">
+   </div>
+  </div>
+ </div>
+ <div>
+  <div>
+   <div style="">
+    <div style=" bottom: 0px;">
+     <div style="">
+     </div>
+    </div>
+    <div style=" top: -100px; left: -100px; visibility: hidden; white-space: pre; font: inherit; overflow: hidden;">
+     <div style=" top: -100px; left: -100px; visibility: hidden; white-space: pre; font: inherit; overflow: visible;">
+     </div>
+     <div style="top: -100px; left: -100px; visibility: hidden; white-space: pre; font-family: inherit; font-style: inherit; font-size: inherit; font-size-adjust: inherit; font-stretch: inherit; font-feature-settings: inherit; font-language-override: inherit; font-kerning: inherit; font-synthesis: inherit; font-variant: inherit; overflow: visible;">
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:58:30 AM">
+    11:58 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: linkedPanel is absent, for example
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 11:59:11 AM">
+    11:59 AM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;but a child property exists?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:00:18 PM">
+    12:00 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I don't think I understand you - there is no "child" property defined
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:00:24 PM">
+    12:00 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;oh
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:00:32 PM">
+    12:00 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;I meant a property in the child binding
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:00:33 PM">
+    12:00 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: you mean that a property on the child binding is applied?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:00:34 PM">
+    12:00 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;yes
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:01:01 PM">
+    12:01 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: visibleLabel, for example
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:01:11 PM">
+    12:01 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;does it have the right value?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:01:33 PM">
+    12:01 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: seems to
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:03:17 PM">
+    12:03 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;the TelemetryStopwatch property appears to exist (defined in tabbox.xml#tab
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:03:45 PM">
+    12:03 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: yes, that is true
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:04:31 PM">
+   12:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;but none of the other properties
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:04:37 PM">
+    12:04 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: correct
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:05:12 PM">
+    12:05 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: if accessing a property like TelemetryStopwatch goes wrong, could that potentially cause binding breakage?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:05:38 PM">
+    12:05 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;but the ones from tabs's inherited binding (general.xml#control-item) do exist
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:06:32 PM">
+    12:06 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;it seems more like an odd situation where an error occured 
+applying the binding or the element was removed and reinserted in a 
+strange way
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:06:56 PM">
+    12:06 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: note that before this error occurred, I wasn't 
+attempting to do anything funky. I think I was just opening a new tab
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:07:04 PM">
+    12:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;mconley: do you have the startup cache enabled?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:07:13 PM">
+    12:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;so, unless some add-on freaked out, I don't think the tabs should have been removed and re-added to the DOM
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:07:19 PM">
+    12:07 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: possibly - how do I check that?
+ </div>
+</div>
+<div>
+ <span style="">
+  <span title="Tuesday, June 30, 2015 12:07:40 PM">
+   12:07 PM
+  </span>
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+  Enn
+ </a>
+ &gt; f
+</div>
+<div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:08:29 PM">
+    12:08 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;checking
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:08:56 PM">
+    12:08 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: that pref is not set.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:09:35 PM">
+    12:09 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;so it is enabled. I don't think that should be a problem since these are builds you made yourself I assume
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:09:58 PM">
+    12:09 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: no - this is a Nightly that I did not build
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:10:29 PM">
+    12:10 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I'm running (and experiencing this problem) in a Nightly I got from
+  <a href="http://nightly.mozilla.org/" rel="noreferrer" target="_blank">
+   nightly.mozilla.org
+  </a>
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:10:36 PM">
+    12:10 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;too bad we can't reliably reproduce this :(
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:10:49 PM">
+    12:10 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I know, right? :/
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:11:03 PM">
+   12:11 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;every time I get into this state, it's like the horse has already left the barn
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:11:48 PM">
+    12:11 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: but if there's something, anything I can do to gather 
+intel on how we got into this state... well, now's our chance, I guess. 
+:)
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:12:09 PM">
+   12:12 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;the only thing I can think of is some strange error 
+happening while processing the implementation part of the binding.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:12:18 PM">
+    12:12 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;for example,
+  <a href="http://mxr.mozilla.org/mozilla-central/source/dom/xbl/nsXBLProtoImpl.cpp#47" rel="noreferrer" target="_blank">
+   http://mxr.mozilla.org/mozilla-central/source/dom/xbl/nsXBLProtoImpl.cpp#47
+  </a>
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:12:55 PM">
+    12:12 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;that failure could cause the symptom you see.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:13:03 PM">
+    12:13 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;since it returns NS_OK
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:13:35 PM">
+   12:13 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: should that be returning an error nsresult instead?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:14:24 PM">
+    12:14 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;would it be possible to instrument the hell out of this 
+method, so that we print errors to the Browser Console for any 
+non-success case?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:14:27 PM">
+    12:14 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;don't know, but if you could get the issue in one of your 
+builds, you could add some debugging in there to see if you're hitting 
+one of the early returns in there
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:14:53 PM">
+    12:14 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I've had zero luck reproducing this in any of my local builds.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:00 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;I wrote an automated test to try to expose it
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:00 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;:(
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:04 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;opening and closing newtabs like crazy
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:08 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;opening and closing windows
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:12 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;left it running overnight. No dice.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:25 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;there's something we're missing.
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:31 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;but that test fails easily on a nightly build?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:15:53 PM">
+    12:15 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I've not tried it on a Nightly build that I didn't build myself
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:16:00 PM">
+    12:16 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;I could try that, I suppose
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:16:14 PM">
+    12:16 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: are there some optimizations in opt builds from
+  <a href="http://nightly.mozilla.org/" rel="noreferrer" target="_blank">
+   nightly.mozilla.org
+  </a>
+  that could contribute to this bug?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:16:25 PM">
+    12:16 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;optimizations that I don't have in my local builds?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:17:24 PM">
+    12:17 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;the problem occurs on the tab you just created?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:18:13 PM">
+    12:18 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: well, in this current manifestation of this bug, it seems to have affected all of my tabs
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:18:25 PM">
+   12:18 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;wild!
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:18:37 PM">
+    12:18 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: I know, right? :)
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:18:48 PM">
+   12:18 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;so, you created a new tab, and the tabbox that you've been using for a while broke?
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:18:48 PM">
+    12:18 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Let me confirm that - I'll loop through the tabs checking for linkedPanel
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:18:49 PM">
+   12:18 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;one sec
+ </div>
+ <div>
+  <span style="">
+   <span title="Tuesday, June 30, 2015 12:19:22 PM">
+    12:19 PM
+   </span>
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;yeah, none of them have linkedPanel defined
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:19:33 PM">
+   12:19 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: and yes, that's correct
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:19:45 PM">
+   12:19 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;I created a new tab, and then all of a sudden, everything just got into this weird state
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:21:09 PM">
+   12:21 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Enn" title="Enn (enn@moz-4324sf.fnjk.s0pt.0450.2001.IP)">
+   Enn
+  </a>
+  &gt;&nbsp;lunch time
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:21:41 PM">
+   12:21 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;Enn: okay - I'll keep my browser in this state for a while
+ </div>
+ <div>
+  <span title="Tuesday, June 30, 2015 12:21:43 PM">
+   12:21 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt;&nbsp;I guess
+ </div>
+</div>
+<div>
+ <span style="">
+  <span title="Tuesday, June 30, 2015 12:21:53 PM">
+   12:21 PM
+  </span>
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt;&nbsp;Enn: let me know if there's anything else I can try
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OH SHIT - dholbert just saw this with non-e10s. RUH ROH.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Not an e10s bug!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<table style="width:808px;" cellspacing="0">
+ <tbody><tr>
+  <td style="width:4.702970297029703%;">
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66868" name="c66868">
+    23:35
+   </a>
+  </td>
+  <td style="width:6.806930693069307%;">
+   mconley
+  </td>
+  <td style="width:88.49009900990099%;">
+   bholley: needinfo'd ya
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66869" name="c66869">
+    23:35
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: in terms of where to put the call, I'm not really sure, but neil had a suggestion
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66870" name="c66870">
+    23:37
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   bholley: right - so where do I get the CX and scope when the time comes?
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66871" name="c66871">
+    23:37
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: I would look at the other code that uses the maps
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66872" name="c66872">
+    23:38
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: you may need a higher-level signature
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66873" name="c66873">
+    23:39
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   bholley: but that's all getting kicked off by JS-ish activity, right?
+ Like, if there's JS on the stack, getting the scope and CX is 
+straightforward, I think
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66874" name="c66874">
+    23:39
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: I don't think binding installation gets kicked off by JS
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66875" name="c66875">
+    23:39
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   Ah, interesting. Didn't realize that. Okay, in that case, I'll study this further
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66876" name="c66876">
+    23:39
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   Thanks!
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66877" name="c66877">
+    23:40
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: looks like it all funnels down from nsXBLProtoImpl::InitTargetObjects
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66878" name="c66878">
+    23:40
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: basically, you'll want to create an AutoJSAPI with a global somewhere
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66879" name="c66879">
+    23:40
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: the trick is finding the right place to put your API so that
+ the caller has the right stuff to call it and it can do what it needs 
+to do
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66880" name="c66880">
+    23:41
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: i.e. the usual software engineering stuff, just extra-hard because XBL isn't designed all that well ;-)
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66881" name="c66881">
+    23:41
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   Gotcha.
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66882" name="c66882">
+    23:41
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   Thanks!
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66883" name="c66883">
+    23:42
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: np :-)
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66884" name="c66884">
+    23:45
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: though you do realize that by writing this patch, you are 
+setting yourself for future needinfos just as I did years ago when I 
+wrote the last one ;-)
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66885" name="c66885">
+    23:45
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   XBL is all guilt by association
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66886" name="c66886">
+    23:45
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   The usual software engineering stuff. :)
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66887" name="c66887">
+    23:46
+   </a>
+  </td>
+  <td>
+   mconley
+  </td>
+  <td>
+   Well, happy to give some cover fire, at any rate.
+  </td>
+ </tr>
+ <tr>
+  <td>
+   <a href="http://logs.glob.uno/?c=mozilla%23e10s&amp;s=29+Apr+2016&amp;e=30+Apr+2016#c66888" name="c66888">
+    23:46
+   </a>
+  </td>
+  <td>
+   bholley
+  </td>
+  <td>
+   mconley: &lt;3
+  </td>
+ </tr>
+</tbody></table>
+<div>
+ <br>
+</div>
+<div>
+ <div style="color: rgb(51, 51, 51); padding: 2px 15px 2px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: rgb(192, 219, 255); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(96, 0, 0); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:40:29 PM">
+    2:40 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  mconley: So really you want to hunt down all the XPCWrappedNativeScope that matter to you, right?
+ </div>
+ <div style="padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: rgb(175, 175, 175); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:40:43 PM">
+    2:40 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style="color: rgb(34, 34, 34);">
+   →
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jgilbert" style="color: rgb(119, 119, 119); text-decoration: none;" title="jgilbert (Jeff@moz-c1gech.2rkg.9kg1.0101.2620.IP)">
+   jgilbert
+  </a>
+  joined (Jeff@moz-c1gech.2rkg.9kg1.0101.2620.IP)
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:40:49 PM">
+    2:40 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  bz: I suppose. I see that XPCWrappedNativeScope has a gScopes static
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:40:58 PM">
+    2:40 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  and I’m wondering if that’s what I want to iterate
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 2px 15px 2px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: rgb(192, 219, 255); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(96, 0, 0); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:41:05 PM">
+    2:41 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  mconley: And then for each one, you want to examine its mContentXBLScope and mGlobalJSObject?
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:41:45 PM">
+    2:41 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  Yes, assuming they have an mContentXBLScope. If they don’t, I _think_ I can skip it
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:41:45 PM">
+    2:41 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  basically
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:41:49 PM">
+    2:41 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  And yes, walking the gScopes list seems like the way to go
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:41:51 PM">
+    2:41 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  Yes, agreed.
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:42:13 PM">
+    2:42 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  hmm, okay
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:42:23 PM">
+    2:42 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  so I guess I’m doing this inside XPCWrappedNativeScope then
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:42:28 PM">
+    2:42 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style="font-style: italic;">
+   <span style="color: rgb(187, 187, 187); font-style: italic;">
+    —
+   </span>
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+    mconley
+   </a>
+   scratches chin
+  </span>
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:42:35 PM">
+    2:42 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  heh, “Deep Magic"
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:19 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  yes
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:30 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  Just add a static XPCWrappedNativeScope function
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:32 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  "just"
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:36 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  :)
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:40 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  I think I can do that.
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:43:52 PM">
+    2:43 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  bz: what about the system principal’d window cases?
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:09 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  are those scopes in gScopes as well?
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:11 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  yes
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:16 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  ah, excellent
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:17 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  That's why I said mGlobalJSObject
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:27 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bz" style="color: rgb(16, 131, 116); text-decoration: none; font-weight: 700; white-space: nowrap;" title="bz (bzbarsky@moz-fclm79.fios.verizon.net)">
+   bz
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  Check whether that's a Window and system-principaled
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:33 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  I gotcha
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:34 PM">
+    2:44 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  okay
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, May 03, 2016 2:44:38 PM">
+    2:44&nbsp;PM
+   </span>
+  </span>
+  <span style="left: -999px; top: -999px;">
+  </span>
+  <span style="left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style="left: -999px; top: -999px;">
+   &gt;
+  </span>
+  starting&nbsp;to&nbsp;piece&nbsp;this&nbsp;together
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Patches are up, fools!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GAH. Oranges.
+ <span style="-evernote-sentoj-emoticon:true">
+  😔
+ </span>
+ Hitting my assertion a lot. Why? Okay, let’s try to narrow it...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ [browser_bug553455.js]
+</div>
+<div>
+ skip-if = buildapp == 'mulet' # Bug 1066070 - I don't think either popup notifications nor addon install stuff works on mulet?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ [browser_bug567306.js]
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Scope:
+</div>
+<div>
+ GLOBAL:&nbsp;0x7f6cefc6c060
+</div>
+<div>
+ cached binding: 0x496a470
+</div>
+<div>
+ cached prototype binding:&nbsp;0x42699b0
+</div>
+<div>
+ cached implementation:&nbsp;0x426a010
+</div>
+<div>
+ cached binding docinfo:&nbsp;0x4268f10
+</div>
+<div>
+ cached binding manager: 0x3783f60
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The nsXBLBinding that causes the registration of the prototype: 0x5e629c0
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks as if there’s a stale XBL doc info sticking around… and that’s
+ what we’re getting the out-of-date XBL binding prototype from, and 
+that’s what we’re stashing into the WeakMap...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ new binding:&nbsp; 0x26756a0
+</div>
+<div>
+ new binding docinfo:&nbsp;0x2529760
+</div>
+<div>
+ Document for the docinfo: 0x248cef0
+</div>
+<div>
+ <br>
+</div>
+<div>
+ New binding docinfo is created after the flush… put into&nbsp;0x17c3670… and&nbsp;0x6082e00...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Why did the XBLDocumentInfo get changed for the bound document? Like, why is the new docinfo needed?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Back to first principles: theories, tests, results.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Theory: After the cache flush, with the XULPrototypeCache 
+empty,&nbsp;nsXBLService::LoadBindingDocumentInfo tries to load up that 
+general.xml binding, doesn’t find it, and so create a new 
+nsXBLDocumentInfo for those bindings, and shoves that into the cache.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Later on, when a pre-existing bound document attempts to create a 
+binding, it checks the cache, and finds the NEW prototype. The problem 
+is that the new prototype doesn’t match the one in the WeakMap.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ THE NEW one is in the XULPrototypeCache because of the NEW nsXBLDocumentInfo that gets put in there.
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  We create the nsBindingManager for the page we care about
+ </li>
+ <li>
+  We load the nsXBLDocumentInfo and shove that mutha into the nsXULPrototypeCache
+ </li>
+ <li>
+  We also put the nsXBLDocumentInfo into the nsBindingManager
+ </li>
+ <li>
+  Cache is flushed
+ </li>
+ <li>
+  New nsXBLDocumentInfo X is constructed and put into the cache
+ </li>
+ <li>
+  ???
+ </li>
+ <li>
+  When constructing a new nsXBLBinding, we get at the new 
+nsXBLDocumentInfo X that was cached above, and use that to get at the 
+NEW nsXBLPrototypeBinding Y that’s going to cause us to fail our 
+assertion.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ Question:
+</div>
+<div>
+ How and why is the OLD nsXBLDocumentInfo / cachedBinding put into the WeakMap?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Because there is a pre-existing BindingManager for this document scope,
+ and it has its own cache of nsXBLDocumentInfo’s. When the binding is 
+installed for that scope, we use that nsXBLDocumentInfo in order to get 
+at the nsXBLPrototypeBinding.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That happens to get used first, so that’s what gets put into the WeakMap.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Then… how come the new one shows up? Like, how come we do get the same 
+nsXBLDocumentInfo when we try to install the binding that calls the 
+assertion failure?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There’s only one binding manager. And it has a nsXBLDocumentInfo table that never gets cleared. So once it’s set, it’s set.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We load the original nsXBLDocumentInfo and put it in the cache.
+</div>
+<div>
+ We put the nsXBLDocumentInfo into the never-cleared nsXBLDocumentInfo cache.
+</div>
+<div>
+ Cache is flushed.
+</div>
+<div>
+ New nsXBLDocumentInfo X is constructed and put into the cache.
+</div>
+<div>
+ Then, later, a binding for our original nsBindingManager is required, 
+and when it starts to load it, it checks the XUL prototype cache first, 
+and gets a hit! So it uses the NEW one, when in fact, we’d already done a
+ write to the WeakMap using the original.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What is the stack when we add the out-of-date nsXBLPrototypeBinding to the WeakMap after the cache flush?
+</div>
+<div>
+ <br>
+</div>
+<div style="-en-codeblock: true; box-sizing: border-box; padding: 8px; font-family: Monaco, Menlo, Consolas, &quot;Courier New&quot;, monospace; font-size: 12px; color: rgb(51, 51, 51); border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; background-color: rgb(251, 250, 248); border: 1px solid rgba(0, 0, 0, 0.14902); background-position: initial initial; background-repeat: initial initial;">
+ <div>
+  <div>
+   #0&nbsp; nsXBLBinding::DoInitJSClass (cx=0x10dd390, obj=..., 
+aClassName=..., aProtoBinding=0x42699b0, aClassObject=..., 
+aNew=0x7ffe796a8482)
+  </div>
+  <div>
+   at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:1008
+  </div>
+  <div>
+   #1&nbsp; 0x00007f6d73696cd2 in nsXBLPrototypeBinding::InitClass 
+(this=0x42699b0, aClassName=..., aContext=0x10dd390, aScriptObject=..., 
+aClassObject=..., aNew=0x7ffe796a8482)
+  </div>
+  <div>
+   at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLPrototypeBinding.cpp:463
+  </div>
+  <div>
+   #2&nbsp; 0x00007f6d7368e5d3 in nsXBLProtoImpl::InitTargetObjects 
+(this=0x426a010, aBinding=0x42699b0, aBoundElement=0x471b850, 
+aTargetClassObject=..., aTargetIsNew=0x7ffe796a8482)
+  </div>
+  <div>
+   at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLProtoImpl.cpp:229
+  </div>
+  <div>
+   #3&nbsp; 0x00007f6d7368d4d3 in nsXBLProtoImpl::InstallImplementation 
+(this=0x426a010, aPrototypeBinding=0x42699b0, aBinding=0x5e629c0)
+  </div>
+  <div>
+   at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLProtoImpl.cpp:69
+  </div>
+  <div>
+   #4&nbsp; 0x00007f6d73696546 in nsXBLPrototypeBinding::InstallImplementation (this=0x42699b0, aBinding=0x5e629c0)
+  </div>
+  <div>
+   at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLPrototypeBinding.cpp:319
+  </div>
+  <div>
+   #5&nbsp; 0x00007f6d73683c9e in nsXBLBinding::InstallImplementation 
+(this=0x5e629c0) at 
+/media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:576
+
+  </div>
+  <div>
+   #6&nbsp; 0x00007f6d73683bf6 in nsXBLBinding::InstallImplementation 
+(this=0x5e62a20) at 
+/media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:570
+
+  </div>
+  <div>
+   #7&nbsp; 0x00007f6d73683bf6 in nsXBLBinding::InstallImplementation 
+(this=0x5e62b10) at 
+/media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:570
+
+  </div>
+  <div>
+   #8&nbsp; 0x00007f6d73683bf6 in nsXBLBinding::InstallImplementation 
+(this=0x5e62b70) at 
+/media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:570
+
+  </div>
+  <div>
+   #9&nbsp; 0x00007f6d73683bf6 in nsXBLBinding::InstallImplementation 
+(this=0x5e62bd0) at 
+/media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLBinding.cpp:570
+
+  </div>
+  <div>
+   #10 0x00007f6d736a6a3a in nsXBLService::LoadBindings (this=0x13ecfa0,
+ aContent=0x471b850, aURL=0x487ee50, aOriginPrincipal=0x10dd260, 
+aBinding=0x5e62908,
+  </div>
+  <div>
+   aResolveStyle=0x7ffe796a8b40) at /media/mikeconley/Projects/mozilla/mozilla-central/dom/xbl/nsXBLService.cpp:495
+  </div>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Front-runner theory:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ There are a few players here:
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  The global nsXULPrototypeCache, which caches lots of information, 
+including references to all nsXBLDocumentInfo’s that get loaded.
+ </li>
+ <li>
+  nsBindingManager - there’s one of these per document, I believe. This 
+also holds references to the nsXBLDocumentInfo’s that have been loaded 
+for bindings within the document that it belongs to.
+ </li>
+ <li>
+  nsXBLService - this is a singleton that does the work of loading 
+bindings off the disk. What’s important to know is that when the 
+nsXBLService loads a binding for some document, it will first check the 
+nsXULPrototypeCache for the appropriate nsXBLDocumentInfo for that 
+binding. If it doesn’t find it in the nsXULPrototypeCache, it’ll then 
+check the nsBindingManager for the document that the binding is being 
+used within. Failing that, it’ll go load it fresh off of the disk.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ Here’s why I think I’m hitting my assertion:
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  An XBL binding B is loaded, and the nsXBLDocumentInfo for that binding
+ is cached both in nsXULPrototypeCache, along with the nsBindingManager 
+that the binding is being loaded into. Let’s call this nsBindingManager 
+X.
+ </li>
+ <li>
+  When the XBL binding is loaded, it also creates the JS prototype 
+object that’s being spliced into the binding target’s prototype chain - 
+this gets tossed into the WeakMap for that global via 
+nsXBLBinding::DoInitJSClass
+ </li>
+ <li>
+  The cache if flushed - so that nsXBLDocumentInfo is removed from the 
+nsXULPrototypeCache. Due to my patches, this also clears out the WeakMap
+ of JS prototype objects. It is _not_, however, removed from the 
+nsBindingManager X for the documents for which XBL binding B has been 
+loaded into.
+ </li>
+ <li>
+  Later on, the document with nsBindingManager X tries loading another 
+instance of XBL binding B. It can’t find the nsXBLDocumentInfo in the 
+nsXULPrototypeCache, so it falls back to checking the nsBindingManager. 
+It finds the pre-flush nsXBLDocumentInfo, and 
+calls&nbsp;nsXBLBinding::DoInitJSClass, which puts the prototype binding
+ from the pre-flush nsXBLDocumentInfo into the WeakMap!
+ </li>
+ <li>
+  Later, some other document tries to load XBL binding B. It’s not in 
+the nsXULPrototypeCache, and it’s not in the nsBindingManager for that 
+document (since it’s never been loaded before), so it loads it from the 
+disk.
+ </li>
+ <li>
+  Once the load from disk is completed, the newly created 
+nsXBLDocumentInfo for that binding document is put into the 
+nsXULPrototypeCache.
+ </li>
+ <li>
+  Back in the document with nsBindingManager X, another copy of XBL 
+binding B is being used - so nsXBLService goes to load the 
+nsXBLDocumentInfo, and finds the newly created nsXBLDocumentInfo that’s 
+now in the nsXULPrototypeCache. This is what it gets the 
+nsXBLPrototypeBinding from, and this is what eventually gets passed to 
+nsXBLBinding::DoInitJSClass.
+ </li>
+ <li>
+  And we assert, because this new nsXBLPrototypeBinding does not match what was cached in the WeakMap.
+ </li>
+</ol>
+<div>
+ <br>
+</div>
+<div>
+ Huh. If that’s true, why do we even need to clear the WeakMaps?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay, now I’ve made it so that we prioritize getting at the 
+nsBindingManager nsXBLDocumentInfo - but I’m still asserting in some 
+cases. What gives?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ global:&nbsp;0x7f07bb39c380
+</div>
+<div>
+ <br>
+</div>
+<div>
+ cached binding document info URI:&nbsp;chrome://global/content/bindings/general.xml#iframe
+</div>
+<div>
+ cached binding document info:&nbsp;0x3bc0be0
+</div>
+<div>
+ cached binding prototype:&nbsp;0x23bae50
+</div>
+<div>
+ cached binding manager:&nbsp;0x4c2b410
+</div>
+<div>
+ <br>
+</div>
+<div>
+ new binding document info URI:&nbsp;chrome://global/content/bindings/general.xml
+</div>
+<div>
+ new binding document info:&nbsp;0x53775a0
+</div>
+<div>
+ new binding prototype:&nbsp;0x6e8f250
+</div>
+<div>
+ new binding manager:&nbsp;0x4c2b410
+</div>
+<div>
+ new binding bound document:&nbsp;0x295fc20
+</div>
+<div>
+ new binding manager:&nbsp;0x50d46a0
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ When content process starts: 41728
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Interesting event: 22769
+</div>
+<div>
+ scope:&nbsp;0x7f6c6756c060
+</div>
+<div>
+ Proto binding for menulist:&nbsp;0x42eb1c0
+</div>
+<div>
+ …whoa - maybe _actual_ proto binding for menulist:&nbsp;0x42ef9d0
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Doc info:&nbsp;0x42e9850
+</div>
+<div>
+ Proto binding manager?:&nbsp;0x32c27b0
+</div>
+<div>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

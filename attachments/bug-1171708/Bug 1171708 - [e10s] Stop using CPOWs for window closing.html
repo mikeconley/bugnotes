@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1171708 - [e10s] Stop using CPOWs for window closing</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1171708.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201171708%20-%20[e10s]%20Stop%20using%20CPOWs%20for%20window%20closing_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1171708 - [e10s] Stop using CPOWs for window closing</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1171708">
+ Bug 1171708 - [e10s] Stop using CPOWs for window closing
+</a>
+<div>
+ TabState.flushWindow is sending down a sync CPOW message.
+</div>
+<div>
+ <br>
+</div>
+<ol>
+ <li>
+  Collect parent process info right away when window is closing (collect window data - TabState.collect)
+ </li>
+</ol>
+<div>
+ billm added code that makes is to that the frameloaders are kept alive until the last message gets sent up
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Be careful not to remove the message listeners until the last messages are sent up.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ohhhhhh man - it’s possible to pass a third argument to 
+addMessageListener on a frameloader that makes it so that we can hear 
+about messages from a frameloader that has GONE AWAY.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Very interesting.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So here’s the challenge:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ onClose collects a bunch of things from the window that is closing. 
+Some of that stuff also involves collecting the individual tab states 
+for each browser tab. Since that’s now asynchronous, we have to return 
+to the event loop and the frameloaders are kept alive until the last tab
+ state update comes up and the TabStateFlusher promise gets resolved.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here’s the kicker though - by the time that occurs, the DOM for the 
+window has disappeared. So any information gathering that relies on the 
+DOM from the window has to occur _before_ the async stuff gets kicked 
+off, and then sewn together.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Things that need to be collected or run before DOM goes away:
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ _collectWindowData
+</div>
+<div>
+ The winData.title
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Things that need to be collected from content asynchronously:
+ </b>
+</div>
+<div>
+ The state for each tab in the window
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So here’s the problem - _collectWindowData relies on DOM stuff, and 
+needs to be run before the DOM for the window goes away. One of the 
+things it does, however, is to update the “winData” stashed 
+in&nbsp;this._windows with tabData… but that tabData is likely out of 
+date at that point.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ideas:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Collect tabData twice
+ </b>
+</div>
+<div>
+ Collect the window state without flushing, with the understanding that 
+the tabData might be out of date. Then, flush the tabs asynchronously. 
+When the promise resolves, update the tabData for each window. Finally 
+then detach the message listeners and add the window to the 
+DyingWindowCache.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Pros: Straight-forward solution that doesn’t look like it'll rock the 
+boat too much with what SessionStore does in other code-paths.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Cons: Some redundancy - I end up collecting the tabData once, and then again once the flush is complete.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Change _collectWindowData
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ Collect the sync window data only, and perhaps have some kind of Promise-y
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ This seems risky. I’d have to audit all of the consumers of this 
+function to make sure they’re still going to behave correctly after this
+ change. And then the consumers of those functions. It sounds like a 
+fragile strategy.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It also doesn’t look like any effort has gone into making sure that&nbsp;_collectWindowData returns the
+ <b>
+  most
+ </b>
+ up-to-date information, so making this Promise-y and async doesn’t sound like the right choice.
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  Write _collectWindowDataAsync
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Write an alternative _collectWindowData function that will do all of 
+the DOM related collection first, and then do the flush before getting 
+the tabData. This gets rid of the redundancy if we collect the tabData 
+twice, but then we have the redundancy of having two _collectWindowData 
+methods.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What is the DyingWindowCache?
+</div>
+<div>
+ 
+"//&nbsp;A&nbsp;map&nbsp;storing&nbsp;a&nbsp;closed&nbsp;window's&nbsp;state&nbsp;data&nbsp;until&nbsp;it&nbsp;goes&nbsp;aways&nbsp;(is&nbsp;GC'ed).
+</div>
+<div>
+ 
+//&nbsp;This&nbsp;ensures&nbsp;that&nbsp;API&nbsp;clients&nbsp;can&nbsp;still&nbsp;read&nbsp;(but&nbsp;not&nbsp;write)&nbsp;states&nbsp;of
+</div>
+<div>
+ //&nbsp;windows&nbsp;they&nbsp;still&nbsp;hold&nbsp;a&nbsp;reference&nbsp;to&nbsp;but&nbsp;we&nbsp;don’t."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  Translation
+ </b>
+ : a WeakMap for consumers of this window data to make sure they can still read window data while they still hold a reference.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Problem: The update message after the flush seems to be pretty 
+unreliable. It doesn’t look as if we’re holding the frameloaders alive 
+until those messages come up.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GUHHH.. A new problem.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks like, at least for groupMessageManagers… we’re not dispatching
+ the SessionStore:update to the listener, because… because it looks like
+ the listener is gone? It’s kinda hard to tell, since there are several 
+message managers and they all look the same. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Plan: Add an optional “name” for group message managers that I can see 
+while debugging - and that way, in the handlers for SessionStore:update,
+ I can see whether or not the message managers that deal with it have 
+that name. If so, then I need to somehow figure out when that message 
+manager gets its listeners cleared!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Let’s see if I can prove this with a regression test.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The code to keep sending messages after the frameloader has been removed from the DOM is here:
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1126089">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=1126089
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ dom/base/test/browser_messagemanager_unload.js is where the original testing for that stuff went.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Fuuuuuuuuu - … if I modify that test to use the group message manager, 
+things be busted. I think I need a better understanding the group 
+message manager.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ From
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/6077f51254c69a1e14e1b61acba4af451bf1783e/dom/base/nsIMessageManager.idl#50">
+  https://dxr.mozilla.org/mozilla-central/rev/6077f51254c69a1e14e1b61acba4af451bf1783e/dom/base/nsIMessageManager.idl#50
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <code>
+  *
+  <br>
+ </code>
+ <code>
+  *&nbsp; Parent&nbsp;side&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;Child&nbsp;side
+  <br>
+ </code>
+ <code>
+  *&nbsp;-------------&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;------------
+  <br>
+ </code>
+ <code>
+  *&nbsp; global&nbsp;MMg
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;+--&gt;window&nbsp;MMw1
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; +--&gt;frame&nbsp;MMp1_1&lt;------------&gt;frame&nbsp;MMc1_1
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; +--&gt;frame&nbsp;MMp1_2&lt;------------&gt;frame&nbsp;MMc1_2
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; +--&gt;group&nbsp;MMgr1
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |&nbsp; &nbsp; +--&gt;frame&nbsp;MMp2_1&lt;-------&gt;frame&nbsp;MMc2_1
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |&nbsp; &nbsp; +--&gt;frame&nbsp;MMp2_2&lt;-------&gt;frame&nbsp;MMc2_2
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; +--&gt;group&nbsp;MMgr2
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |&nbsp; &nbsp; ...
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; |
+  <br>
+ </code>
+ <code>
+  *&nbsp; &nbsp;|&nbsp; &nbsp; ...
+ </code>
+</div>
+<div>
+ <code>
+  *&nbsp; &nbsp;|
+ </code>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Right, so that matches my mental model...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AH wait. I was wrong! The parent
+ <b>
+  is
+ </b>
+ receiving the message! The problem is that we’re bailing out at this chunk of code:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   case
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "SessionStore:update"
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  :
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // |browser.frameLoader| might be empty if the browser was already
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // destroyed and its tab removed. In that case we still have the last
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // frameLoader we know about to compare.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   let
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  frameLoader
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  browser.frameLoader
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ||
+ </span>
+ <span style="font: 12.0px Courier">
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   this
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ._lastKnownFrameLoader.get(browser.permanentKey);
+  <br>
+  <br>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // If the message isn't targeting the latest frameLoader discard it.
+   <br>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (frameLoader
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !=
+ </span>
+ <span style="font: 12.0px Courier">
+  aMessage.targetFrameLoader) {
+ </span>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   return
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So… so why is that the case?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah cripes
+</div>
+<div>
+ <br>
+</div>
+<div>
+ It looks like XULFrameLoaderCreated, when it’s fired, compares 
+target.tagName with “browser”, which is fine with dynamically created 
+browsers - but for the initial browser that’s defined in the markup, 
+this will fail to match, since the tagname will be “xul:browser”. :(( We
+ should use localname instead.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, so that works.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Now I’m back where I wanted to be - I’ve got these flushings occurring…
+ and I want to save the final message from the child. How will I do it?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ For closed tabs, there’s this _closedTabs WeakMap on SessionStore that 
+maps permanentKey’s to an Object containing tab information that can 
+then be saved.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I should probably do something similar.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Gather the window information, and stash it in a _closedWindows WeakSet, keyed on windows (?).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ That should map to an object with two things: window information we 
+were able to gather synchronously, and a WeakSet of browsers, along with
+ a count of how many :update’s we’re expecting?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ As the :update’s come in, decrement the ...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ OH WAIT, let me get this down before I call it a day.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ We already collect this winData thing, and shove it in _closedWindows. 
+Let’s map browser.permanentKey’s to each tab’s entry in the tabs part of
+ that _closedWindows thing.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ As the messages from each tab come in, update those entries, and queue up a write. I guess.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay! I think this kinda works! Maybe!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But now I’ve get test failures (non-e10s). Let’s take a look:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+31&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_broadcast.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;at&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_broadcast.js:79&nbsp;-&nbsp;TypeError:&nbsp;can't&nbsp;convert&nbsp;undefined&nbsp;to&nbsp;object
+</div>
+<div>
+ <br>
+</div>
+<div>
+ BLARGH. So I guess I do need to wait until the final messages come up. Shit.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So, here’s what I want.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I think I want something like TabStateFlusher.waitForFinalFlushes(aWindow)...
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WAIT. No, I was understanding this wrong. I was sending the flush 
+request down to the child, but before it could react to it, it sent the 
+final update message up. I need to make my _closedWindowTabs thing 
+handle that case.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Aaaaaand we’re passing!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+363&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_cleaner.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;at&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:80&nbsp;-&nbsp;TypeError:&nbsp;state._closedWindows[0]&nbsp;is&nbsp;undefined
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ test_open_and_close@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:80:3
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:934:23
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ Promise.prototype.then@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:451:5
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+364&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_cleaner.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;[Exception...&nbsp;"Invalid&nbsp;index:&nbsp;not&nbsp;in&nbsp;the&nbsp;closed&nbsp;windows"&nbsp;
+ nsresult:&nbsp;"0x80070057&nbsp;(NS_ERROR_ILLEGAL_VALUE)"&nbsp; 
+location:&nbsp;"JS&nbsp;frame&nbsp;::&nbsp;resource:///modules/sessionstore/SessionStore.jsm&nbsp;::&nbsp;ssi_undoCloseWindow&nbsp;::&nbsp;line&nbsp;2026"&nbsp;
+ data:&nbsp;no]
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+365&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_cleaner.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;at&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:116&nbsp;-&nbsp;TypeError:&nbsp;state._closedWindows[0]&nbsp;is&nbsp;undefined
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ test_old_data@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:116:3
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:937:21
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:711:7
+</div>
+<div>
+ testScope/test_executeSoon/&lt;.run@chrome://mochikit/content/browser-test.js:969:9
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+366&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_cleaner.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;at&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:140&nbsp;-&nbsp;TypeError:&nbsp;state._closedWindows[0]&nbsp;is&nbsp;undefined
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ test_cleanup@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_cleaner.js:140:3
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:937:21
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:711:7
+</div>
+<div>
+ testScope/test_executeSoon/&lt;.run@chrome://mochikit/content/browser-test.js:969:9
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+367&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_dying_cache.js&nbsp;|&nbsp;sessionstore&nbsp;does&nbsp;no&nbsp;longer&nbsp;track&nbsp;our&nbsp;window&nbsp;-
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_dying_cache.js:test:38
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+368&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_dying_cache.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;[Exception...&nbsp;"[JavaScript&nbsp;Error:&nbsp;"tabs&nbsp;is&nbsp;undefined"&nbsp;{file:&nbsp;"resource:///modules/sessionstore/SessionStore.jsm"&nbsp;line:&nbsp;2629}]'[JavaScript&nbsp;Error:&nbsp;"tabs&nbsp;is&nbsp;undefined"&nbsp;{file:&nbsp;"resource:///modules/sessionstore/SessionStore.jsm"&nbsp;line:&nbsp;2629}]'&nbsp;when&nbsp;calling&nbsp;method:&nbsp;[nsISessionStore::getWindowState]"&nbsp;
+ 
+nsresult:&nbsp;"0x80570021&nbsp;(NS_ERROR_XPC_JAVASCRIPT_ERROR_WITH_DETAILS)"&nbsp;
+ 
+location:&nbsp;"JS&nbsp;frame&nbsp;::&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_dying_cache.js&nbsp;::&nbsp;checkWindowState&nbsp;::&nbsp;line&nbsp;49"&nbsp;
+ data:&nbsp;yes]
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ checkWindowState@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_dying_cache.js:49:40
+</div>
+<div>
+ test@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_dying_cache.js:39:3
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The&nbsp;following&nbsp;tests&nbsp;failed:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+302&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_perwindowpb.js&nbsp;|&nbsp;Check&nbsp;that&nbsp;the&nbsp;closed&nbsp;window&nbsp;count&nbsp;hasn't&nbsp;changed&nbsp;-&nbsp;Got&nbsp;0,&nbsp;expected&nbsp;1
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ 
+chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:promiseTestOnWindow/&lt;:33
+</div>
+<div>
+ promiseTestOnWindow@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:30:1
+</div>
+<div>
+ main@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:50:9
+</div>
+<div>
+ TaskImpl_run@resource://gre/modules/Task.jsm:314:40
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:934:23
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:711:7
+</div>
+<div>
+ obs@chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:460:9
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+303&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_perwindowpb.js&nbsp;|&nbsp;Uncaught&nbsp;exception&nbsp;-&nbsp;at&nbsp;chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:34&nbsp;-&nbsp;TypeError:&nbsp;JSON.stringify(...)&nbsp;is&nbsp;undefined
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ 
+promiseTestOnWindow/&lt;@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:34:8
+</div>
+<div>
+ promiseTestOnWindow@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:30:1
+</div>
+<div>
+ main@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_perwindowpb.js:50:9
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:934:23
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ Promise.prototype.then@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:451:5
+</div>
+<div>
+ Tester_execTest@chrome://mochikit/content/browser-test.js:757:9
+</div>
+<div>
+ Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:677:7
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+304&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_perwindowpb.js&nbsp;|&nbsp;Found&nbsp;an&nbsp;unexpected&nbsp;browser&nbsp;window&nbsp;at&nbsp;the&nbsp;end&nbsp;of&nbsp;test&nbsp;run&nbsp;-
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+307&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_464199.js&nbsp;|&nbsp;The&nbsp;correct&nbsp;amout&nbsp;of&nbsp;tabs&nbsp;was&nbsp;removed&nbsp;-&nbsp;Got&nbsp;11,&nbsp;expected&nbsp;5
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_464199.js:test/&lt;/&lt;:73
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+308&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_464199.js&nbsp;|&nbsp;All&nbsp;tabs&nbsp;to&nbsp;be&nbsp;forgotten&nbsp;were&nbsp;indeed&nbsp;removed&nbsp;-&nbsp;Got&nbsp;6,&nbsp;expected&nbsp;0
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_464199.js:test/&lt;/&lt;:75
+</div>
+<div>
+ SUITE-END&nbsp;|&nbsp;took&nbsp;21s
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+440&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_528776.js&nbsp;|&nbsp;number&nbsp;of&nbsp;open&nbsp;browser&nbsp;windows&nbsp;according&nbsp;to&nbsp;getBrowserState&nbsp;-&nbsp;Got&nbsp;2,&nbsp;expected&nbsp;1
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_528776.js:browserWindowsCount:10
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_528776.js:test/&lt;:23
+</div>
+<div>
+ resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:Handler.prototype.process:934
+</div>
+<div>
+ resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:this.PromiseWalker.walkerLoop:813
+</div>
+<div>
+ SUITE-END&nbsp;|&nbsp;took&nbsp;126s
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+262&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_819510_perwindowpb.js&nbsp;|&nbsp;sessionstore&nbsp;state:&nbsp;2&nbsp;windows&nbsp;in&nbsp;data&nbsp;being&nbsp;written&nbsp;to&nbsp;disk&nbsp;-&nbsp;Got&nbsp;3,&nbsp;expected&nbsp;2
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_819510_perwindowpb.js:test_3:96
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:934:23
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:711:7
+</div>
+<div>
+ obs@chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:460:9
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+263&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_819510_perwindowpb.js&nbsp;|&nbsp;Selected&nbsp;window&nbsp;is&nbsp;updated&nbsp;to&nbsp;match&nbsp;one&nbsp;of&nbsp;the&nbsp;saved&nbsp;windows&nbsp;-&nbsp;Got&nbsp;3,&nbsp;expected&nbsp;2
+</div>
+<div>
+ Stack&nbsp;trace:
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:test_is:943
+</div>
+<div>
+ chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_819510_perwindowpb.js:test_3:98
+</div>
+<div>
+ Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:934:23
+</div>
+<div>
+ 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:813:7
+</div>
+<div>
+ 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:744:11
+</div>
+<div>
+ 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:776:7
+</div>
+<div>
+ 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:711:7
+</div>
+<div>
+ obs@chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:460:9
+</div>
+<div>
+ SUITE-END&nbsp;|&nbsp;took&nbsp;19s
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <input checked="checked" type="checkbox">
+  
+300&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_behavior.js&nbsp;|&nbsp;There&nbsp;were&nbsp;3&nbsp;popup&nbsp;windows&nbsp;to&nbsp;repoen&nbsp;-&nbsp;Got&nbsp;0,&nbsp;expected&nbsp;3
+
+ </div>
+ <div>
+  Stack&nbsp;trace:
+ </div>
+ <div>
+  chrome://mochikit/content/browser-test.js:test_is:943
+ </div>
+ <div>
+  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:openWindowRec:25
+ </div>
+ <div>
+  
+chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:test/openWindowRec/onTestURLLoaded/tabReady/&lt;:46
+
+ </div>
+ <div>
+  chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:969
+ </div>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ 
+301&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_behavior.js&nbsp;|&nbsp;There&nbsp;were&nbsp;3&nbsp;normal&nbsp;windows&nbsp;to&nbsp;repoen&nbsp;-&nbsp;Got&nbsp;0,&nbsp;expected&nbsp;3
+</div>
+<div>
+ <div>
+  Stack&nbsp;trace:
+ </div>
+ <div>
+  chrome://mochikit/content/browser-test.js:test_is:943
+ </div>
+ <div>
+  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:openWindowRec:27
+ </div>
+ <div>
+  
+chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_behavior.js:test/openWindowRec/onTestURLLoaded/tabReady/&lt;:46
+
+ </div>
+</div>
+<div>
+ chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:969
+</div>
+<div>
+ <div>
+  <input checked="checked" type="checkbox">
+  
+305&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_purge.js&nbsp;|&nbsp;oldState&nbsp;in&nbsp;test_purge&nbsp;has&nbsp;2&nbsp;windows&nbsp;instead&nbsp;of&nbsp;1&nbsp;-
+
+ </div>
+ <div>
+  Stack&nbsp;trace:
+ </div>
+ <div>
+  chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_394759_purge.js:test:32
+ </div>
+ <div>
+  chrome://mochikit/content/browser-test.js:Tester_execTest:786
+ </div>
+ <div>
+  chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:677
+ </div>
+ <div>
+  chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:735
+ </div>
+ <div>
+  
+306&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_394759_purge.js&nbsp;|&nbsp;Found&nbsp;an&nbsp;unexpected&nbsp;browser&nbsp;window&nbsp;at&nbsp;the&nbsp;end&nbsp;of&nbsp;test&nbsp;run&nbsp;-
+
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Remove promiseWindowClosed
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Rewrite&nbsp;browser/components/sessionstore/test/browser_394759_behavior.js
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ Rewrite&nbsp;browser/components/sessionstore/test/browser_394759_purge.js
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3e9c5c2367e0">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=3e9c5c2367e0
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I _think_ I’ve got this working, and I _think_ I’ve also addressed 
+billm’s feedback. billm was concerned that the decision over whether or 
+not the window data should go into the _closedWindows dict / Object was 
+being made too early before we’d finished flushing all tabs in the 
+window. I think moving that logic into the TabStateFlusher.flushWindow 
+callback has addressed this concern, although I’d really like to test 
+it!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:42:01 PM">
+   4:42 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;mconley: ok. the other complication is that we still want to
+ be able to restore the most recently closed window if not every tab has
+ answered back yet. I think we just want to use whatever the lastest 
+info we got back from the tabs was.
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:42:02 PM">
+   4:42 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+   mconley
+  </a>
+  &gt;&nbsp;also
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:42:24 PM">
+   4:42 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;mconley: (I was thinking about this last night. it's kind of annoying.)
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:42:28 PM">
+   4:42 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+   mconley
+  </a>
+  &gt;&nbsp;oh
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:42:52 PM">
+   4:42 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+   mconley
+  </a>
+  &gt;&nbsp;billm: wait, that sounds like it goes against what you'd 
+advised against earlier... is that right? Like, we want to inspect the 
+tab data from the cache, and not wait until the tabs have all responded?
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:08 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+   mconley
+  </a>
+  &gt;&nbsp;just trying to make sure I understand
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:13 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;mconley: we sort of want both...
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:29 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;until the point where every tab has answered, we want to use the most recent data in the cache
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:36 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;once they have all answered back, we want to use that data
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:37 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+   mconley
+  </a>
+  &gt;&nbsp;ah, I see
+ </div>
+ <div>
+  <span title="Wednesday, November 11, 2015 4:43:41 PM">
+   4:43 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-7lbu9s.ujol.1ibb.0101.2620.IP)">
+   billm
+  </a>
+  &gt;&nbsp;does that make sense?
+ </div>
+</div>
+<div>
+ <span title="Wednesday, November 11, 2015 4:43:44 PM">
+  4:43 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley">
+  mconley
+ </a>
+ &gt;&nbsp;yes
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ahhhh… interesting.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay, so we’ll check twice - once synchronously with the cached tab 
+data, and then again after the flush is complete. In both cases, we can 
+either move the closed window data in to _closedWindows or out again if 
+it’s already in there.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Done.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And wrote a test!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Some feedback from billm now… and I’ve got a mostly-perma orange on e10s bc6. :/
+</div>
+<div>
+ <br>
+</div>
+<div>
+ TEST-UNEXPECTED-FAIL | 
+browser/components/sessionstore/test/browser_354894_perwindowpb.js | Got
+ right number of stored window states - Got 2, expected 1
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I suspect this is because of some test changes he suggested. Let’s smoke out which one.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ All changes reverted (tests should pass):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=211f7f82531f">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=211f7f82531f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=211f7f82531f
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ browser_394759_behavior.js reverted:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=60116694aad4">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=60116694aad4">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=60116694aad4
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ browser_464199.js reverted:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f9ae9d5b5686">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f9ae9d5b5686">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f9ae9d5b5686
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ browser_597071.js reverted:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0f599151cb45">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0f599151cb45">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=0f599151cb45
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ browser_broadcast.js reverted:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c54626509c1a">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c54626509c1a
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ browser_cleaner.js reverted (that’s all):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=af6a071029a7">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=af6a071029a7
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ok, replaced a lot of window.close stuff in sessionstore tests:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c1013c4f0875">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c1013c4f0875">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c1013c4f0875
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hrm… still busted. Instrumentation build:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6ae3ba6128e2">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6ae3ba6128e2">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6ae3ba6128e2
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Okay… so I think maybe BrowserTestUtils.closeWindow doesn’t give TabStateFlusher a chance to resolve first?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=40c46e8c097c">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=40c46e8c097c">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=40c46e8c097c
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b47c97edb4f0">
+   https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b47c97edb4f0
+  </a>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ WAT. Backed out. WTF.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah…. ah, I think I know what’s happening:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Maybe fixed?:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=066901e7c042">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=066901e7c042
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up about the Forget feature maybe being broken.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1225921">
+  Bug&nbsp;1225921
+ </a>
+ <br>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up about the scroll position not syncing on window flush.
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1228381">
+  Bug&nbsp;1228381
+ </a>
+</div>
+<div>
+ <input checked="checked" type="checkbox">
+ File a follow-up to clean up for billm "
+ <div>
+  
+The&nbsp;design&nbsp;is&nbsp;cleaner&nbsp;than&nbsp;what&nbsp;we&nbsp;have&nbsp;for&nbsp;tab&nbsp;closing.&nbsp;We&nbsp;should&nbsp;have&nbsp;a&nbsp;follow-up&nbsp;to&nbsp;make&nbsp;the&nbsp;tab&nbsp;closing&nbsp;code&nbsp;look&nbsp;more&nbsp;like&nbsp;this&nbsp;code."
+
+  <br>
+ </div>
+</div>
+<div>
+ Filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1228383">
+  bug&nbsp;1228383
+ </a>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

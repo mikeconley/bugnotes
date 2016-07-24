@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1226333 - Add tests for async window flushing</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1226333.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201226333%20-%20Add%20tests%20for%20async%20window%20flushing_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1226333 - Add tests for async window flushing</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226333">
+ Bug 1226333 - Add tests for async window flushing
+</a>
+<div>
+ I _think_ this is going to work:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1f1642b4d3d
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ SHIT. Still failing. Now with logging:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b6bd7e4f3bdb
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Huh… so for some reason, even after a hard flush, it looks like the 
+loaded page is about:blank and not example.com, even though we received a
+ notification that example.com had loaded. Wat?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hmm… another attempt, this time, more forcefully doing things by setting the state in the parent first:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=071963f5c478
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hey, that worked! WOO!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ But we want to understand why. Time to add some logging, yo.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=edf2350ed8ad
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hmmm…. more logging now:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5bc32de3c8a2
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ MMOOOOORE logging:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=146b90cbbddf
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Interesting:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; OKAY&nbsp;-&nbsp;LOADING
+ <a href="http://example.com/">
+  EXAMPLE.COM
+ </a>
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;&gt;&nbsp;0!
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Serialized&nbsp;entry:&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; For-loop&nbsp;exited&nbsp;-&nbsp;data.entries.length&nbsp;is:&nbsp;1
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;that&nbsp;we&nbsp;had&nbsp;some&nbsp;entries!
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"charset":&nbsp;"",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"ID":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docshellID":&nbsp;490,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"persist":&nbsp;false
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;6
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;205,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;0
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{}
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOCSHELL&nbsp;0x7fd1d69af800&nbsp;==&nbsp;9&nbsp;[pid&nbsp;=&nbsp;2253]&nbsp;[id&nbsp;=&nbsp;12]
+
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;33&nbsp;(0x7fd1d6524800)&nbsp;[pid&nbsp;=&nbsp;2253]&nbsp;[serial&nbsp;=&nbsp;33]&nbsp;[outer&nbsp;=&nbsp;(nil)]
+
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;34&nbsp;(0x7fd1d690a000)&nbsp;[pid&nbsp;=&nbsp;2253]&nbsp;[serial&nbsp;=&nbsp;34]&nbsp;[outer&nbsp;=&nbsp;0x7fd1d6524800]
+
+ <br>
+ 15:47:42&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;35&nbsp;(0x7fd1d84a2800)&nbsp;[pid&nbsp;=&nbsp;2253]&nbsp;[serial&nbsp;=&nbsp;35]&nbsp;[outer&nbsp;=&nbsp;0x7fd1d6524800]
+
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;onFrameTreeCollected
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;onFrameTreeCollected
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;load&nbsp;of:&nbsp;http://example.com/
+ <br>
+ 15:47:43&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Apparently,&nbsp;EXAMPLE.COM&nbsp;has&nbsp;loaded&nbsp;now.
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;&gt;&nbsp;0!
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Serialized&nbsp;entry:&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"url":&nbsp;"http://example.com/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; For-loop&nbsp;exited&nbsp;-&nbsp;data.entries.length&nbsp;is:&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;that&nbsp;we&nbsp;had&nbsp;some&nbsp;entries!
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"http://example.com/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"http://example.com/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"ID":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docshellID":&nbsp;12,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"persist":&nbsp;true
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"pageStyle":&nbsp;null,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"storage":&nbsp;null,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"scroll":&nbsp;null
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"http://example.com/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"pageStyle":&nbsp;null,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"storage":&nbsp;null,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"scroll":&nbsp;null
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;41
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;0,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;2,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;3
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;206,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TabState&nbsp;has&nbsp;been&nbsp;flushed!
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;==&nbsp;0
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; URI&nbsp;is:&nbsp;about:blank
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank"
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank"
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;data&nbsp;to&nbsp;parent:&nbsp;{}
+ <br>
+ 15:47:44&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TEST-INFO&nbsp;|&nbsp;started&nbsp;process&nbsp;screentopng
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TEST-INFO&nbsp;|&nbsp;screentopng:&nbsp;exit&nbsp;0
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 176&nbsp;INFO&nbsp;checking&nbsp;window&nbsp;state
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 177&nbsp;INFO&nbsp;Entering&nbsp;test&nbsp;test_add_interesting_window
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+178&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;not&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-
+
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+179&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-
+
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 180&nbsp;INFO&nbsp;Leaving&nbsp;test&nbsp;test_add_interesting_window
+ <br>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 181&nbsp;INFO&nbsp;Entering&nbsp;test&nbsp;test_remove_uninteresting_window
+</div>
+<div>
+ 15:47:47&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+182&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-&nbsp;Got&nbsp;1,&nbsp;expected&nbsp;2
+</div>
+<div>
+ <br>
+</div>
+<div>
+ I wonder if we have some kind of sync message / async message mixup 
+happening here? Do we still have this intermittent failure with my 
+SyncHandler removal patch for bug 1195295?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5f353782dd7c
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Another try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=96875d8c0113
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae">
+ </a>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e9b202c504ae
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; OKAY&nbsp;-&nbsp;LOADING
+ <a href="http://example.com/">
+  EXAMPLE.COM
+ </a>
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;&gt;&nbsp;0!
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Serialized&nbsp;entry:&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; For-loop&nbsp;exited&nbsp;-&nbsp;data.entries.length&nbsp;is:&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;that&nbsp;we&nbsp;had&nbsp;some&nbsp;entries!
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;6
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;205,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;0
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"",
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;490,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;480,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;false
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;6
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;205,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;0
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+TabState.update&nbsp;received&nbsp;id:&nbsp;1&nbsp;and&nbsp;last&nbsp;seen&nbsp;id&nbsp;was:&nbsp;0
+
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Setting&nbsp;last&nbsp;seen&nbsp;ID&nbsp;to&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;2,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;1
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;0,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;true,
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;0
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOCSHELL&nbsp;0x7fb0334d3800&nbsp;==&nbsp;9&nbsp;[pid&nbsp;=&nbsp;2401]&nbsp;[id&nbsp;=&nbsp;12]
+
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;33&nbsp;(0x7fb032408c00)&nbsp;[pid&nbsp;=&nbsp;2401]&nbsp;[serial&nbsp;=&nbsp;33]&nbsp;[outer&nbsp;=&nbsp;(nil)]
+
+ <br>
+ 10:09:04&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;34&nbsp;(0x7fb03342bc00)&nbsp;[pid&nbsp;=&nbsp;2401]&nbsp;[serial&nbsp;=&nbsp;34]&nbsp;[outer&nbsp;=&nbsp;0x7fb032408c00]
+
+ <br>
+ 10:09:05&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 10:09:05&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 10:09:05&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+++DOMWINDOW&nbsp;==&nbsp;35&nbsp;(0x7fb03429ac00)&nbsp;[pid&nbsp;=&nbsp;2401]&nbsp;[serial&nbsp;=&nbsp;35]&nbsp;[outer&nbsp;=&nbsp;0x7fb032408c00]
+
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;onFrameTreeCollected
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;onFrameTreeCollected
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;load&nbsp;of:
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Apparently,
+ <a href="http://example.com/">
+  EXAMPLE.COM
+ </a>
+ has&nbsp;loaded&nbsp;now.
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;&gt;&nbsp;0!
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Serialized&nbsp;entry:&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"url":&nbsp;"
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; For-loop&nbsp;exited&nbsp;-&nbsp;data.entries.length&nbsp;is:&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Saw&nbsp;that&nbsp;we&nbsp;had&nbsp;some&nbsp;entries!
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"pageStyle":&nbsp;null,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"storage":&nbsp;null,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"scroll":&nbsp;null
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;40
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;0,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;1,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"
+ <a href="http://example.com/">
+  http://example.com/
+ </a>
+ ",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"title":&nbsp;"mochitest&nbsp;index&nbsp;/",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"charset":&nbsp;"UTF-8",
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"ID":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docshellID":&nbsp;12,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"docIdentifier":&nbsp;14,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"persist":&nbsp;true
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"pageStyle":&nbsp;null,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"storage":&nbsp;null,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"scroll":&nbsp;null
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;40
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;0,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;2,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;6
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;206,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Parent&nbsp;received&nbsp;SessionStore:update&nbsp;with&nbsp;data:&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;2,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;6
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;206,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+TabState.update&nbsp;received&nbsp;id:&nbsp;2&nbsp;and&nbsp;last&nbsp;seen&nbsp;id&nbsp;was:&nbsp;0
+
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Setting&nbsp;last&nbsp;seen&nbsp;ID&nbsp;to&nbsp;2
+ <br>
+ 10:09:06&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TabState&nbsp;has&nbsp;been&nbsp;flushed!
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Pushing&nbsp;history&nbsp;into&nbsp;the&nbsp;message&nbsp;queue
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; History&nbsp;length&nbsp;==&nbsp;0
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; URI&nbsp;is:&nbsp;about:blank
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Final&nbsp;data&nbsp;being&nbsp;queued&nbsp;to&nbsp;the&nbsp;parent&nbsp;is:&nbsp;{
+
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;"url":&nbsp;"about:blank"
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Sending&nbsp;to&nbsp;parent:&nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"id":&nbsp;3,
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"data":&nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"history":&nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"entries":&nbsp;[
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"url":&nbsp;"about:blank"
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp;}
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;],
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;"index":&nbsp;1
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;}
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"telemetry":&nbsp;{
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp; &nbsp; 
+&nbsp; &nbsp; 
+&nbsp;"FX_SESSION_RESTORE_CONTENT_COLLECT_DATA_LONGEST_OP_MS":&nbsp;9
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;},
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"flushID":&nbsp;207,
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"isFinal":&nbsp;false,
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; &nbsp; &nbsp;"epoch":&nbsp;1
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; }
+ <br>
+ 10:09:07&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TEST-INFO&nbsp;|&nbsp;started&nbsp;process&nbsp;screentopng
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; TEST-INFO&nbsp;|&nbsp;screentopng:&nbsp;exit&nbsp;0
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 176&nbsp;INFO&nbsp;checking&nbsp;window&nbsp;state
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 177&nbsp;INFO&nbsp;Entering&nbsp;test&nbsp;test_add_interesting_window
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+178&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;not&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-
+
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+179&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-
+
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 180&nbsp;INFO&nbsp;Leaving&nbsp;test&nbsp;test_add_interesting_window
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 181&nbsp;INFO&nbsp;Entering&nbsp;test&nbsp;test_remove_uninteresting_window
+ <br>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+182&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/components/sessionstore/test/browser_async_window_flushing.js&nbsp;|&nbsp;We&nbsp;should&nbsp;have&nbsp;added&nbsp;the&nbsp;window&nbsp;to&nbsp;the&nbsp;closed&nbsp;windows&nbsp;array&nbsp;-&nbsp;Got&nbsp;1,&nbsp;expected&nbsp;2
+</div>
+<div>
+ 10:09:10&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Stack&nbsp;trace:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AHHH - I UNDERSTAND!!!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The problem is that the pref I added has the parent ignore messages from the child
+ <b>
+  but the child still thinks the parent got the message
+ </b>
+ . So the parent is getting a message about example.com being loaded, 
+but because it wasn’t triggered by a flush, it’s being chucked out. 
+Subsequent messages don’t include that example.com history information!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Another try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=16d6e5bee4f1">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=16d6e5bee4f1
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Looking good! Up for review!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hooray, landed!
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

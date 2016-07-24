@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1226564 - [e10s] CACHE V2 telemetry probe regressions</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1226564.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201226564%20-%20[e10s]%20CACHE%20V2%20telemetry%20probe%20regressions_files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1226564 - [e10s] CACHE V2 telemetry probe regressions</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564">
+ Bug 1226564 - [e10s] CACHE V2 telemetry probe regressions
+</a>
+<div>
+ <div style="color: rgb(51, 51, 51); padding: 2px 15px 2px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: rgb(192, 219, 255); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(96, 0, 0); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:23:41 PM">
+    4:23 PM
+   </span>
+  </span>
+  <span style="white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style="white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700; white-space: nowrap;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style="white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  mconley: billm: are you taking my analysis in vain? They haven't yet been reviewed...
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:23:55 PM">
+    4:23 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: heya
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:24:19 PM">
+    4:24 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: I’ve just been tasked with driving that bug forward
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:24:27 PM">
+    4:24 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: to make sure we understand what’s going on here
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:24:42 PM">
+    4:24 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: because a regression in network requests is no bueno
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:25:19 PM">
+    4:25 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: the subtests you looked at look positive though - like, assuming “lower is better”, e10s appears to perform better there
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:25:25 PM">
+    4:25 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: am I interpreting that correctly?
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 2px 15px 2px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: rgb(192, 219, 255); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(96, 0, 0); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:25:46 PM">
+    4:25 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700; white-space: nowrap;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  mconley: Yes, but don't treat them as official. Still need an r+, and for that I need a cluster that can access parquet
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:25:57 PM">
+    4:25 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  gotcha
+ </div>
+ <div style="padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: rgb(175, 175, 175); font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:26:07 PM">
+    4:26 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style="color: rgb(34, 34, 34);">
+   ⇐
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/LA-MJ" style="color: rgb(119, 119, 119); text-decoration: none;" title="LA-MJ (kvirc@moz-2s60tn.static.zebra.lt)">
+   LA-MJ
+  </a>
+  quit (
+  <a href="mailto:kvirc@moz-2s60tn.static.zebra.lt">
+   kvirc@moz-2s60tn.static.zebra.lt
+  </a>
+  ) Ping timeout: 121 seconds
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:26:16 PM">
+    4:26 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  chutten: let’s assume that you confirm your analysis and get r+. What does that mean for the bug?
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <div>
+   <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+    <span title="Tuesday, March 08, 2016 4:26:45 PM">
+     4:26&nbsp;PM
+    </span>
+   </span>
+   <span style="left: -999px; top: -999px;">
+   </span>
+   <span style="left: -999px; top: -999px;">
+    &lt;
+   </span>
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+    mconley
+   </a>
+   <span style="left: -999px; top: -999px;">
+    &gt;
+   </span>
+   
+does&nbsp;this&nbsp;mean&nbsp;e10s&nbsp;does&nbsp;not&nbsp;regress&nbsp;the&nbsp;CACHE&nbsp;V2&nbsp;probes?&nbsp;Or&nbsp;only&nbsp;regress&nbsp;some&nbsp;of&nbsp;them?
+
+  </div>
+ </div>
+ <div style="color: rgb(51, 51, 51); background-color: rgb(226, 237, 255); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:26:48 PM">
+    4:26 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" style="color: rgb(34, 34, 34); text-decoration: none; font-weight: 700; white-space: nowrap;" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  Or something else entirely?
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:27:06 PM">
+    4:27&nbsp;PM
+   </span>
+  </span>
+  <span style="left: -999px; top: -999px;">
+  </span>
+  <span style="left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style="left: -999px; top: -999px;">
+   &gt;
+  </span>
+  It&nbsp;regresses&nbsp;the&nbsp;startup&nbsp;cache&nbsp;v2&nbsp;probes
+ </div>
+</div>
+<div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:27:31 PM">
+    4:27 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700; white-space: nowrap;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  This might be due to different meanings of what "startup" means 
+between e10s and non e10s, and it may also be that the probes are just 
+bunk...
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:27:51 PM">
+    4:27 PM
+   </span>
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+  </span>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700; white-space: nowrap;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style=" white-space: pre-wrap; word-wrap: break-word; left: -999px; top: -999px;">
+   &gt;
+  </span>
+  ...or any of the other reasons outlined in the bug.
+ </div>
+ <div style="color: rgb(51, 51, 51); padding: 1px 15px 1px 65px; overflow: hidden; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+  <span style="font-size: 11px; color: rgb(170, 170, 170); text-align: center; vertical-align: top;">
+   <span title="Tuesday, March 08, 2016 4:28:13 PM">
+    4:28&nbsp;PM
+   </span>
+  </span>
+  <span style="left: -999px; top: -999px;">
+  </span>
+  <span style="left: -999px; top: -999px;">
+   &lt;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/chutten" style="color: rgb(29, 64, 255); text-decoration: none; font-weight: 700;" title="chutten (sid582@moz-67vbr4.0j4i.jtu0.0101.2620.IP)">
+   chutten
+  </a>
+  <span style="left: -999px; top: -999px;">
+   &gt;
+  </span>
+  
+But,&nbsp;yes.&nbsp;If&nbsp;necko&nbsp;says&nbsp;that&nbsp;the&nbsp;only&nbsp;ones&nbsp;to&nbsp;watch&nbsp;are&nbsp;the&nbsp;ones&nbsp;in&nbsp;that&nbsp;review,&nbsp;then&nbsp;e10s&nbsp;is&nbsp;looking&nbsp;Vehry&nbsp;Naice.
+
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Here are the list of probes with their descriptions:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  STARTUP_HTTP_CACHE_DISPOSITION_2_V2
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ From mayhemer in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564#c16">
+  Comment 16
+ </a>
+ :
+</div>
+<div>
+ <div>
+  
+"My&nbsp;theory&nbsp;is&nbsp;that&nbsp;the&nbsp;breakpoint&nbsp;we&nbsp;stop&nbsp;measuring&nbsp;STARTUP_&nbsp;and&nbsp;do&nbsp;"normal"&nbsp;capturing&nbsp;is&nbsp;simply&nbsp;in&nbsp;different&nbsp;time&nbsp;on&nbsp;e10s&nbsp;vs&nbsp;non-e10s.&nbsp;
+ 
+It's&nbsp;happening&nbsp;sooner&nbsp;with&nbsp;e10s&nbsp;or&nbsp;less&nbsp;number&nbsp;of&nbsp;requests&nbsp;is&nbsp;happening&nbsp;before&nbsp;that&nbsp;point&nbsp;in&nbsp;e10s.&nbsp;
+ 
+At&nbsp;the&nbsp;start&nbsp;we&nbsp;do&nbsp;OCSP&nbsp;requests&nbsp;that&nbsp;are&nbsp;simply&nbsp;not&nbsp;cached.&nbsp;
+ 
+If&nbsp;there&nbsp;is&nbsp;more&nbsp;rate&nbsp;of&nbsp;OCSPs&nbsp;against&nbsp;normal&nbsp;requests&nbsp;it&nbsp;will&nbsp;show&nbsp;up&nbsp;as&nbsp;a&nbsp;regression.
+
+  <br>
+  <br>
+  I&nbsp;would&nbsp;ignore&nbsp;the&nbsp;regression&nbsp;here."
+  <br>
+  <br>
+ </div>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <hr>
+</div>
+<div>
+ <b>
+  STARTUP_NETWORK_CACHE_V2_HIT_TIME_MS
+ </b>
+</div>
+<div>
+ <b>
+  STARTUP_NETWORK_CACHE_METADATA_FIRST_READ_TIME_MS
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ From mayhemer in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564#c16">
+  Comment 16
+ </a>
+ :
+</div>
+<div>
+ "These&nbsp;are&nbsp;more&nbsp;a&nbsp;mystery&nbsp;for&nbsp;me.&nbsp; 
+Captured&nbsp;only&nbsp;on&nbsp;the&nbsp;parent&nbsp;process,&nbsp;no&nbsp;IPC&nbsp;overhead&nbsp;can&nbsp;cause&nbsp;this.
+</div>
+<div>
+ <br>
+ 
+It&nbsp;might&nbsp;be&nbsp;that&nbsp;we&nbsp;do&nbsp;more&nbsp;I/O&nbsp;with&nbsp;e10s&nbsp;on&nbsp;startup.&nbsp;
+ 
+Also&nbsp;can&nbsp;be&nbsp;the&nbsp;same&nbsp;cause&nbsp;as&nbsp;for&nbsp;STARTUP_HTTP_CACHE_DISPOSITION_2_V2.&nbsp;
+ 
+Simply&nbsp;the&nbsp;time&nbsp;span&nbsp;used&nbsp;for&nbsp;"STARTUP_"&nbsp;capture&nbsp;is&nbsp;different&nbsp;(longer&nbsp;in&nbsp;non-e10s&nbsp;or&nbsp;we&nbsp;do&nbsp;less&nbsp;HTTP&nbsp;requests&nbsp;in&nbsp;e10s).&nbsp;
+ 
+For&nbsp;longer&nbsp;intervals&nbsp;OS&nbsp;preloading&nbsp;may&nbsp;intervene&nbsp;or&nbsp;theoretically&nbsp;entries&nbsp;may&nbsp;be&nbsp;loaded/purged/reused&nbsp;during&nbsp;a&nbsp;longer&nbsp;startup&nbsp;span&nbsp;and&nbsp;that&nbsp;would&nbsp;greatly&nbsp;improve&nbsp;these&nbsp;probes&nbsp;thanks&nbsp;system&nbsp;caching.
+
+ <br>
+ <br>
+ <br>
+ 
+Do&nbsp;we&nbsp;have&nbsp;probes&nbsp;for&nbsp;how&nbsp;many&nbsp;measurements,&nbsp;or&nbsp;HTTP&nbsp;requests&nbsp;directly,&nbsp;we&nbsp;do&nbsp;during&nbsp;the&nbsp;"STARTUP"&nbsp;phase?"
+
+ <br>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <hr>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ <b>
+  HTTP_PAGE_OPEN_TO_FIRST_FROM_CACHE_V2
+ </b>
+</div>
+<div>
+ <b>
+  HTTP_PAGE_COMPLETE_LOAD_CACHED_V2
+ </b>
+</div>
+<div>
+ <b>
+  HTTP_SUB_COMPLETE_LOAD_CACHED_V2
+ </b>
+</div>
+<div>
+ <b>
+  HTTP_SUB_OPEN_TO_FIRST_FROM_CACHE_V2
+ </b>
+</div>
+<div>
+ <b>
+  <br>
+ </b>
+</div>
+<div>
+ From mayhemer in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564#c16">
+  Comment 16
+ </a>
+ :
+</div>
+<div>
+ 
+"I'm&nbsp;afraid&nbsp;we&nbsp;don't&nbsp;correctly&nbsp;carry&nbsp;the&nbsp;"cached"&nbsp;timing&nbsp;values&nbsp;to&nbsp;the&nbsp;child.&nbsp;
+ 
+What&nbsp;we&nbsp;are&nbsp;getting&nbsp;captured&nbsp;here&nbsp;are&nbsp;just&nbsp;few&nbsp;requests&nbsp;made&nbsp;on&nbsp;the&nbsp;parent&nbsp;like
+
+ <a href="https://self-repair.mozilla.org/en-US/repair/">
+  https://self-repair.mozilla.org/en-US/repair/
+ </a>
+ and&nbsp;similar.
+ <br>
+ <br>
+ I&nbsp;think&nbsp;this&nbsp;bug&nbsp;makes&nbsp;the&nbsp;most&nbsp;important&nbsp;probes&nbsp;useless.&nbsp; Filed
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1253379" title="RESOLVED FIXED - Not all timing data are carried to the child process">
+  bug&nbsp;1253379
+ </a>
+ on&nbsp;it."
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <hr>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <b>
+  HTTP_PAGE_COMPLETE_LOAD_NET_V2
+ </b>
+</div>
+<div>
+ <b>
+  HTTP_SUB_COMPLETE_LOAD_NET_V2
+ </b>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ From mayhemer in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564#c16">
+  Comment 16
+ </a>
+ :
+</div>
+<div>
+ "Can&nbsp;we&nbsp;check&nbsp;also&nbsp;HTTP_*_COMPLETE_LOAD_NET_V2&nbsp;probe&nbsp;for&nbsp;regressions?"
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <a href="https://github.com/chutten/e10s_analyses/blob/0d7a789a673f9c825389263764175d502191d9f8/beta45-withoutaddons/e10s_experiment.ipynb">
+ </a>
+ <a href="https://github.com/chutten/e10s_analyses/blob/0d7a789a673f9c825389263764175d502191d9f8/beta45-withoutaddons/e10s_experiment.ipynb">
+  
+https://github.com/chutten/e10s_analyses/blob/0d7a789a673f9c825389263764175d502191d9f8/beta45-withoutaddons/e10s_experiment.ipynb
+
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ e10s looks better here, assuming lower is better.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201226564%20-%20[e10s]%20CACHE%20V2%20telemetry%20probe%20regressions_files/1226564-52C27781-D8B4-4980-8205-9BACE4559767.png" height="455" width="942">
+</div>
+<div>
+ <img src="Bug%201226564%20-%20[e10s]%20CACHE%20V2%20telemetry%20probe%20regressions_files/1226564-54D383B6-CF93-44A5-8E6F-9969EC3C5C01.png" height="455" width="942">
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So now I’m looking at:
+</div>
+<div>
+ <div>
+  <b>
+   STARTUP_NETWORK_CACHE_V2_HIT_TIME_MS
+  </b>
+ </div>
+ <div>
+  <b>
+   STARTUP_NETWORK_CACHE_METADATA_FIRST_READ_TIME_MS
+  </b>
+ </div>
+ <div>
+  <b>
+   <br>
+  </b>
+ </div>
+ <div>
+  From mayhemer in
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1226564#c16">
+   Comment 16
+  </a>
+  :
+ </div>
+ <div>
+  "These&nbsp;are&nbsp;more&nbsp;a&nbsp;mystery&nbsp;for&nbsp;me.&nbsp; 
+Captured&nbsp;only&nbsp;on&nbsp;the&nbsp;parent&nbsp;process,&nbsp;no&nbsp;IPC&nbsp;overhead&nbsp;can&nbsp;cause&nbsp;this.
+
+ </div>
+</div>
+<div>
+ <br>
+ 
+It&nbsp;might&nbsp;be&nbsp;that&nbsp;we&nbsp;do&nbsp;more&nbsp;I/O&nbsp;with&nbsp;e10s&nbsp;on&nbsp;startup.&nbsp;
+ 
+Also&nbsp;can&nbsp;be&nbsp;the&nbsp;same&nbsp;cause&nbsp;as&nbsp;for&nbsp;STARTUP_HTTP_CACHE_DISPOSITION_2_V2.&nbsp;
+ 
+Simply&nbsp;the&nbsp;time&nbsp;span&nbsp;used&nbsp;for&nbsp;"STARTUP_"&nbsp;capture&nbsp;is&nbsp;different&nbsp;(longer&nbsp;in&nbsp;non-e10s&nbsp;or&nbsp;we&nbsp;do&nbsp;less&nbsp;HTTP&nbsp;requests&nbsp;in&nbsp;e10s).&nbsp;
+ 
+For&nbsp;longer&nbsp;intervals&nbsp;OS&nbsp;preloading&nbsp;may&nbsp;intervene&nbsp;or&nbsp;theoretically&nbsp;entries&nbsp;may&nbsp;be&nbsp;loaded/purged/reused&nbsp;during&nbsp;a&nbsp;longer&nbsp;startup&nbsp;span&nbsp;and&nbsp;that&nbsp;would&nbsp;greatly&nbsp;improve&nbsp;these&nbsp;probes&nbsp;thanks&nbsp;system&nbsp;caching.
+
+ <br>
+ <br>
+</div>
+<div>
+ That capture occurs here:
+ <a href="http://searchfox.org/mozilla-central/source/toolkit/components/telemetry/TelemetrySession.jsm#1846">
+ </a>
+ <a href="http://searchfox.org/mozilla-central/source/toolkit/components/telemetry/TelemetrySession.jsm#1846">
+  http://searchfox.org/mozilla-central/source/toolkit/components/telemetry/TelemetrySession.jsm#1846
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <img src="Bug%201226564%20-%20[e10s]%20CACHE%20V2%20telemetry%20probe%20regressions_files/1226564-667A3984-79A0-422A-B32F-C6D2F98FB2A3.png" height="455" width="955">
+</div>
+<div>
+ <img src="Bug%201226564%20-%20[e10s]%20CACHE%20V2%20telemetry%20probe%20regressions_files/1226564-F998D067-5563-4D91-8C58-F78CA1E18348.png" height="455" width="955">
+</div>
+<div>
+ Note the discrepancy in the number of samples for e10s in both cases. 
+&nbsp;There are like… 1/4 of the samples for e10s than with non-e10s. 
+Why?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ What kind of network requests can go out before the&nbsp;sessionstore-windows-restored notification is fired?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  
+So&nbsp;mayhemer's&nbsp;theory&nbsp;here&nbsp;is&nbsp;that&nbsp;STARTUP_NETWORK_CACHE_V2_HIT_TIME_MS&nbsp;and&nbsp;STARTUP_NETWORK_CACHE_METADATA_FIRST_READ_TIME_MS&nbsp;seem&nbsp;worse&nbsp;due&nbsp;to&nbsp;the&nbsp;fact&nbsp;that&nbsp;the&nbsp;parent&nbsp;is&nbsp;doing&nbsp;fewer&nbsp;network&nbsp;requests&nbsp;up&nbsp;until&nbsp;the&nbsp;sessionstore-windows-restored&nbsp;observer&nbsp;notification&nbsp;is&nbsp;fired&nbsp;(this&nbsp;is&nbsp;what&nbsp;is&nbsp;used&nbsp;to&nbsp;snapshot&nbsp;the&nbsp;histograms&nbsp;and&nbsp;prefix&nbsp;with&nbsp;STARTUP_&nbsp;at
+
+  <a href="http://dxr.mozilla.org/mozilla-central/source/toolkit/components/telemetry/TelemetrySession.jsm#1846">
+   http://dxr.mozilla.org/mozilla-central/source/toolkit/components/telemetry/TelemetrySession.jsm#1846
+  </a>
+  ).
+  <br>
+  <br>
+  
+The&nbsp;idea&nbsp;here&nbsp;is&nbsp;that&nbsp;the&nbsp;reads&nbsp;off&nbsp;of&nbsp;the&nbsp;disk&nbsp;for&nbsp;the&nbsp;cache&nbsp;become&nbsp;faster&nbsp;as&nbsp;more&nbsp;lookups&nbsp;occur&nbsp;because&nbsp;the&nbsp;OS&nbsp;is&nbsp;optimizing&nbsp;for&nbsp;the&nbsp;disk&nbsp;accesses.&nbsp;This&nbsp;means&nbsp;that&nbsp;the&nbsp;more&nbsp;requests&nbsp;there&nbsp;are,&nbsp;the&nbsp;more&nbsp;accesses&nbsp;will&nbsp;report&nbsp;as&nbsp;cheap.
+
+  <br>
+  <br>
+  
+The&nbsp;idea&nbsp;that&nbsp;there&nbsp;are&nbsp;fewer&nbsp;requests&nbsp;is&nbsp;bolstered&nbsp;by&nbsp;the&nbsp;fact&nbsp;that&nbsp;there&nbsp;are&nbsp;fewer&nbsp;samples&nbsp;for&nbsp;these&nbsp;two&nbsp;probes&nbsp;in&nbsp;the&nbsp;e10s&nbsp;case.&nbsp;It's&nbsp;roughly&nbsp;25%&nbsp;of&nbsp;the&nbsp;samples&nbsp;gathered&nbsp;for&nbsp;the&nbsp;e10s&nbsp;case.
+
+  <br>
+  <br>
+  
+It&nbsp;seems&nbsp;to&nbsp;be&nbsp;more&nbsp;rare&nbsp;for&nbsp;there&nbsp;to&nbsp;be&nbsp;any&nbsp;histograms&nbsp;captured&nbsp;for&nbsp;either&nbsp;of&nbsp;these&nbsp;probes&nbsp;with&nbsp;e10s&nbsp;enabled&nbsp;than&nbsp;with&nbsp;non-e10s.&nbsp;In&nbsp;fact,&nbsp;in&nbsp;the&nbsp;e10s&nbsp;case&nbsp;on&nbsp;my&nbsp;Windows&nbsp;machine,&nbsp;I&nbsp;can&nbsp;only&nbsp;get&nbsp;the&nbsp;probes&nbsp;to&nbsp;appear&nbsp;if&nbsp;the&nbsp;OS&nbsp;has&nbsp;just&nbsp;started&nbsp;up&nbsp;(so&nbsp;the&nbsp;file&nbsp;access&nbsp;optimizations&nbsp;from&nbsp;the&nbsp;OS&nbsp;haven't&nbsp;been&nbsp;invoked&nbsp;yet).
+
+  <br>
+  <br>
+  
+So&nbsp;that's&nbsp;my&nbsp;explanation&nbsp;for&nbsp;the&nbsp;shape&nbsp;of&nbsp;the&nbsp;curve&nbsp;here&nbsp;for&nbsp;those&nbsp;two&nbsp;probes.&nbsp;I'm&nbsp;not&nbsp;sure&nbsp;there's&nbsp;much&nbsp;else&nbsp;to&nbsp;do&nbsp;here.&nbsp;I'm&nbsp;closing&nbsp;this&nbsp;one&nbsp;out.
+
+  <br>
+ </div>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>

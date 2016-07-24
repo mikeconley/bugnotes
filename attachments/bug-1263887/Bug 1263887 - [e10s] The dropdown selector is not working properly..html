@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bug 1263887 - [e10s] The dropdown selector is not working properly.</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="description" content="A place where I publish my raw, unedited notes on completed bugs.">
+    <link rel="canonical" href="http://people.mozilla.org/%7Emconley2/bugnotes/bug-1263887.html">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="Bug%201263887%20-%20[e10s]%20The%20dropdown%20selector%20is%20not%20working%20properly._files/main.css">
+
+</head>
+
+
+    <body>
+
+    <header class="site-header">
+
+  <div class="wrap">
+
+    <a class="site-title" href="http://localhost:4000/">Mike Conley's Bug Notes</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 18 15" enable-background="new 0 0 18 15" xml:space="preserve">
+          <path fill="#505050" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0
+            h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+          <path fill="#505050" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484
+            h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+          <path fill="#505050" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0
+            c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+        </svg>
+      </a>
+      <div class="trigger">
+        
+          <a class="page-link" href="http://localhost:4000/about/">About</a>
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrap">
+      <div class="post">
+
+  <header class="post-header">
+    <h1>Bug 1263887 - [e10s] The dropdown selector is not working properly.</h1>
+    <p class="meta">Jul 24, 2016</p>
+  </header>
+
+  <article class="post-content">
+  <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1263887">
+ Bug 1263887 - [e10s] The dropdown selector is not working properly.
+</a>
+<div>
+ Let’s try to see what’s happening here.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Hypothesis: The &lt;option&gt; list is changing AFTER the popup has 
+opened. Non-e10s has the ability to react to such mutations, whereas 
+e10s does not.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Test: Attach a mutation listener to the &lt;select&gt; and have it 
+dump. Have SelectContentHelper dump when it’s sending the list to the 
+parent. See if the one comes after the other.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <div>
+  <a href="http://fashionchoice.bg/?product=efekten-maksi-zhaket-za-proletta-s-dzhobcheta-v-chetiri-tsvyata">
+   http://fashionchoice.bg/?product=efekten-maksi-zhaket-za-proletta-s-dzhobcheta-v-chetiri-tsvyata
+  </a>
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Results:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ CORRECT!
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So I think we want to hear about mutations, and then update the parent with updates.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ This appears to work, but there’s a complication - we can’t just clear 
+out the menupopup and repopulate it, because when a frame is destroyed 
+within a menupopup, something is queued that removes the _moz-menuactive
+ attribute from the menuitem which removes the selection highlighting, 
+which looks bad.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Ah, okay, I think I’ve found a workaround.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ If I call:
+</div>
+<div>
+ <br>
+</div>
+<div style="-en-codeblock: true; box-sizing: border-box; padding: 8px; font-family: Monaco, Menlo, Consolas, &quot;Courier New&quot;, monospace; font-size: 12px; color: rgb(51, 51, 51); border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; background-color: rgb(251, 250, 248); border: 1px solid rgba(0, 0, 0, 0.14902); background-position: initial initial; background-repeat: initial initial;">
+ <div>
+  menulist.menuBoxObject.activeChild = item;
+ </div>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Just after I select the selected item, then the&nbsp;nsMenuActivateEvent will fire (again).
+</div>
+<div>
+ <br>
+</div>
+<div>
+ AAAAND backed out. Here’s the issue:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 101&nbsp;INFO&nbsp;Entering&nbsp;test&nbsp;bound
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+102&nbsp;INFO&nbsp;TEST-PASS&nbsp;|&nbsp;browser/base/content/test/plugins/browser_CTP_crashreporting.js&nbsp;|&nbsp;Plugin&nbsp;should&nbsp;not&nbsp;be&nbsp;activated&nbsp;-
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+103&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;browser/base/content/test/plugins/browser_CTP_crashreporting.js&nbsp;|&nbsp;uncaught&nbsp;exception&nbsp;-&nbsp;TypeError:&nbsp;this.menuBoxObject&nbsp;is&nbsp;undefined&nbsp;at&nbsp;set_selectedItem@chrome://global/content/bindings/menulist.xml:257:13
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; set_value@chrome://global/content/bindings/menulist.xml:111:15
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+plugin-popupnotification-center-item_XBL_Constructor@chrome://browser/content/urlbarBindings.xml:1856:9
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+PopupNotifications_showPanel/promise&lt;@resource://gre/modules/PopupNotifications.jsm:747:1
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:937:23
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:816:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:747:11
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:779:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:714:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; receiveMessage@resource://testing-common/ContentTask.jsm:113:9
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Stack&nbsp;trace:
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:simpletestOnerror:1563
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+resource://gre/modules/PopupNotifications.jsm:PopupNotifications_showPanel/promise&lt;:747
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:Handler.prototype.process:937
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:this.PromiseWalker.walkerLoop:816
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+JavaScript&nbsp;error:&nbsp;chrome://global/content/bindings/menulist.xml,&nbsp;line&nbsp;257:&nbsp;TypeError:&nbsp;this.menuBoxObject&nbsp;is&nbsp;undefined
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+104&nbsp;INFO&nbsp;Console&nbsp;message:&nbsp;[JavaScript&nbsp;Error:&nbsp;"TypeError:&nbsp;this.menuBoxObject&nbsp;is&nbsp;undefined"&nbsp;{file:&nbsp;"chrome://global/content/bindings/menulist.xml"&nbsp;line:&nbsp;257}]
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; set_selectedItem@chrome://global/content/bindings/menulist.xml:257:13
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; set_value@chrome://global/content/bindings/menulist.xml:111:15
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+plugin-popupnotification-center-item_XBL_Constructor@chrome://browser/content/urlbarBindings.xml:1856:9
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+PopupNotifications_showPanel/promise&lt;@resource://gre/modules/PopupNotifications.jsm:747:1
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Handler.prototype.process@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:937:23
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:816:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:747:11
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:779:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; 
+this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm&nbsp;-&gt;&nbsp;resource://gre/modules/Promise-backend.js:714:7
+
+ <br>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; receiveMessage@resource://testing-common/ContentTask.jsm:113:9
+</div>
+<div>
+ 14:54:33&nbsp; &nbsp; &nbsp;INFO&nbsp;-&nbsp; Xlib:&nbsp; extension&nbsp;"RANDR"&nbsp;missing&nbsp;on&nbsp;display&nbsp;":0".
+</div>
+<div>
+ <br>
+</div>
+<div>
+ FUCK. Fuck fuck fuck. The menulist.xml change I made is causing this test failure:
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+26&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul&nbsp;|&nbsp;addItemToSelection(1):&nbsp;getSelectedChildren:&nbsp;wrong&nbsp;selected&nbsp;children&nbsp;count&nbsp;for&nbsp;['menupopup&nbsp;node',&nbsp;address:&nbsp;[object&nbsp;XULElement],&nbsp;role:&nbsp;combobox&nbsp;list,&nbsp;name:&nbsp;'item2',&nbsp;address:&nbsp;[xpconnect&nbsp;wrapped&nbsp;(nsISupports,&nbsp;nsIAccessible,&nbsp;nsIAccessibleSelectable)]]&nbsp;-&nbsp;got&nbsp;+0,&nbsp;expected&nbsp;1
+
+ <br>
+ SimpleTest.is@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:268:5
+ <br>
+ testSelectableSelection@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable.js:19:3
+ <br>
+ doTest/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:47:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ doTest@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:46:7
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ addA11yLoadEvent/waitForDocLoad/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:169:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ waitForDocLoad@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:159:5
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:741:59
+</div>
+<div>
+ <br>
+</div>
+<div>
+ 
+27&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul&nbsp;|&nbsp;Can't&nbsp;get&nbsp;accessible&nbsp;for&nbsp;
+ 'cb1_item2'
+ <br>
+ getAccessible@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:276:9
+ <br>
+ testSelectableSelection@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable.js:24:23
+ <br>
+ doTest/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:47:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ doTest@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:46:7
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ addA11yLoadEvent/waitForDocLoad/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:169:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ waitForDocLoad@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:159:5
+ <br>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:741:59
+ <br>
+ 
+28&nbsp;INFO&nbsp;TEST-UNEXPECTED-FAIL&nbsp;|&nbsp;chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul&nbsp;|&nbsp;uncaught&nbsp;exception&nbsp;-&nbsp;TypeError:&nbsp;selectedChildren&nbsp;is&nbsp;null&nbsp;at&nbsp;testSelectableSelection@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable.js:25:9
+
+ <br>
+ doTest/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:47:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ doTest@chrome://mochitests/content/a11y/accessible/tests/mochitest/selectable/test_menulist.xul:46:7
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ addA11yLoadEvent/waitForDocLoad/&lt;@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:169:9
+ <br>
+ setTimeout&nbsp;handler*SimpleTest_setTimeoutShim@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:622:12
+ <br>
+ waitForDocLoad@chrome://mochitests/content/a11y/accessible/tests/mochitest/common.js:159:5
+</div>
+<div>
+ SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:741:59
+</div>
+<div>
+ <br>
+</div>
+<div>
+ For some reason, I can’t get at the “accessible” here. Why? WHY WHY WHY WHY???
+</div>
+<div>
+ <br>
+</div>
+<div>
+ And strangely, it seems like if I just attempt to get at the activeChild (I don’t even need to set it)
+</div>
+<div>
+ <br>
+</div>
+<div>
+ GAH
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <span style="font-style: normal; font-variant: normal; font-weight: normal; line-height: normal;">
+  <span style="font-size: 11px;">
+   <span style="font-family: Menlo;">
+    * thread #1: tid = 0xa3cf6a, 0x000000010833e158 
+XUL`mozilla::a11y::DocAccessible::BindToDocument(this=0x0000000121cd3bc0,
+ aAccessible=0x0000000121c9dd00, aRoleMapEntry=0x0000000000000000) + 24 
+at DocAccessible.cpp:1255, queue = 'com.apple.main-thread', stop reason =
+ breakpoint 6.1
+    <br>
+    frame #0: 0x000000010833e158 
+XUL`mozilla::a11y::DocAccessible::BindToDocument(this=0x0000000121cd3bc0,
+ aAccessible=0x0000000121c9dd00, aRoleMapEntry=0x0000000000000000) + 24 
+at DocAccessible.cpp:1255
+    <br>
+    frame #1: 0x000000010830cb0e 
+XUL`nsAccessibilityService::CreateAccessible(this=0x00000001240b6460, 
+aNode=0x000000012648ab80, aContext=0x00000001267ac780, 
+aIsSubtreeHidden=0x00007fff5fbfb2af) + 5214 at 
+nsAccessibilityService.cpp:1284
+    <br>
+    frame #2: 0x000000010830b278 
+XUL`mozilla::a11y::TreeWalker::AccessibleFor(this=0x00007fff5fbfb418, 
+aNode=0x000000012648ab80, aFlags=0, aSkipSubtree=0x00007fff5fbfb2af) + 
+264 at TreeWalker.cpp:295
+    <br>
+    frame #3: 0x000000010830af7e 
+XUL`mozilla::a11y::TreeWalker::Next(this=0x00007fff5fbfb418, 
+aStopNode=0x000000012648adc0) + 494 at TreeWalker.cpp:148
+    <br>
+    frame #4: 0x000000010833f657 XUL`InsertIterator::Next(this=0x00007fff5fbfb408) + 663 at DocAccessible.cpp:1731
+    <br>
+    * frame #5: 0x000000010833f741 
+XUL`mozilla::a11y::DocAccessible::ProcessContentInserted(this=0x0000000121cd3bc0,
+ aContainer=0x00000001267ac780, aNodes=0x0000000128732f88) + 161 at 
+DocAccessible.cpp:1756
+    <br>
+    frame #6: 0x00000001082f4ea1 
+XUL`mozilla::a11y::NotificationController::WillRefresh(this=0x0000000123e1d800,
+ aTime=(mValue = 993637834003943)) + 817 at 
+NotificationController.cpp:233
+    <br>
+    frame #7: 0x000000010793c391 
+XUL`nsRefreshDriver::Tick(this=0x0000000128343800, 
+aNowEpoch=1461598038664384, aNowTime=(mValue = 993637834003943)) + 1217 
+at nsRefreshDriver.cpp:1698
+    <br>
+    frame #8: 0x0000000107942af8 
+XUL`mozilla::RefreshDriverTimer::TickDriver(driver=0x0000000128343800, 
+jsnow=1461598038664384, now=(mValue = 993637834003943)) + 136 at 
+nsRefreshDriver.cpp:274
+    <br>
+    frame #9: 0x00000001079429ba 
+XUL`mozilla::RefreshDriverTimer::TickRefreshDrivers(this=0x000000012c74d560,
+ aJsNow=1461598038664384, aNow=(mValue = 993637834003943), 
+aDrivers=0x000000012c74d580) + 186 at nsRefreshDriver.cpp:246
+    <br>
+    frame #10: 0x0000000107942859 
+XUL`mozilla::RefreshDriverTimer::Tick(this=0x000000012c74d560, 
+jsnow=1461598038664384, now=(mValue = 993637834003943)) + 249 at 
+nsRefreshDriver.cpp:264
+    <br>
+    frame #11: 0x000000010794484d 
+XUL`mozilla::VsyncRefreshDriverTimer::RunRefreshDrivers(this=0x000000012c74d560,
+ aTimeStamp=(mValue = 993637834003943)) + 125 at nsRefreshDriver.cpp:588
+    <br>
+    frame #12: 0x0000000107943dd9 
+XUL`mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver::TickRefreshDriver(this=0x000000012c6c4b80,
+ aVsyncTimestamp=(mValue = 993637834003943)) + 361 at 
+nsRefreshDriver.cpp:508
+    <br>
+    frame #13: 0x0000000107944424 XUL`decltype(o=0x000000012c6c4b80, 
+m=0x0000000107943c70, args=0x0000000123a205f0, 
+(null)=IndexSequence&lt;0&gt; @ 
+0x00007fff5fbfc5b8).*fp0(mozilla::Get&lt;0ul&gt;(fp1).PassAsParameter()))
+ 
+nsRunnableMethodArguments&lt;mozilla::TimeStamp&gt;::applyImpl&lt;mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver,
+ void 
+(mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver::*)(mozilla::TimeStamp),
+ StoreCopyPassByValue&lt;mozilla::TimeStamp&gt;, 
+0ul&gt;(mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver*, 
+void 
+(mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver::*)(mozilla::TimeStamp),
+ mozilla::Tuple&lt;StoreCopyPassByValue&lt;mozilla::TimeStamp&gt; 
+&gt;&amp;, mozilla::IndexSequence&lt;0ul&gt;) + 164 at 
+nsThreadUtils.h:671
+    <br>
+    frame #14: 0x0000000107944359 
+XUL`_ZN25nsRunnableMethodArgumentsIJN7mozilla9TimeStampEEE5applyINS0_23VsyncRefreshDriverTimer26RefreshDriverVsyncObserverEMS5_FvS1_EEEDTcl9applyImplfp_fp0_dtdefpT10mArgumentscvNS0_13IndexSequenceIJLm0EEEE_EEEPT_T0_(this=0x0000000123a205f0,
+ o=0x000000012c6c4b80, m=0x0000000107943c70) + 73 at nsThreadUtils.h:677
+    <br>
+    frame #15: 0x0000000107943ff6 XUL`nsRunnableMethodImpl&lt;void 
+(mozilla::VsyncRefreshDriverTimer::RefreshDriverVsyncObserver::*)(mozilla::TimeStamp),
+ true, mozilla::TimeStamp&gt;::Run(this=0x0000000123a205c0) + 134 at 
+nsThreadUtils.h:705
+    <br>
+    frame #16: 0x000000010321f391 
+XUL`nsThread::ProcessNextEvent(this=0x0000000102921100, aMayWait=false, 
+aResult=0x00007fff5fbfc883) + 2001 at nsThread.cpp:994
+    <br>
+    frame #17: 0x00000001032a6a37 
+XUL`NS_ProcessPendingEvents(aThread=0x0000000102921100, aTimeout=10) + 
+151 at nsThreadUtils.cpp:232
+    <br>
+    frame #18: 0x00000001074f2936 
+XUL`nsBaseAppShell::NativeEventCallback(this=0x000000011ed22f70) + 198 
+at nsBaseAppShell.cpp:97
+    <br>
+    frame #19: 0x000000010758c235 XUL`nsAppShell::ProcessGeckoEvents(aInfo=0x000000011ed22f70) + 501 at
+    <a href="http://nsappshell.mm:387/">
+     nsAppShell.mm:387
+    </a>
+    <br>
+    frame #20: 0x00007fff8f96ca01 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17
+    <br>
+    frame #21: 0x00007fff8f95eb8d CoreFoundation`__CFRunLoopDoSources0 + 269
+    <br>
+    frame #22: 0x00007fff8f95e1bf CoreFoundation`__CFRunLoopRun + 927
+    <br>
+    frame #23: 0x00007fff8f95dbd8 CoreFoundation`CFRunLoopRunSpecific + 296
+    <br>
+    frame #24: 0x00007fff87b5c56f HIToolbox`RunCurrentEventLoopInMode + 235
+    <br>
+    frame #25: 0x00007fff87b5c1ee HIToolbox`ReceiveNextEventCommon + 179
+    <br>
+    frame #26: 0x00007fff87b5c12b HIToolbox`_BlockUntilNextEventMatchingListInModeWithFilter + 71
+    <br>
+    frame #27: 0x00007fff91a798ab AppKit`_DPSNextEvent + 978
+    <br>
+    frame #28: 0x00007fff91a78e58 AppKit`-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:] + 346
+    <br>
+    frame #29: 0x000000010758acf7 XUL`-[GeckoNSApplication 
+nextEventMatchingMask:untilDate:inMode:dequeue:](self=0x0000000102939e90,
+ _cmd="nextEventMatchingMask:untilDate:inMode:dequeue:", 
+mask=18446744073709551615, expiration=4001-01-01 00:00:00 UTC, 
+mode=@"kCFRunLoopDefaultMode", flag=YES) + 119 at
+    <a href="http://nsappshell.mm:121/">
+     nsAppShell.mm:121
+    </a>
+    <br>
+    frame #30: 0x00007fff91a6eaf3 AppKit`-[NSApplication run] + 594
+    <br>
+    frame #31: 0x000000010758cc1c XUL`nsAppShell::Run(this=0x000000011ed22f70) + 172 at
+    <a href="http://nsappshell.mm:661/">
+     nsAppShell.mm:661
+    </a>
+    <br>
+    frame #32: 0x000000010873c0e1 XUL`nsAppStartup::Run(this=0x0000000121a51380) + 161 at nsAppStartup.cpp:284
+    <br>
+    frame #33: 0x00000001087f4a0e XUL`XREMain::XRE_mainRun(this=0x00007fff5fbfe880) + 6206 at nsAppRunner.cpp:4347
+    <br>
+    frame #34: 0x00000001087f5936 
+XUL`XREMain::XRE_main(this=0x00007fff5fbfe880, argc=5, 
+argv=0x00007fff5fbff1a8, aAppData=0x00007fff5fbfeb08) + 1414 at 
+nsAppRunner.cpp:4451
+    <br>
+    frame #35: 0x00000001087f5e27 XUL`::XRE_main(argc=5, 
+argv=0x00007fff5fbff1a8, aAppData=0x00007fff5fbfeb08, aFlags=0) + 103 at
+ nsAppRunner.cpp:4559
+    <br>
+    frame #36: 0x0000000100002851 firefox`do_main(argc=5, 
+argv=0x00007fff5fbff1a8, envp=0x00007fff5fbff1d8, 
+xreDirectory=0x0000000102913340) + 2017 at nsBrowserApp.cpp:220
+    <br>
+    frame #37: 0x0000000100001b8e firefox`main(argc=5, 
+argv=0x00007fff5fbff1a8, envp=0x00007fff5fbff1d8) + 302 at 
+nsBrowserApp.cpp:360
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   frame #38: 0x0000000100001604 firefox`start + 52
+  </span>
+ </span>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ So it looks like there’s some kind of deferred “binding” or something 
+in DocAccessible::BindToDocument that makes the menuitem that’s in the 
+menulist expose its accessibility interface… and that’s occurring 
+_after_ the test has finished, on the next tick of the refresh driver, 
+it looks like.
+</div>
+<div>
+ <br>
+</div>
+<div>
+ Looks like this is doing it:
+ <a href="https://hg.mozilla.org/mozilla-central/file/10f66b316457/layout/xul/BoxObject.cpp#l120">
+ </a>
+ <a href="https://hg.mozilla.org/mozilla-central/file/10f66b316457/layout/xul/BoxObject.cpp#l120">
+  https://hg.mozilla.org/mozilla-central/file/10f66b316457/layout/xul/BoxObject.cpp#l120
+ </a>
+</div>
+<div>
+ <br>
+</div>
+<div>
+ The FlushPendingNotifications seems to… I dunno, unbind things?
+</div>
+<div>
+ <br>
+</div>
+<div>
+ <br>
+</div>
+
+  </article>
+
+</div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrap">
+
+    <h2 class="footer-heading">Mike Conley's Bug Notes</h2>
+
+    <div class="footer-col-1 column">
+      <ul>
+        <li>Mike Conley's Bug Notes</li>
+        <li><a href="mailto:mconley@mozilla.com">mconley@mozilla.com</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col-2 column">
+      <ul>
+        <li>
+          <a href="https://github.com/mikeconley">
+            <span class="icon github">
+              <svg version="1.1" class="github-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill-rule="evenodd" clip-rule="evenodd" fill="#C2C2C2" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761
+                c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32
+                c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472
+                c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037
+                C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65
+                c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261
+                c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082
+                c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129
+                c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"></path>
+              </svg>
+            </span>
+            <span class="username">mikeconley</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://twitter.com/mike_conley">
+            <span class="icon twitter">
+              <svg version="1.1" class="twitter-icon-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 16 16" enable-background="new 0 0 16 16" xml:space="preserve">
+                <path fill="#C2C2C2" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27
+                c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767
+                c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206
+                C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271
+                c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469
+                c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"></path>
+              </svg>
+            </span>
+            <span class="username">mike_conley</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="footer-col-3 column">
+      <p class="text">A place where I publish my raw, unedited notes on completed bugs.</p>
+    </div>
+
+  </div>
+
+</footer>
+
+
+    
+</body></html>
