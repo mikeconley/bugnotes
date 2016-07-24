@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-09-15 15:48:03 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1199434"/><meta name="updated" content="2015-09-16 20:30:37 +0000"/><title>Bug 1199434 - [e10s] Print preview doesn't show alert if printer was't found.</title></head><body>
+<div>So the way things currently are, if the print engine detects an error in any number of places, it'll call nsPrintEngine::ShowPrintErrorDialog passing in an nsresult, which gets converted into a string and then a dialog is opened showing that string.</div>
+<div><br/></div>
+<div>In the content process, we can't open dialogs.</div>
+<div><br/></div>
+<div>This printing stuff still needs to work in the other XUL apps though, like Thunderbird and SeaMonkey, where they don't need to worry about multiple processes.</div>
+<div><br/></div>
+<div>So what do we do about these error dialogs?</div>
+<div><br/></div>
+<div>Assuming we want to keep them, they'll need to be opened in the parent process.</div>
+<div><br/></div>
+<div>Is it possible to make it so that printUtils is responsible for showing the error dialogs?</div>
+<div><br/></div>
+<div>One idea is to have nsPrintEngine send a message to the global message manager, and then the parent (or the in-process parent) picks it up in printUtils.js to display the error.</div>
+<div><br/></div>
+<div>I think I'll go that route if I can.</div>
+<div><br/></div>
+<div>Ok, I have a patch up, and it seems to work… I'd like to test it with each error message type, if I can… also, I should do a try build to make sure it actually solves the problem originally reported.</div>
+<div><br/></div>
+<div>Alrighty - patch written. Pretty happy with it. I think it makes a lot more sense to have PrintUtils be responsible for alerting about errors in printing, etc.</div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

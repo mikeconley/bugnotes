@@ -1,0 +1,189 @@
+---
+layout: post
+title:  "Bug 1217190 - Printing is broken with e10s on OS X since a43f6bb86588"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1217190">
+ Bug 1217190 - Printing is broken with e10s on OS X since a43f6bb86588
+</a>
+<div>
+ MOZ_IPC_MESSAGE_LOG=1
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=beb26954e340">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=beb26954e340
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ INTERESTING. Disabling nsPrintingProxy::ShowProgress, somehow, miraculously, fixes it. What the flying hell?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Welp, let’s switch over to nsresult from status and see if that helps.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… nope. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay. Now logging.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1486659d76c">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b1486659d76c
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, one possible workaround is to set print.show_print_progress to false. Let’s see if ehsan can confirm.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes! He can! Okay, I think we’re narrowing in. Let’s add some logging and see what we get.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=51a63253e605">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=51a63253e605
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AHHHH - an unitialized bool. GOT YOU. I THINK.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=eb81717eae79">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=eb81717eae79
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ DAMN IT. Ehsan broke my heart. We initialize that boolean at the start of ShowPrintProgress. SON OF A BITCH.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=de434d6f9558">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=de434d6f9558
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fixed (with logging):
+ <a href="http://archive.mozilla.org/pub/firefox/try-builds/mconley@mozilla.com-450e58788309a2aad381a027579c29f1384bc95e/try-macosx64/">
+  http://archive.mozilla.org/pub/firefox/try-builds/mconley@mozilla.com-450e58788309a2aa
+ </a>
+ <a href="http://archive.mozilla.org/pub/firefox/try-builds/mconley@mozilla.com-450e58788309a2aad381a027579c29f1384bc95e/try-macosx64/">
+  d381a027579c29f1384bc95e/try-macosx64/
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Busted? (with logging):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cdc54b1942e4">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=cdc54b1942e4
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Working:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f447bdb63192">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f447bdb63192
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Not working:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e2d5d9368595">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e2d5d9368595
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GAHHHHH. FIGURED IT OUT. Ehsan showed me the light.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is a sad tale, where the main character is my flawed mental model of how outparams work over IPC.
+ <br/>
+ <br/>
+ I had assumed that if you passed an outparam over IPC initialized to some value, and the receiver didn't touch it, that the outparam would still have the same value when the message had returned.
+ <br/>
+ <br/>
+ This is NOT the case.
+ <br/>
+ <br/>
+</div>
+<div>
+ The generated IPC code on the receiver side will pass uninitialized memory to the receiving method, and then if the receiver doesn't touch it, that uninitialized memory will be passed back to the sender as the value, overwriting the initialized value that the outparam had been originally set to.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1220168">
+  Filed bug 1220168 about that.
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ File bug about adding canary bits to uninitialized memory when passing outparams to message receivers -
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1220168">
+  done.
+ </a>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Make uplift requests
+ <br/>
+</div>

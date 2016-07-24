@@ -1,0 +1,528 @@
+---
+layout: post
+title:  "Bug 1106321 - Printing Page Setup Settings Disobeyed Under e10s"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1106321">
+ Bug 1106321 - Printing Page Setup Settings Disobeyed Under e10s
+</a>
+<div>
+ Looks like Black and White and a few other settings aren't being serialized correctly.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that the DEVMODE that's created on the parent side isn't being fully serialized. We used to be able to get away with that, because the DEVMODE was still stored and used to communicate to the OS / printer driver. Because we're serializing and using the DEVMODE in the child, we can't really get away with that. We
+ <i>
+  have
+ </i>
+ to serialize the things in the DEVMODE.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Looks like there are already two nsIPrintSettings &lt;-&gt; DEVMODE methods already. Those are:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ DEVMODE -&gt; nsIPrintSettings
+</div>
+<div>
+ nsDeviceContextSpecWin::SetPrintSettingsFromDevMode
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ and
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ static SetupDevModeFromSettings
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So it looks like DEVMODE's are shared between printer drivers and like… display drivers or something.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I only care about members that printers use on this struct. What are they?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/dd183565%28v=vs.85%29.aspx">
+  https://msdn.microsoft.com/en-us/library/windows/desktop/dd183565%28v=vs.85%29.aspx
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="color:Blue;">
+  typedef
+ </span>
+ <span style="color:Blue;">
+  struct
+ </span>
+ _devicemode {
+ <br/>
+ TCHAR dmDeviceName[CCHDEVICENAME];
+ <br/>
+ WORD  dmSpecVersion;
+ <br/>
+ WORD  dmDriverVersion;
+ <br/>
+ WORD  dmSize;
+ <br/>
+ WORD  dmDriverExtra;
+ <br/>
+ DWORD dmFields;
+ <br/>
+ <span style="color:Blue;">
+  union
+ </span>
+ {
+ <br/>
+ <span style="color:Blue;">
+  struct
+ </span>
+ {
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmOrientation;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmPaperSize;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmPaperLength;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmPaperWidth;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmScale;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmCopies;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmDefaultSource;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmPrintQuality;
+ <br/>
+ };
+ <br/>
+ <span style="color:Blue;">
+  struct
+ </span>
+ {
+ <br/>
+ POINTL dmPosition;
+ <br/>
+ DWORD  dmDisplayOrientation;
+ <br/>
+ DWORD  dmDisplayFixedOutput;
+ <br/>
+ };
+ <br/>
+ };
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmColor;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmDuplex;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmYResolution;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmTTOption;
+ <br/>
+ <span style="color:Blue;">
+  short
+ </span>
+ dmCollate;
+ <br/>
+ TCHAR dmFormName[CCHFORMNAME];
+ <br/>
+ WORD  dmLogPixels;
+ <br/>
+ DWORD dmBitsPerPel;
+ <br/>
+ DWORD dmPelsWidth;
+ <br/>
+ DWORD dmPelsHeight;
+ <br/>
+ <span style="color:Blue;">
+  union
+ </span>
+ {
+ <br/>
+ DWORD dmDisplayFlags;
+ <br/>
+ DWORD dmNup;
+ <br/>
+ };
+ <br/>
+ DWORD dmDisplayFrequency;
+ <br/>
+ #
+ <span style="color:Blue;">
+  if
+ </span>
+ (WINVER &gt;= 0x0400)
+ <br/>
+ DWORD dmICMMethod;
+ <br/>
+ DWORD dmICMIntent;
+ <br/>
+ DWORD dmMediaType;
+ <br/>
+ DWORD dmDitherType;
+ <br/>
+ DWORD dmReserved1;
+ <br/>
+ DWORD dmReserved2;
+ <br/>
+ #
+ <span style="color:Blue;">
+  if
+ </span>
+ (WINVER &gt;= 0x0500) || (_WIN32_WINNT &gt;= 0x0400)
+ <br/>
+ DWORD dmPanningWidth;
+ <br/>
+ DWORD dmPanningHeight;
+ <br/>
+ #endif
+ <br/>
+ #endif
+ <br/>
+ } DEVMODE, *PDEVMODE, *LPDEVMODE;
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… dmDriverExtra sounds interesting. I guess it's possible that a printer driver might jam some extra data after the struct? Sheeeit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, uh, I guess I just need to add something to PrintData to carry those bytes? Yeah, probably.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:55:26 PM">
+   2:55 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: oh, I see. we save a copy of the devmode here:
+  <a href="http://mxr.mozilla.org/mozilla-central/source/widget/windows/nsPrintSettingsWin.cpp#78" rel="noreferrer" target="_blank">
+   http://mxr.mozilla.org/mozilla-central/source/widget/windows/nsPrintSettingsWin.cpp#78
+  </a>
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:55:54 PM">
+   2:55 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: it's probably fine to copy the devmode bytes down to the child
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:56:10 PM">
+   2:56 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: we might have trouble with specific printers, but probably not
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:56:21 PM">
+   2:56 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: at worst, the child crashes
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:56:40 PM">
+   2:56 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: anyway, you can send the bytes via an nsCString I think
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:56:55 PM">
+   2:56 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: or you can use nsTArray&lt;uint8_t&gt; or something
+ </div>
+</div>
+<div>
+ <span title="Thursday, August 06, 2015 2:58:33 PM">
+  2:58 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt; billm: okie dokie. Do we have example code anywhere where we do this kind of wholesale bit transfer? I used memcpy. Once. a looooong time ago.
+</div>
+<div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:58:45 PM">
+   2:58 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; and I have no idea if that's appropriate for our IPC stuff, or if there's a better way.
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 2:59:51 PM">
+   2:59 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: jld's save document patch did something like that:
+  <a href="https://hg.mozilla.org/integration/mozilla-inbound/rev/d19a0d92455b#l28.103" rel="noreferrer" target="_blank">
+   https://hg.mozilla.org/integration/mozilla-inbound/rev/d19a0d92455b#l28.103
+  </a>
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 3:00:21 PM">
+   3:00 PM
+  </span>
+  &lt;
+  <span title="Admins">
+   &amp;
+  </span>
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+   billm
+  </a>
+  &gt; mconley: the memcpy call in the code I pasted is probably similar to what you'll need
+ </div>
+</div>
+<div>
+ <span title="Thursday, August 06, 2015 3:00:38 PM">
+  3:00 PM
+ </span>
+ &lt;
+ <span title="Admins">
+  &amp;
+ </span>
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-lm6ef3.ca.comcast.net)">
+  billm
+ </a>
+ &gt; mconley: (in nsPrintSettingsWin.cpp)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From
+ <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/dd183565%28v=vs.85%29.aspx">
+  https://msdn.microsoft.com/en-us/library/windows/desktop/dd183565%28v=vs.85%29.aspx
+ </a>
+ :
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ A device driver's private data follows the public portion of the
+ <strong>
+  DEVMODE
+ </strong>
+ structure. The size of the public data can vary for different versions of the structure. The
+ <strong>
+  dmSize
+ </strong>
+ member specifies the number of bytes of public data, and the
+ <strong>
+  dmDriverExtra
+ </strong>
+ member specifies the number of bytes of private data.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ FUCK. So I have to like… maybe send an arbitrarily large message across IPC. JESUS.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok. Keep calm. How would that work?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Well, the easiest thing would be to flat out fail if the DEVMODE size exceeds the message limit. I wonder how far that would get us?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Maybe it'd be far enough. Because if it turns out we don't need the private data with bobowen's stuff, then we can just hold on to the dev mode until the child is ready to roll.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'm starting to like that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ SO, plan of action:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Add a devModeData member to the PrintData struct
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ When serializing to PrintData, if we're in the parent process, serialize the devmode.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ If the PrintData struct size, plus dmSize and dmDriverExtra size exceeds 65536 bytes, return NS_ERROR_ something.
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ When deserializing to nsIPrintSettings, if we're in the content process, deserialize the devmode.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Is it necessary for the child to have created a DEVMODE in the first place?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Not really - not unless it's printing silently, in which case it won't need to communicate with the parent process at all (until bobowen's stuff gets rolling).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Profit?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This seems to work. I've spun out a try build to get the reporter to try.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, jimm has some suggestions. TIL about nsWindowsHelpers.h. Noice - I can create an Auto pointer thing for DevMode.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

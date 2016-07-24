@@ -1,0 +1,432 @@
+---
+layout: post
+title:  "Bug 1141337 - [e10s] &quot;Save Page|Frame As...&quot; in remote browser causes unsafe CPOW usage warnings"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1141337">
+ Bug 1141337 - [e10s] "Save Page|Frame As..." in remote browser causes unsafe CPOW usage warnings
+</a>
+<div>
+ So in order to do this, I think I need to better understand jld's patch in bug 1101100.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, I think I see what's going on here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's my solution to this problem:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  Add a new method to nsIWebBrowserPersistable called startPersistenceWithOuterWindowId that finds the document with the matching outer window ID, and persists that (returning NS_ERROR_FAILURE if we can't find it)
+ </li>
+ <li>
+  Add the startPersistenceWithOuterWindowId method to nsFrameLoader.cpp, and maybe make startPersistence depend on it, or some common method.
+ </li>
+ <li>
+  Done?
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ Actually…. no, I have a better idea. Or, maybe I do.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why does nsFrameLoader need to implement nsIWebBrowserPersistable? Why can't we add a new method "persistSubFrame" to nsFrameLoader, and have persistSubFrame take an outerWindowID?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll needinfo jld on bug 1101100.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, I think I know how to proceed - though I think I should probably wait for jld's patch to solidify before I build on top of it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, it's landed! LET'S DO THIS.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:10:33 AM">
+   10:10 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; smaug: hey - I feel like I should know this... but suppose I have some outerWindowID, and some docShell X... if I resolve that outerWindowID to an nsIDOMWindow Y, is there a way I can ensure that Y's docshell is a child of X?
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:10:46 AM">
+   10:10 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; without having to iterate all of X's child docshells?
+ </div>
+ <div>
+  <div>
+   <span title="Thursday, August 06, 2015 10:11:27 AM">
+    10:11 AM
+   </span>
+   ⇐
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jesup%7Claptop" title="jesup|laptop (chatzilla@moz-l7d6u7.fios.verizon.net)">
+    jesup|laptop
+   </a>
+   quit (
+   <a href="mailto:chatzilla@moz-l7d6u7.fios.verizon.net">
+    chatzilla@moz-l7d6u7.fios.verizon.net
+   </a>
+   ) Quit: ChatZilla 0.9.91.1 [Firefox 41.0a2/20150703004018]
+  </div>
+  <div>
+   <span title="Thursday, August 06, 2015 10:12:05 AM">
+    10:12 AM
+   </span>
+   →
+   <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/gandalf" title="gandalf (zbraniecki@moz-cp7c4m.ca.comcast.net)">
+    gandalf
+   </a>
+   joined (
+   <a href="mailto:zbraniecki@moz-cp7c4m.ca.comcast.net">
+    zbraniecki@moz-cp7c4m.ca.comcast.net
+   </a>
+   )
+  </div>
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:12:12 AM">
+   10:12 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; mconley: Y.GetParent() == X ?
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:12:22 AM">
+   10:12 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; whatever the actual method name is
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:12:41 AM">
+   10:12 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; or are you interested in all the descendants of X?
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:12:44 AM">
+   10:12 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; smaug: is that going to work if Y is a distant descendant of X?
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:13:09 AM">
+   10:13 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; I think you need to iterate Y's parent chain
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:13:31 AM">
+   10:13 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; Y's dochell's parent chain that is
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:13:31 AM">
+   10:13 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; smaug: alright, sounds good.
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:13:35 AM">
+   10:13 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; thanks
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:14:28 AM">
+   10:14 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; mconley: nsDocShell has nsDocShell::GetParentDocshell()
+ </div>
+ <div>
+  <span title="Thursday, August 06, 2015 10:14:38 AM">
+   10:14 AM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-kn7naf.elisa-laajakaista.fi)">
+   smaug
+  </a>
+  &gt; so you may want to play with that, and not with nsIDocShell
+ </div>
+</div>
+<div>
+ <span title="Thursday, August 06, 2015 10:14:52 AM">
+  10:14 AM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt; ah, ok - cool, thanks
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Grawr… how do I get the outerWindowID sent down to the child? What's the path here? I thought this would be more straight forward...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ OK Focus. Build problems. What's the problem? I've added outerWindowID as something that can be passed down through SendPWebBrowserPersistDocumentConstructor.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And I think I need to update some headers and function signatures to make this work.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 1:11.61 ../dist/include/mozilla/dom/TabParent.h:437:47: error: 'AllocPWebBrowserPersistDocumentParent' marked 'override' but does not override any member functions
+</div>
+<div>
+ 1:11.61     virtual PWebBrowserPersistDocumentParent* AllocPWebBrowserPersistDocumentParent() override;
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This means that AllocPWebBrowserPersistDocumentParent is probably having its signature changed by my change to the IPDL...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 1:11.63 /Users/mikeconley/Projects/mozilla-central/obj-debug/ipc/ipdl/_ipdlheaders/mozilla/dom/PBrowserParent.h:795:5: note: unimplemented pure virtual method 'AllocPWebBrowserPersistDocumentParent' in 'TabParent'
+</div>
+<div>
+ 1:11.63     AllocPWebBrowserPersistDocumentParent(const uint64_t&amp; aOuterWindowID) = 0;
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So my adding the outerWindowID to the constructor means it's passed to the allocator in the parent. *Sigh*.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It's so weird that the parent might hear about this outer window ID too.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, so solved that one by updating the headers… now it's complaining about RecvPWebBrowserPersistDocumentConstructor in TabChild:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 0:42.32     virtual bool RecvPWebBrowserPersistDocumentConstructor(PWebBrowserPersistDocumentChild *aActor,
+</div>
+<div>
+ 0:42.32                  ^
+</div>
+<div>
+ 0:42.34 Warning: -Woverloaded-virtual in /Users/mikeconley/Projects/mozilla-central/obj-debug/dist/include/mozilla/dom/TabChild.h: 'mozilla::dom::TabChild::RecvPWebBrowserPersistDocumentConstructor' hides overloaded virtual function
+</div>
+<div>
+ 0:42.34 ../../dist/include/mozilla/dom/TabChild.h:498:18: warning: 'mozilla::dom::TabChild::RecvPWebBrowserPersistDocumentConstructor' hides overloaded virtual function [-Woverloaded-virtual]
+</div>
+<div>
+ 0:42.34 /Users/mikeconley/Projects/mozilla-central/obj-debug/ipc/ipdl/_ipdlheaders/mozilla/dom/PBrowserChild.h:504:5: note: hidden overloaded virtual function 'mozilla::dom::PBrowserChild::RecvPWebBrowserPersistDocumentConstructor' declared here
+</div>
+<div>
+ 0:42.34     RecvPWebBrowserPersistDocumentConstructor(
+</div>
+<div>
+ 0:42.34     ^
+</div>
+<div>
+ 0:42.75 VoicemailParent.o
+</div>
+<div>
+ 0:43.35 In file included from /Users/mikeconley/Projects/mozilla-central/layout/generic/nsPluginFrame.cpp:90:
+</div>
+<div>
+ 0:43.35 ../../dist/include/mozilla/dom/TabChild.h:498:18: error: 'RecvPWebBrowserPersistDocumentConstructor' marked 'override' but does not override any member functions
+</div>
+<div>
+ 0:43.35     virtual bool RecvPWebBrowserPersistDocumentConstructor(PWebBrowserPersistDocumentChild *aActor,
+</div>
+<div>
+ 0:43.35                  ^
+</div>
+<div>
+ 0:43.36 Warning: -Woverloaded-virtual in /Users/mikeconley/Projects/mozilla-central/obj-debug/dist/include/mozilla/dom/TabChild.h: 'mozilla::dom::TabChild::RecvPWebBrowserPersistDocumentConstructor' hides overloaded virtual function
+</div>
+<div>
+ 0:43.36 ../../dist/include/mozilla/dom/TabChild.h:498:18: warning: 'mozilla::dom::TabChild::RecvPWebBrowserPersistDocumentConstructor' hides overloaded virtual function [-Woverloaded-virtual]
+</div>
+<div>
+ 0:43.36 /Users/mikeconley/Projects/mozilla-central/obj-debug/ipc/ipdl/_ipdlheaders/mozilla/dom/PBrowserChild.h:504:5: note: hidden overloaded virtual function 'mozilla::dom::PBrowserChild::RecvPWebBrowserPersistDocumentConstructor' declared here
+</div>
+<div>
+ 0:43.36     RecvPWebBrowserPersistDocumentConstructor(
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ RecvPWebBrowserPersistDocumentConstructor...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ OK, now:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ 14:10.55 /Users/mikeconley/Projects/mozilla-central/embedding/components/webbrowserpersist/WebBrowserPersistResourcesChild.cpp:40:24: error: no matching member function for call to 'SendPWebBrowserPersistDocumentConstructor'
+</div>
+<div>
+ 14:10.55     if (!grandManager-&gt;SendPWebBrowserPersistDocumentConstructor(subActor)) {
+</div>
+<div>
+ 14:10.55          ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+</div>
+<div>
+ 14:10.56 /Users/mikeconley/Projects/mozilla-central/obj-debug/ipc/ipdl/_ipdlheaders/mozilla/dom/PBrowserChild.h:790:5: note: candidate function not viable: no known conversion from 'mozilla::WebBrowserPersistDocumentChild *' to 'const uint64_t' (aka 'const unsigned long long') for 1st argument
+</div>
+<div>
+ 14:10.56     SendPWebBrowserPersistDocumentConstructor(const uint64_t&amp; aOuterWindowID);
+</div>
+<div>
+ 14:10.56     ^
+</div>
+<div>
+ 14:10.56 /Users/mikeconley/Projects/mozilla-central/obj-debug/ipc/ipdl/_ipdlheaders/mozilla/dom/PBrowserChild.h:793:5: note: candidate function not viable: requires 2 arguments, but 1 was provided
+</div>
+<div>
+ 14:10.56     SendPWebBrowserPersistDocumentConstructor(
+</div>
+<div>
+ 14:10.56     ^
+</div>
+<div>
+ 14:10.89 1 error generated.
+</div>
+<div>
+ 14:10.92
+</div>
+<div>
+ 14:10.92 In the directory  /Users/mikeconley/Projects/mozilla-central/obj-debug/embed
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ HOLY SHIT I GOT IT TO WORK. It seems to work!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Also, I realized that I should just modify the startPersistence method instead of adding a new startSubframePersistence method. Seems cleaner this way.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, regression"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-11-24 16:34:12 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1227444"/><meta name="updated" content="2015-11-25 18:14:14 +0000"/><title>Bug 1227444 - "Restore Previous Session" opens duplicate window</title></head><body>
+<div>Looks like a regression from the CPOW window work I did. Damn it. <span style="-evernote-sentoj-emoticon:true">😔</span></div>
+<div><br/></div>
+<div>Okay, what’d I do wrong?</div>
+<div><br/></div>
+<div>Alice’s STR:</div>
+<div><br/></div>
+<div>Steps to reproduce<br/>
+1. Start with newly created profile<br/>
+   --- Now, there is single window with 2 tabs(<a href="https://www.mozilla.org/en-US/firefox/nightly/firstrun/">https://www.mozilla.org/en-US/firefox/nightly/firstrun/</a> and about:home)<br/>
+2. Close browser<br/>
+3. Start browser with the profile<br/>
+4. Perform "Restore Previous Session"<br/>
+<br/>
+Actual results:<br/>
+"Restore Previous Session" opens duplicate window.<br/>
+ Now, there is 2 windows with 2 tabs(<a href="https://www.mozilla.org/en-US/firefox/nightly/firstrun/">https://www.mozilla.org/en-US/firefox/nightly/firstrun/</a> and about:home)<br/>
+<br/>
+Expected results:</div>
+<div>"Restore Previous Session" should open only previous window.</div>
+<div><br/></div>
+<div>I was able to reproduce this on ol’ slowy mc-laptop.</div>
+<div><br/></div>
+<div>So here’s what I think is happening.</div>
+<div><br/></div>
+<ol>
+<li>Browsers haven’t flushed yet</li>
+<li>We ask for quit, which causes a sync flush of all windows</li>
+<li>Finish prompting, and confirm that we’re going down</li>
+<li>Window closes, which starts async flush</li>
+<li>Process starts to exit</li>
+</ol>
+<div><br/></div>
+<div>...</div>
+<div><br/></div>
+<div>Okay, I see what’s really going on.</div>
+<div><br/></div>
+<div>Quit application is requested, and we do our TabState flush and save state with our two tabs for the window.</div>
+<div>We then close the windows, and start an async window flush, which will put the window in both the _closedWindows set, and in the _windows set, since we don’t remove it from _windows until the flush is complete.</div>
+<div>We do a final write to the disk in that state, with the same window in _windows and _closedWindow.</div>
+<div>By the time the TabStateFlusher flushWindow Promise resolves, we’ve already done our final write to the disk, and the party is over.</div>
+<div><br/></div>
+<div>I think we can safely remove the window from this._windows in the onClose method, and not within the Promise resolution.</div>
+<div><br/></div>
+<div>Patch seems to work! Posted for review.</div>
+<div><br/></div>
+<div>Bah, backed out because I actually broke some stuff. Luckily we had a test catch it. I need to make sure that we calculate whether or not the window is the “last to close” before the window actually closes.</div>
+<div><br/></div>
+<div>Try: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e02c0cd0bf74"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e02c0cd0bf74">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e02c0cd0bf74</a></div>
+<div><br/></div>
+<div>Going to try to hack the tests from bug 1226333 into here so that we can get some coverage and this doesn’t happen again.</div>
+<div><br/></div>
+<div>Those tests </div>
+<div><br/></div>
+<div>182 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_window_flushing.js | We should have added the window to the closed windows array - Got 1, expected 2</div>
+<div><br/></div>
+<div>Try push with tests: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e865770694b2"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e865770694b2">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=e865770694b2</a></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

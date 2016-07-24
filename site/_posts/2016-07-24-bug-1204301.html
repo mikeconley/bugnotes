@@ -1,0 +1,511 @@
+---
+layout: post
+title:  "Bug 1204301 - In an e10s window, Nightly does not bring up the master password dialog when required for TLS client authentication"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1204301">
+ Bug 1204301 - In an e10s window, Nightly does not bring up the master password dialog when required for TLS client authentication
+</a>
+<div>
+ TLS authentication. Huh.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ This is not a thing a see too often. The only time I've authenticated with a certificate is on the
+ <a href="http://startssl.com/">
+  http://startssl.com/
+ </a>
+ site for managing my certs.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <img height="408" src="assets/1204301-AC11C564-7B69-416B-A75F-198D5B6D9E54.png" width="490"/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That's down in some old-school code, probably from early on days.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So that XUL dialog is here:
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/resources/content/clientauthask.xul">
+  https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/resources/content/clientauthask.xul
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And its script is here:
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/resources/content/clientauthask.js">
+  https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/resources/content/clientauthask.js
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And that dialog is opened here:
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/nsNSSDialogs.cpp#225">
+  https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/security/manager/pki/nsNSSDialogs.cpp#225
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hrm, and now I'm down in NSS. Time to be cautious.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's the stack for the thing that eventually causes us to open the Master Password prompt in non-e10s mode:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ * thread #5: tid = 0x2520cd, 0x0000000103577f7d XUL`nsNSS_SSLGetClientAuthData(void*, PRFileDesc*, CERTDistNamesStr*, CERTCertificateStr**, SECKEYPrivateKeyStr**) [inlined] nsNSSShutDownPreventionLock::nsNSSShutDownPreventionLock() at nsNSSShutDown.cpp:340, name = 'Socket Thread', stop reason = breakpoint 4.1
+</div>
+<div>
+ frame #0: 0x0000000103577f7d XUL`nsNSS_SSLGetClientAuthData(void*, PRFileDesc*, CERTDistNamesStr*, CERTCertificateStr**, SECKEYPrivateKeyStr**) [inlined] nsNSSShutDownPreventionLock::nsNSSShutDownPreventionLock() at nsNSSShutDown.cpp:340
+</div>
+<div>
+ frame #1: 0x0000000103577f7d XUL`nsNSS_SSLGetClientAuthData(arg=0x000000010ec55fc0, socket=0x000000011d2423d0, caNames=0x000000010b080440, pRetCert=0x000000011afb8640, pRetKey=0x000000011afb8648) + 29 at nsNSSIOLayer.cpp:1992
+</div>
+<div>
+ frame #2: 0x00000001010cec2e libnss3.dylib`ssl3_HandleHandshakeMessage [inlined] ssl3_HandleCertificateRequest(b=0x00000001117de011, length=0, b=0x00000001117de011, b=0x00000001117de011, b=0x00000001117de011, length=0, length=0, length=0, length=0, length=0, ss=&lt;unavailable&gt;) + 72 at ssl3con.c:7111
+</div>
+<div>
+ frame #3: 0x00000001010cebe6 libnss3.dylib`ssl3_HandleHandshakeMessage(ss=0x000000011afb8000, b=&lt;unavailable&gt;, length=&lt;unavailable&gt;) + 10296 at ssl3con.c:11191
+</div>
+<div>
+ frame #4: 0x00000001010d1488 libnss3.dylib`ssl3_HandleRecord [inlined] ssl3_HandleHandshake(ss=0x000000011afb8000, origBuf=&lt;unavailable&gt;) + 241 at ssl3con.c:11305
+</div>
+<div>
+ frame #5: 0x00000001010d1397 libnss3.dylib`ssl3_HandleRecord(ss=0x000000011afb8000, cText=&lt;unavailable&gt;, databuf=0x000000011afb83c0) + 3419 at ssl3con.c:11974
+</div>
+<div>
+ frame #6: 0x00000001010d8a17 libnss3.dylib`ssl3_GatherCompleteHandshake(ss=&lt;unavailable&gt;, flags=&lt;unavailable&gt;) + 1070 at ssl3gthr.c:378
+</div>
+<div>
+ frame #7: 0x00000001010d9505 libnss3.dylib`ssl_GatherRecord1stHandshake(ss=0x000000011afb8000) + 58 at sslcon.c:1227
+</div>
+<div>
+ frame #8: 0x00000001010de265 libnss3.dylib`ssl_Do1stHandshake(ss=0x000000011afb8000) + 90 at sslsecur.c:109
+</div>
+<div>
+ frame #9: 0x00000001010df83f libnss3.dylib`ssl_SecureSend(ss=0x000000011afb8000, buf=0x0000000104f99ea8, len=0, flags=&lt;unavailable&gt;) + 310 at sslsecur.c:1288
+</div>
+<div>
+ frame #10: 0x00000001010e5d82 libnss3.dylib`ssl_Send(fd=&lt;unavailable&gt;, buf=0x0000000104f99ea8, len=0, flags=0, timeout=&lt;unavailable&gt;) + 101 at sslsock.c:2356
+</div>
+<div>
+ frame #11: 0x00000001035770da XUL`PSMSend(fd=0x000000011d242340, buf=0x0000000104f99ea8, amount=0, flags=&lt;unavailable&gt;, timeout=4294967295) + 106 at nsNSSIOLayer.cpp:1448
+</div>
+<div>
+ * frame #12: 0x000000010157329b XUL`nsSocketOutputStream::Write(this=0x0000000123dfbd40, buf=0x0000000104f99ea8, count=0, countWritten=0x000000010b080a54) + 203 at nsSocketTransport2.cpp:612
+</div>
+<div>
+ frame #13: 0x000000010169d599 XUL`mozilla::net::nsHttpConnection::EnsureNPNComplete(this=0x000000011d49db00) + 441 at nsHttpConnection.cpp:306
+</div>
+<div>
+ frame #14: 0x000000010169d800 XUL`mozilla::net::nsHttpConnection::OnSocketWritable(this=0x000000011d49db00) + 160 at nsHttpConnection.cpp:1546
+</div>
+<div>
+ frame #15: 0x00000001016a084c XUL`_ZThn24_N7mozilla3net16nsHttpConnection19OnOutputStreamReadyEP20nsIAsyncOutputStream [inlined] mozilla::net::nsHttpConnection::OnOutputStreamReady(nsIAsyncOutputStream*) + 8 at nsHttpConnection.cpp:2062
+</div>
+<div>
+ frame #16: 0x00000001016a0844 XUL`_ZThn24_N7mozilla3net16nsHttpConnection19OnOutputStreamReadyEP20nsIAsyncOutputStream(this=&lt;unavailable&gt;, out=&lt;unavailable&gt;) + 20 at Unified_cpp_protocol_http1.cpp:2067
+</div>
+<div>
+ frame #17: 0x00000001015730e0 XUL`nsSocketOutputStream::OnSocketReady(this=0x0000000123dfbd40, condition=&lt;unavailable&gt;) + 160 at nsSocketTransport2.cpp:551
+</div>
+<div>
+ frame #18: 0x0000000101576470 XUL`nsSocketTransport::OnSocketReady(this=0x0000000123dfbb80, fd=&lt;unavailable&gt;, outFlags=&lt;unavailable&gt;) + 368 at nsSocketTransport2.cpp:1878
+</div>
+<div>
+ frame #19: 0x000000010157b469 XUL`nsSocketTransportService::DoPollIteration(this=0x0000000100632ea0, wait=&lt;unavailable&gt;, pollDuration=0x000000010b080ca0) + 825 at nsSocketTransportService2.cpp:1085
+</div>
+<div>
+ frame #20: 0x000000010157accc XUL`nsSocketTransportService::Run(this=0x0000000100632ea0) + 492 at nsSocketTransportService2.cpp:867
+</div>
+<div>
+ frame #21: 0x000000010157b73d XUL`_ZThn24_N24nsSocketTransportService3RunEv(this=&lt;unavailable&gt;) + 13 at Unified_cpp_netwerk_base3.cpp:978
+</div>
+<div>
+ frame #22: 0x00000001014d7264 XUL`nsThread::ProcessNextEvent(this=0x0000000100748000, aMayWait=&lt;unavailable&gt;, aResult=0x000000010b080de7) + 1156 at nsThread.cpp:950
+</div>
+<div>
+ frame #23: 0x00000001014fed55 XUL`NS_ProcessNextEvent(aThread=&lt;unavailable&gt;, aMayWait=false) + 53 at nsThreadUtils.cpp:277
+</div>
+<div>
+ frame #24: 0x000000010177ca6c XUL`mozilla::ipc::MessagePumpForNonMainThreads::Run(this=0x0000000100752780, aDelegate=0x00000001006668c0) + 172 at MessagePump.cpp:326
+</div>
+<div>
+ frame #25: 0x0000000101757d4d XUL`MessageLoop::Run() [inlined] MessageLoop::RunInternal(this=&lt;unavailable&gt;) + 77 at message_loop.cc:234
+</div>
+<div>
+ frame #26: 0x0000000101757d3e XUL`MessageLoop::Run() [inlined] MessageLoop::RunHandler(this=&lt;unavailable&gt;) at message_loop.cc:227
+</div>
+<div>
+ frame #27: 0x0000000101757d3e XUL`MessageLoop::Run(this=&lt;unavailable&gt;) + 62 at message_loop.cc:201
+</div>
+<div>
+ frame #28: 0x00000001014d5e56 XUL`nsThread::ThreadFunc(aArg=0x0000000100748000) + 262 at nsThread.cpp:379
+</div>
+<div>
+ frame #29: 0x0000000101203a03 libnss3.dylib`_pt_root(arg=0x0000000100647180) + 211 at ptthread.c:212
+</div>
+<div>
+ frame #30: 0x00007fff8be2b772 libsystem_c.dylib`_pthread_start + 327
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, in e10s mode, let's see if we hit nsNSS_SSLGetClientAuthData in the content process, or in the parent process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh, okay, good, so we hit it properly in the parent process… but we seem to fail out in PK11PasswordPromptRunnable::RunOnTargetThread.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Why… why is that?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Debug build time… hm… mIR in PK11PasswordPromptRunnable::RunOnTargetThread doesn't appear to implement nsIInterfaceRequestor… so we can't get a prompter for it. What? It appears to be a nsNSSSocketInfo*… what is it in the normal case?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We're SUPPOSED to enter TransportSecurityInfo::GetInterface it looks like. Wtf...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ HttpChannelParent does not know how to GetInterface or QueryInterface to an nsIPrompt it seems.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ahhh, and we eventually get down to an nsDocShell::GetInterface in the parent process, which does know how to get to an nsIPrompt. Okay.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The nsIPrompt GetInterface for nsDocShell was added wayyyy back in 2000:
+ <a href="https://github.com/mozilla/gecko-dev/commit/ee63f155b169e33363653f0abfd31549f6801ed3">
+  https://github.com/mozilla/gecko-dev/commit/ee63f155b169e33363653f0abfd31549f6801ed3
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, welp, patch written. Let's see what michal from the Necko team thinks.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c90ce9609371">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c90ce9609371
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Bill thinks this patch is r+,
+ <b>
+  if
+ </b>
+ I can explain why NSS needs to have the HttpChannelParent… uh...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Well, let's see. The wincx is what we GetInterface. And in single-process Firefox, it's nsDocShell… and in multi-process, it's HttpChannelParent.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Looking at nsNSSIOLayer.cpp, which eventually calls into the thing that GetInterface's nsIPrompt...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/6256ec9113c115141aab089c45ee69438884b680/security/manager/ssl/nsNSSIOLayer.cpp#2054">
+  https://dxr.mozilla.org/mozilla-central/rev/6256ec9113c115141aab089c45ee69438884b680/security/manager/ssl/nsNSSIOLayer.cpp#2054
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  void
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  ClientAuthDataRunnable
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  RunOnTargetThread()
+  <br/>
+  {
+  <br/>
+  PLArenaPool
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  arena
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  nullptr;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  char
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  **
+ </span>
+ <span style="font: 12.0px Courier">
+  caNameStrings;
+  <br/>
+  ScopedCERTCertificate cert;
+  <br/>
+  ScopedSECKEYPrivateKey privKey;
+  <br/>
+  ScopedCERTCertList certList;
+  <br/>
+  CERTCertListNode
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  node;
+  <br/>
+  ScopedCERTCertNicknames nicknames;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  int
+ </span>
+ <span style="font: 12.0px Courier">
+  keyError
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // used for private key retrieval error
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  SSM_UserCertChoice certChoice;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  int32_t
+ </span>
+ <span style="font: 12.0px Courier">
+  NumberOfCerts
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  void
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  wincx
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  mSocketInfo;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   nsresult rv;
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, so that's where the wincx is defined. The ClientAuthDataRunnable has an mSocketInfo… and that's what we use. What is an mSocketInfo?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ According to this:
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/6256ec9113c115141aab089c45ee69438884b680/security/manager/ssl/nsNSSIOLayer.cpp#1953">
+  https://dxr.mozilla.org/mozilla-central/rev/6256ec9113c115141aab089c45ee69438884b680/security/manager/ssl/nsNSSIOLayer.cpp#1953
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It's a nsNSSSocketInfo instance.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Mmmkay… so an nsDocShell is an nsNSSSocketInfo?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Uh...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So it looks like TransportSecurityInfo forwards its GetInterface to its mCallbacks… and its mCallbacks seem to be inherited from nsHttpChannel::OnPush's mCallbacks...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And mCallbacks is set via nsBaseChannel::SetNotificationCallbacks…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Welp, here’s what I wrote to billm:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  "It's a bit convoluted, but I think this is how it goes.
+  <br/>
+  <br/>
+  So we have these nsHttpChannels, and these inherit from nsBaseChannel. nsBaseChannel has a protected member called mCallbacks which is set via nsBaseChannel::SetNotificationCallbacks in... a number of places.
+  <br/>
+  <br/>
+  For HttpChannelParent, SetNotificationCallbacks is called here:
+  <a href="https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/netwerk/protocol/http/HttpChannelParent.cpp#423">
+   https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/netwerk/protocol/http/HttpChannelParent.cpp#423
+  </a>
+  <br/>
+  <br/>
+  The callback it passes is an HttpChannelParentListener, which implements nsIInterfaceRequestor, and forwards GetInterface to the HttpChannelParent.
+  <br/>
+  <br/>
+  Fast-forward to when we want to show the user the certificate dialog.
+  <br/>
+  <br/>
+  The network layer eventually figures out that we're doing TLS client auth, and calls nsNSS_SSLGetClientAuthData:
+  <a href="https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSIOLayer.cpp#1988">
+   https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSIOLayer.cpp#1988
+  </a>
+  <br/>
+  <br/>
+  It then instantiates a ClientAuthDataRunnable (this is what's going to show the dialog):
+  <a href="https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSIOLayer.cpp#2023">
+   https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSIOLayer.cpp#2023
+  </a>
+  <br/>
+  <br/>
+  When constructing that runnable, it passes "info", which in the case for e10s, happens to be a TransportSecurityInfo::TransportSecurityInfo.
+  <br/>
+  <br/>
+  A reference to that TransportSecurityInfo is stored inside the ClientAuthDataRunnable as mSocketInfo, which when the runnable is fired, is cast to a void* pointer here:
+  <a href="https://dxr.mozilla.org/mozilla-central/source/security/manager/ssl/nsNSSIOLayer.cpp#2054">
+   https://dxr.mozilla.org/mozilla-central/source/security/manager/ssl/nsNSSIOLayer.cpp#2054
+  </a>
+  and passed around as "wincx".
+  <br/>
+  <br/>
+  There's quite a bit of indirection, but eventually that void* wincx pointer is cast back to an nsIInterfaceRequestor here when we decide we want to open up the master password dialog:
+  <a href="https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSCallbacks.cpp#865">
+   https://dxr.mozilla.org/mozilla-central/rev/79a5b2968d01512470eb6c25d6638d8b9565575e/security/manager/ssl/nsNSSCallbacks.cpp#865
+  </a>
+  <br/>
+  <br/>
+  We then GetInterface for nsIPrompt off of the nsIInterfaceRequestor.
+  <br/>
+  <br/>
+  So, to sum, that nsIInterfaceRequestor eventually gets forwarded to the TransportSecurityInfo, which eventually forwards the GetInterface to the HttpChannelParent.
+  <br/>
+  <br/>
+  Those "eventually"'s can be pretty long and complex, and take me into the guts of netwerk. It's quite extraordinary. So this is my high-level understanding of how HttpChannelParent got into NSS. If you need me to go deeper, let me know."
+  <br/>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And he liked it! Landed!
+</div>

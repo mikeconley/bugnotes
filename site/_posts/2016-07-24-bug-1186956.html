@@ -1,0 +1,173 @@
+---
+layout: post
+title:  "Bug 1186956 - 2-20% svgr_opacity/tp5_responsiveness regressions on win* platforms seen on inbound July 21"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1186956">
+ Bug 1186956 - 2-20% svgr_opacity/tp5_responsiveness regressions on win* platforms seen on inbound July 21
+</a>
+<div>
+ Revisions (based on 8bae34af92ea):
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fast (profile):
+</div>
+<div>
+ <div>
+  <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7f7b81f6273e">
+   https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7f7b81f6273e
+  </a>
+ </div>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fast (no profile):
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f8e2f77a0755">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f8e2f77a0755
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Task.async:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2eaa40679192">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=2eaa40679192
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ GC / CC between pageloads:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=dccc14c00cd2">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=dccc14c00cd2
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Add talos-content to xperf whitelist:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b63e4d781749">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=b63e4d781749
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Slow:
+</div>
+<div>
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba2e695c2287">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ba2e695c2287
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fast:
+ <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/ad02f7799e6e10c55934df5811ad51cfe10278dbc4825bb5335c1f93b41410aeb87d46a02316951cecc12e921dad42d5c89268efaabca960ba07cb637351906c&amp;pathInZip=profile_tsvgr_opacity/big-optimizable-group-opacity-2500.svg/cycle_0.sps#report=1328ca417cbbfa1610bf63298732457c2830e53e&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A11490,%22end%22%3A45978%7D%5D&amp;selection=%22(total)%22,978">
+  http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/ad02f7799e6e10c55934df5811ad51cfe10278dbc4825bb5335c1f93b41410aeb87d46a02316951cecc12e921dad42d5c89268efaabca960ba07cb637351906c&amp;pathInZip=profile_tsvgr_opacity/big-optimizable-group-opacity-2500.svg/cycle_0.sps#report=1328ca417cbbfa1610bf63298732457c2830e53e&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A11490,%22end%22%3A45978%7D%5D&amp;selection=%22(total)%22,978
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Slow:
+ <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/b14681a1d4eca3684b9b964cbed3d3d96e57effc12b4c972e838f64815fd84a406dcce6b027bd3cfd81dcedd64e2d650c1a5fd7ca28be876d19eba554e208d86&amp;pathInZip=profile_tsvgr_opacity/big-optimizable-group-opacity-2500.svg/cycle_0.sps#report=a3d9ad1755860d0d89e24d563bcdea4db2707631&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A11541,%22end%22%3A46556%7D%5D&amp;selection=%22(total)%22,168,168,968,967,966,959,958,957,1057,1056,615,614,613,943,942,941,940,608,939,1055,1054,1053,1052,1051,226,225,224,223,600,599,598,597,596,598,597,596,595,594,593,592,591,226,225,224,223,222,221,220,219,218,217,216,215,214,197,195,194">
+  http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-
+ </a>
+</div>
+<div>
+ <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/b14681a1d4eca3684b9b964cbed3d3d96e57effc12b4c972e838f64815fd84a406dcce6b027bd3cfd81dcedd64e2d650c1a5fd7ca28be876d19eba554e208d86&amp;pathInZip=profile_tsvgr_opacity/big-optimizable-group-opacity-2500.svg/cycle_0.sps#report=a3d9ad1755860d0d89e24d563bcdea4db2707631&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A11541,%22end%22%3A46556%7D%5D&amp;selection=%22(total)%22,168,168,968,967,966,959,958,957,1057,1056,615,614,613,943,942,941,940,608,939,1055,1054,1053,1052,1051,226,225,224,223,600,599,598,597,596,598,597,596,595,594,593,592,591,226,225,224,223,222,221,220,219,218,217,216,215,214,197,195,194">
+  blobs.s3.amazonaws.com/blobs/Try/sha512/b14681a1d4eca3684b9b964cbed3d3d96e57effc12b4c972e838f64815fd84a406dcce6b027bd3cfd81dcedd64e2d650c1a5fd7ca28be876d19eba554e208d86&amp;pathInZip=profile_tsvgr_opacity/big-optimizable-group-opacity-2500.svg/cycle_0.sps#report=a3d9ad1755860d0d89e24d563bcdea4db2707631&amp;invertCallback=true&amp;filter=%5B%7B%22type%22%3A%22RangeSampleFilter%22,%22start%22%3A11541,%22end%22%3A46556%7D%5D&amp;selection=%22(total)%22,168,168,968,967,966,959,958,957,1057,1056,615,614,613,943,942,941,940,608,939,1055,1054,1053,1052,1051,226,225,224,223,600,599,598,597,596,598,597,596,595,594,593,592,591,226,225,224,223,222,221,220,219,218,217,216,215,214,197,195,194
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Fast:
+ <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/f22118f531323f7938df621de107c24786cb535752fce3e0a6c2f84aefc964ff1068b4b71aeac5d1bd87811d558b4421904141a79afee10dbe254190eb45d3ff&amp;pathInZip=profile_tsvgr_opacity/small-group-opacity-2500.svg/cycle_0.sps#report=2d97614a5ffa73fe4e40003987bb512cdb19385b&amp;invertCallback=true">
+  http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/f22118f531323f7938df621de107c24786cb535752fce3e0a6c2f84aefc964ff1068b4b71aeac5d1bd87811d558b4421904141a79afee10dbe254190eb45d3ff&amp;pathInZip=profile_tsvgr_opacity/small-group-opacity-2500.svg/cycle_0.sps#report=2d97614a5ffa73fe4e40003987bb512cdb19385b&amp;invertCallback=true
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Slow:
+ <a href="http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/462da30e42d028971c01e57f6fa296abaa30b8524f354e470f1c83cfb8ae1b8fc06bac94d8b20d0c4498b1945b40528c0fdf484b208bccb77e236c007d10cfde&amp;pathInZip=profile_tsvgr_opacity/small-group-opacity-2500.svg/cycle_0.sps#report=bb1727867a09351c9116503d4d7863373356aea4&amp;invertCallback=true&amp;selection=%22(total)%22,98">
+  http://people.mozilla.org/~bgirard/cleopatra/?zippedProfile=http://mozilla-releng-blobs.s3.amazonaws.com/blobs/Try/sha512/462da30e42d028971c01e57f6fa296abaa30b8524f354e470f1c83cfb8ae1b8fc06bac94d8b20d0c4498b1945b40528c0fdf484b208bccb77e236c007d10cfde&amp;pathInZip=profile_tsvgr_opacity/small-group-opacity-2500.svg/cycle_0.sps#report=bb1727867a09351c9116503d4d7863373356aea4&amp;invertCallback=true&amp;selection=%22(total)%22,98
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Remove new Date:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6493a9db4439">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=6493a9db4439
+ </a>
+</div>
+<div>
+ Remove garbage collect:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=79b6b2b37779">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=79b6b2b37779
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Before (hopefully slow):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=467107cda21f">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=467107cda21f
+ </a>
+</div>
+<div>
+ After (hopefully fast):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=79af0f0f6897">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=79af0f0f6897
+ </a>
+</div>
+<div>
+ After with e10s (hopefully unchanged):
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5662e518afa9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5662e518afa9
+ </a>
+</div>
+<div>
+ <br/>
+</div>

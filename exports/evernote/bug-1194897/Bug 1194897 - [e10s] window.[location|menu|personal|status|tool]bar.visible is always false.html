@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-09-21 18:08:17 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1194897"/><meta name="updated" content="2015-10-01 18:08:17 +0000"/><title>Bug 1194897 - [e10s] window.[location|menu|personal|status|tool]bar.visible is always false</title></head><body>
+<div>Interesting...</div>
+<div><br/></div>
+<div>Alice0775 White has attached a test case from digg. Let me see if I can reduce this down even further.</div>
+<div><br/></div>
+<div>Here's the (unminimized) event handler on the link that's causing the issue:</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">function v(e) {</span></div>
+<div><span style="font-family: 'Andale Mono';">    var r = 'http://api.digg.com/api/v3/redirect',</span></div>
+<div><span style="font-family: 'Andale Mono';">      i = $(this).closest(a),</span></div>
+<div><span style="font-family: 'Andale Mono';">      s = i.data('contentId'),</span></div>
+<div><span style="font-family: 'Andale Mono';">      o = i.data('position'),</span></div>
+<div><span style="font-family: 'Andale Mono';">      u = t.user.get('user_id'),</span></div>
+<div><span style="font-family: 'Andale Mono';">      f = n.get('frontend.auid'),</span></div>
+<div><span style="font-family: 'Andale Mono';">      l = i.data('source'),</span></div>
+<div><span style="font-family: 'Andale Mono';">      c = {</span></div>
+<div><span style="font-family: 'Andale Mono';">        url: this.href</span></div>
+<div><span style="font-family: 'Andale Mono';">      };</span></div>
+<div><span style="font-family: 'Andale Mono';">      s &amp;&amp; (c.content_id = s),</span></div>
+<div><span style="font-family: 'Andale Mono';">      u ? c.user_id = u : f &amp;&amp; (c.auid = f),</span></div>
+<div><span style="font-family: 'Andale Mono';">      l &amp;&amp; (c.source = l),</span></div>
+<div><span style="font-family: 'Andale Mono';">      o != null &amp;&amp; (c.position = o),</span></div>
+<div><span style="font-family: 'Andale Mono';">      navigator.mozApps &amp;&amp; window.locationbar.visible === !1 &amp;&amp; (c.platform = 1005, window.open([r,</span></div>
+<div><span style="font-family: 'Andale Mono';">      $.param(c)].join('?')));</span></div>
+<div><span style="font-family: 'Andale Mono';">      if (p === 'mobile') c.platform = 1005,</span></div>
+<div><span style="font-family: 'Andale Mono';">      window.location.href = [</span></div>
+<div><span style="font-family: 'Andale Mono';">        r,</span></div>
+<div><span style="font-family: 'Andale Mono';">        $.param(c)</span></div>
+<div><span style="font-family: 'Andale Mono';">      ].join('?');</span></div>
+<div><span style="font-family: 'Andale Mono';">       else {</span></div>
+<div><span style="font-family: 'Andale Mono';">        if (this.target !== '_blank') return;</span></div>
+<div><span style="font-family: 'Andale Mono';">        window.open([r,</span></div>
+<div><span style="font-family: 'Andale Mono';">        $.param(c)].join('?'))</span></div>
+<div><span style="font-family: 'Andale Mono';">      }</span></div>
+<div><span style="font-family: 'Andale Mono';">      return !1</span></div>
+<div><span style="font-family: 'Andale Mono';">}</span></div>
+<div><br/></div>
+<div>So I think I can probably reduce this even further - add an event handler to a link, call window.open twice in it, and stopPropagation / preventDefault the event.</div>
+<div><br/></div>
+<div>Let's test.</div>
+<div><br/></div>
+<div>Ahhhh - I see what's going on. In e10s, a content window gets window.locationbar.visible as false, so we do that first window.open, as well as the later window.open (since we're not on mobile).</div>
+<div><br/></div>
+<div>Huh… for some reason, on digg, window.locationbar.visible is false… on other sites it's true. What?</div>
+<div><br/></div>
+<div>So with e10s, in the content process, the chrome flags on the nsIWebBrowserChrome that's retrieved in the LocationBar props thing are:</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">0b00000000000001000000000000000000 = 262144</span></div>
+<div><br/></div>
+<div>Whoa, what? Where are the default chrome flags here?</div>
+<div><br/></div>
+<div>Uhhh...</div>
+<div><br/></div>
+<div>What's the normal return value?</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">0b10000000000000000000111111111110 = 2147487742</span></div>
+<div><span style="font-family: 'Andale Mono';"><br/></span></div>
+<div>Well shit, there's your problem right there.</div>
+<div><br/></div>
+<div>So where are we getting this chrome flags from?</div>
+<div><br/></div>
+<div>Uh… interesting. So the mChromeFlags on the TabChild are:</div>
+<div><br/></div>
+<div><span style="font-family: 'Andale Mono';">0b00000000000000000111111111111111 = 32767</span></div>
+<div><span style="font-family: 'Andale Mono';"><br/></span></div>
+<div>And that IS where we're supposed to be getting the chrome flags from. So somehow, we're getting broken when attempting to get the chromeFlags from the TabChild. Whoaaaa...</div>
+<div><br/></div>
+<div>I wonder where I got that 32767 from the TabChild from, because running with a debug build, I get 262144 constantly. Spooky. Probably some kind of weird optimization confused lldb?</div>
+<div><br/></div>
+<div>Anyhow, I see what's gone wrong now. Here's the code that spawns the TabParent / TabChild when I open a new tab from the parent process:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier">      </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(constructorSender) {<br/>
+           </span> <span style="font: 12.0px Courier; color: #c01e51">uint32_t</span> <span style="font: 12.0px Courier">chromeFlags</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier; color: #797979">0</span><span style="font: 12.0px Courier">;<br/>
+<br/>
+            nsCOMPtr</span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier">nsILoadContext</span><span style="font: 12.0px Courier; color: #797979">&gt;</span> <span style="font: 12.0px Courier">loadContext</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">do_QueryInterface(docShell);<br/>
+           </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(loadContext</span> <span style="font: 12.0px Courier; color: #797979">&amp;&amp;</span> <span style="font: 12.0px Courier">loadContext</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">UsePrivateBrowsing()) {<br/>
+                chromeFlags</span> <span style="font: 12.0px Courier; color: #797979">|=</span> <span style="font: 12.0px Courier">nsIWebBrowserChrome</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">CHROME_PRIVATE_WINDOW;<br/>
+            }<br/>
+           </span> <span style="font: 12.0px Courier; color: #c01e51">bool</span> <span style="font: 12.0px Courier">affectLifetime;<br/>
+            docShell</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">GetAffectPrivateSessionLifetime(</span><span style="font: 12.0px Courier; color: #797979">&amp;</span><span style="font: 12.0px Courier">affectLifetime);<br/>
+           </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(affectLifetime) {<br/>
+                chromeFlags</span> <span style="font: 12.0px Courier; color: #797979">|=</span> <span style="font: 12.0px Courier">nsIWebBrowserChrome</span><span style="font: 12.0px Courier; color: #797979">::</span><span style="font: 12.0px Courier">CHROME_PRIVATE_LIFETIME;<br/>
+            }<br/>
+<br/>
+           </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(tabId</span> <span style="font: 12.0px Courier; color: #797979">==</span> <span style="font: 12.0px Courier; color: #797979">0</span><span style="font: 12.0px Courier">) {<br/>
+               </span> <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier">nullptr;<br/>
+            }<br/>
+            nsRefPtr</span><span style="font: 12.0px Courier; color: #797979">&lt;</span><span style="font: 12.0px Courier">TabParent</span><span style="font: 12.0px Courier; color: #797979">&gt;</span> <span style="font: 12.0px Courier">tp(</span><span style="font: 12.0px Courier; color: #008f00"><b>new</b></span> <span style="font: 12.0px Courier">TabParent(constructorSender, tabId,<br/>
+                                                 aContext, chromeFlags));<br/>
+            tp</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">SetInitedByParent();<br/>
+            tp</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">SetOwnerElement(aFrameElement);<br/>
+<br/>
+            PBrowserParent</span><span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">browser</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">constructorSender</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">SendPBrowserConstructor(<br/>
+               </span> <span style="font: 12.0px Courier; color: #4f9192"><i>// DeallocPBrowserParent() releases this ref.<br/></i></span><span style="font: 12.0px Courier">                tp.forget().take(),<br/>
+                tabId,<br/>
+                aContext.AsIPCTabContext(),<br/>
+                chromeFlags,<br/>
+                constructorSender</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">ChildID(),<br/>
+                constructorSender</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">IsForApp(),<br/>
+                constructorSender</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">IsForBrowser());</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">            <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier">TabParent</span><span style="font: 12.0px Courier; color: #797979">::</span>GetFrom(browser);</span></span></div>
+<div><br/></div>
+<div>And notice that I start with blank chromeFlags and only flip the CHROME_PRIVATE_WINDOW and CHROME_PRIVATE_LIFETIME bits. Ah hah...</div>
+<div><br/></div>
+<div>
+<div><span title="Monday, September 21, 2015 4:41:18 PM">4:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; smaug: I'm working on bug 1194897. It looks like when we create new remote browsers, we pass down an extremely minimal chromeFlags that doesn't include information on what toolbars are visible</div>
+<div><span title="Monday, September 21, 2015 4:41:59 PM">4:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; smaug: the solution I'm considering is somehow grabbing the root docshell, GetInterface'ing the nsIWebBrowserChrome, getting at the chrome flags, and copying the chromeFlags over</div>
+<div><span title="Monday, September 21, 2015 4:42:20 PM">4:42 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; however, I'm wary of doing that in ContentParent::CreateBrowserOrApp, since my approach is pretty Firefox Desktop specific</div>
+<div><span title="Monday, September 21, 2015 4:42:42 PM">4:42 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and from what I'm reading here, ContentParent::CreateBrowserOrApp is used by B2G and probably other stuff that doesn't necessarily know or care about nsIWebBrowserChrome</div>
+<div><span title="Monday, September 21, 2015 4:42:52 PM">4:42 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; any advice on how best to proceed?</div>
+</div>
+<div><span title="Monday, September 21, 2015 4:45:46 PM">4:45 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; ...back</div>
+<div>
+<div><span title="Monday, September 21, 2015 4:46:50 PM">4:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; back? as in back away from the code slowly? :)</div>
+<div><span title="Monday, September 21, 2015 4:47:02 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; mconley: back from <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/%23developers" rel="noreferrer">#developers</a> ;)</div>
+<div><span title="Monday, September 21, 2015 4:47:11 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; ah</div>
+</div>
+<div><span title="Monday, September 21, 2015 4:47:23 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; mconley: so, there sure should be nsIWebBrowserChrome available in b2g too</div>
+<div>
+<div><span title="Monday, September 21, 2015 4:47:35 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; oh! That's interesting</div>
+<div><span title="Monday, September 21, 2015 4:47:45 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; given that nsContentTreeOwner inherits it</div>
+<div><span title="Monday, September 21, 2015 4:47:45 PM">4:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and the root docshell will be able to GetInterface to it?</div>
+<div><span title="Monday, September 21, 2015 4:49:57 PM">4:49 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; mconley: or get treeowner from any docshell</div>
+<div><span title="Monday, September 21, 2015 4:50:09 PM">4:50 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; and QI that</div>
+<div><span title="Monday, September 21, 2015 4:50:17 PM">4:50 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; ah hah</div>
+<div><span title="Monday, September 21, 2015 4:50:32 PM">4:50 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; smaug: so is my plan advisable - to get at the nsIWebBrowserChrome and copy its chromeFlags?</div>
+<div><span title="Monday, September 21, 2015 4:50:37 PM">4:50 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; hmm, does only nsContentTreeOwner extend nsIWebBrowserChrome</div>
+<div><span title="Monday, September 21, 2015 4:50:43 PM">4:50 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/smaug" title="smaug (chatzilla@moz-rpsqk9.rev.dnainternet.fi)">smaug</a>&gt; sounds ok</div>
+<div><span title="Monday, September 21, 2015 4:51:19 PM">4:51 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; smaug: both nsChrome/nsContentTreeOwner know how to GetInterface to an nsIWebBrowserChrome, so I think I'm okay</div>
+</div>
+<div><span title="Monday, September 21, 2015 4:51:22 PM">4:51 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; smaug: thanks!</div>
+<div><br/></div>
+<div>Renamed bug from Bug 1194897 - [e10s] Clicking a link on digg.com with e10s enabled yields two tabs to Bug 1194897 - [e10s] window.[location|menu|personal|status|tool]bar.visible is always false.</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4df0bf244131">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4df0bf244131</a></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>File a bug to add some tests for this. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1210482">https://bugzilla.mozilla.org/show_bug.cgi?id=1210482</a></div>
+</body></html>

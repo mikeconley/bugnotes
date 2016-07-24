@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-08-13 17:35:33 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1191976"/><meta name="updated" content="2015-08-19 04:21:18 +0000"/><title>Bug 1191976 - [e10s] Some child process crashes are not being reported</title></head><body>
+<div>Oh shit, this is pretty serious.</div>
+<div><br/></div>
+<div>Luckily, I can mostly reproduce.</div>
+<div><br/></div>
+<div>"</div>
+<div>STR for this particular crash:<br/>
+<br/>
+1) Set layers.progressive-paint to true and restart Nightly<br/>
+2) Move Nightly over to a Retina display<br/>
+3) Log in to <a href="http://Workday.com">Workday.com</a><br/>
+4) Click into any of the menus that cause the "zoom" animation<br/>
+5) Keep repeating until a content process crash.<br/>
+<br/></div>
+<div>The crash itself is not important - layers.progressive-paint is not a thing we're ever likely to turn on. We should find out why the crash report isn't being generated here in this case though."</div>
+<div><br/></div>
+<div>Thing to remember - for debug builds, the crash reporter is disabled, so make sure to run with MOZ_CRASHREPORTER=1. I've been burned by that before.</div>
+<div><br/></div>
+<div>See? I'm learning! :D</div>
+<div><br/></div>
+<div><img src="Bug%201191976%20-%20%5Be10s%5D%20Some%20child%20process%20crashes%20are%20not%20being%20reported.resources/2BC95E05-A703-44E5-B32C-BFDD38F1262F.gif" height="240" width="320"/></div>
+<div><br/></div>
+<div>Okay, going to attack this on two fronts. First, I need to attach a JS debugger breakpoint on TabCrashReporter.observe for the ipc:content-shutdown observer notification.</div>
+<div><br/></div>
+<div>Because it seems like that's either not being called, or the shutdown is not abnormal or something.</div>
+<div><br/></div>
+<div>Also setting a breakpoint in ContentParent::ActorDestroy, since this is what's being called when the process is crashing.</div>
+<div><br/></div>
+<div>Welp, shit, I can't reproduce this with a debug build. But I can with an opt build. The crash from the STR must be a racey one or something. :/</div>
+<div><br/></div>
+<div>So it's down to printf debugging. Lovely.</div>
+<div><br/></div>
+<div>Well, what I've discovered is that the dumpID is blank. Why?</div>
+<div><br/></div>
+<div>So who is responsible for setting the dumpID?</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier">               nsAutoString</span> <span style="font: 12.0px Courier; color: #0433ff">dumpID</span><span style="font: 12.0px Courier">(crashReporter</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">ChildDumpID());</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">                props<span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">SetPropertyAsAString(NS_LITERAL_STRING(</span><span style="font: 12.0px Courier; color: #c8352b">"dumpID"</span>), dumpID);</span></span></div>
+<div><br/></div>
+<div>The above is in ContentParent::ActorDestroy. So I guess I need to examine the CrashReporterParent.</div>
+<div><br/></div>
+<div>Huh… it seems we never call into GenerateCrashReportForMinidump… and that's what's necessary to generate the dumpID...</div>
+<div><br/></div>
+<div>So far, I've traced this to TakeMinidumpForChild in nsExceptionHandler.cpp. There's apparently no child process data when we try to "GetEntry":</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier"> MutexAutoLock</span> <span style="font: 12.0px Courier; color: #0433ff">lock</span><span style="font: 12.0px Courier">(</span><span style="font: 12.0px Courier; color: #797979">*</span><span style="font: 12.0px Courier">dumpMapLock);<br/>
+<br/>
+  ChildProcessData</span><span style="font: 12.0px Courier; color: #797979">*</span> <span style="font: 12.0px Courier">pd</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">pidToMinidump</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span><span style="font: 12.0px Courier">GetEntry(childPid);<br/>
+ </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(</span><span style="font: 12.0px Courier; color: #797979">!</span><span style="font: 12.0px Courier">pd)<br/>
+   </span> <span style="font: 12.0px Courier; color: #008f00"><b>return</b></span> <span style="font: 12.0px Courier; color: #008f00">false</span><span style="font: 12.0px Courier">;<br/>
+<br/></span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">  NS_IF_ADDREF(<span style="font: 12.0px Courier; color: #797979">*</span><span style="font: 12.0px Courier">dump</span> <span style="font: 12.0px Courier; color: #797979">=</span> <span style="font: 12.0px Courier">pd</span><span style="font: 12.0px Courier; color: #797979">-&gt;</span>minidump);</span></span></div>
+<div><br/></div>
+<div><br/></div>
+<div>So we return false here, which causes us to fail to generate a crash report.</div>
+<div><br/></div>
+<div>Question: Why is pidToMinidump-&gt;GetEntry empty?</div>
+<div><br/></div>
+<div>Well, better question:</div>
+<div><br/></div>
+<div>Question: When is pidToMinidump-&gt;GetEntry usually set?</div>
+<div><br/></div>
+<div>Two places that pidToMinidump-&gt;PutEntry is called. Let's instrument those and use TabCrasher.</div>
+<div><br/></div>
+<div>So when I use TabCrasher, we PutEntry in OnChildProcessDumpRequested. Who calls that? Apparently that's something that CrashGeneratorServer calls, which I think is part of breakpad...</div>
+<div><br/></div>
+<div>Ah, ok, so CrashGeneratorServer runs on a separate thread...</div>
+<div><br/></div>
+<div>* thread #45: tid = 0x5bb87f, 0x00000001065eb80b XUL`CrashReporter::OnChildProcessDumpRequested(aContext=0x0000000000000000, aClientInfo=0x000000013ad03a90, aFilePath=0x000000013ad03a80) + 27 at nsExceptionHandler.cpp:2635, stop reason = breakpoint 2.1</div>
+<div>  * frame #0: 0x00000001065eb80b XUL`CrashReporter::OnChildProcessDumpRequested(aContext=0x0000000000000000, aClientInfo=0x000000013ad03a90, aFilePath=0x000000013ad03a80) + 27 at nsExceptionHandler.cpp:2635</div>
+<div>    frame #1: 0x000000010664255c XUL`google_breakpad::CrashGenerationServer::WaitForOneMessage(this=0x0000000139795620) + 764 at crash_generation_server.cc:136</div>
+<div>    frame #2: 0x000000010664223d XUL`google_breakpad::CrashGenerationServer::WaitForMessages(server=0x0000000139795620) + 29 at crash_generation_server.cc:95</div>
+<div>    frame #3: 0x00007fff8305d772 libsystem_c.dylib`_pthread_start + 327</div>
+<div><br/></div>
+<div>Okay, uh… so is that being run in the bad case?</div>
+<div><br/></div>
+<div>Bah. I'm out of my depth. Needinfo'ing ted.</div>
+<div><br/></div>
+<div>Ted sez:</div>
+<div><br/></div>
+<div>
+<div><span style=""><span title="Thursday, August 13, 2015 5:58:25 PM">5:58 PM</span></span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ted" title="ted (sid140@moz-ou6k55.0j4i.jtu0.0101.2620.IP)">ted</a>&gt; mconley: <a href="https://dxr.mozilla.org/mozilla-central/source/toolkit/crashreporter/google-breakpad/src/client/mac/crash_generation/crash_generation_client.cc?offset=100#37" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/toolkit/crashreporter/google-breakpad/src/client/mac/crash_generation/crash_generation_client.cc?offset=100#37</a></div>
+</div>
+<div><span style=""><span title="Thursday, August 13, 2015 5:59:58 PM">5:59 PM</span></span> &lt;<span title="Ops">@</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ted" title="ted (sid140@moz-ou6k55.0j4i.jtu0.0101.2620.IP)">ted</a>&gt; mconley: by way of <a href="https://dxr.mozilla.org/mozilla-central/source/toolkit/crashreporter/google-breakpad/src/client/mac/handler/exception_handler.cc#370" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/toolkit/crashreporter/google-breakpad/src/client/mac/handler/exception_handler.cc#370</a></div>
+<div><br/></div>
+<div>I'm noticing these before a crash:</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0xFFFB,name=???) Payload error: message could not be deserialized</div>
+<div><br/></div>
+<div>IPDL protocol error: Error deserializing 'data' (Shmem) member of 'SurfaceDescriptorShmem'</div>
+<div>IPDL protocol error: Error deserializing 'SurfaceDescriptor'</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0x800006,name=PLayerTransaction::Msg_PTextureConstructor) Value error: message was deserialized, but contained an illegal value</div>
+<div><br/></div>
+<div><br/></div>
+<div>###!!! [Parent][MessageChannel] Error: (msgtype=0x200084,name=PBrowser::Msg_Destroy) Channel error: cannot send/recv</div>
+<div><br/></div>
+<div>Is it possible that the IPC library is doing a killhard of the child on an error message that we're not prepared to handle?</div>
+<div><br/></div>
+<div>Maybe. I'd have to talk to billm about that maybe.</div>
+<div><br/></div>
+<div>What I do know is that ExceptionHandler::WriteMinidumpWithException isn't being called… that's what's called in the "show crash report" case.</div>
+<div><br/></div>
+<div>Okay, this is getting pretty insane. First of all, somehow, I'm able to set breakpoints inside XCode and walkthrough an OPT BUILD. WHAT THE FUCK. That's some H.P. Lovecraft style revelations here. I feel like I'm staring at non-Euclidean geometry. The horror! The majesty! TL;DR: Everything I know is wrong.</div>
+<div><br/></div>
+<div>Uh. I can't even deal with that right now. Let's pretend that the data I'm getting out of this is useful. I'll curl up into a fetal ball and rock myself to sleep later.</div>
+<div><br/></div>
+<div>Soooooooooo - I'm starting to suspect that the ContentParent::KillHard is sending a SIGTERM to the content process. I can see that SIGTERM being sent at the end of ContentParent::KillHard via ProcessWatcher::EnsureProcessTerminated.</div>
+<div><br/></div>
+<div>SO, hypothesis: This is a KillHard abort that does not result in a crash report. </div>
+<div><br/></div>
+<div>Test: Add a magical??? breakpoint to ContentParent::KillHard, reproduce the crash and see if we hit the breakpoint.</div>
+<div><br/></div>
+<div>Result: <b>No</b>. The parent never enters ContentParent::KillHard. Uh… so EnsureProcessTerminated is being called by something else?</div>
+<div><br/></div>
+<div>Noooo - I think it's happening through ContentParent::ActorDestroy - after we attempt to get a crash report, we do DelayedDeleteSubprocess which kills the process.</div>
+<div><br/></div>
+<div>So ActorDestroy… the IPC pipe is being shut down. Why? Did the child return false for something?</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0xFFFB,name=???) Payload error: message could not be deserialized</div>
+<div><br/></div>
+<div>IPDL protocol error: Error deserializing 'data' (Shmem) member of 'SurfaceDescriptorShmem'</div>
+<div>IPDL protocol error: Error deserializing 'SurfaceDescriptor'</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0x800006,name=PLayerTransaction::Msg_PTextureConstructor) Value error: message was deserialized, but contained an illegal value</div>
+<div><br/></div>
+<div>So… uh, it looks like something is sending SIGTERM to the content process. And then the content process doesn't handle that and just shuts down without creating a minidump.</div>
+<div><br/></div>
+<div>Wai?</div>
+<div><br/></div>
+<div>Hypothesis: Child is returning false for some IPC message. This causes IPC layer to flip out and kill the child with SIGTERM.</div>
+<div><br/></div>
+<div>Test: Make RecvSwappedWithOtherRemoteLoader return false, and then tear out a tab to crash.</div>
+<div><br/></div>
+<div>Result: <b>No</b>, we still get a crash report. Plus this error message:</div>
+<div><br/></div>
+<div>IPDL protocol error: Handler for SwappedWithOtherRemoteLoader returned error code</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0x20008C,name=PBrowser::Msg_SwappedWithOtherRemoteLoader) Processing error: message was deserialized, but the handler returned false (indicating failure)</div>
+<div><br/></div>
+<div>[Child 23849] ###!!! ABORT: Content child abort due to IPC error: file /Users/mikeconley/Projects/mozilla-central/dom/ipc/ContentChild.cpp, line 2005</div>
+<div>[Child 23849] ###!!! ABORT: Content child abort due to IPC error: file /Users/mikeconley/Projects/mozilla-central/dom/ipc/ContentChild.cpp, line 2005</div>
+<div><br/></div>
+<div>So I think we handle that case OK.</div>
+<div><br/></div>
+<div><br/></div>
+<div>Hypothesis: Parent asks child to allocate something. Child returns nullptr. Parent flips out and kills it with SIGTERM.</div>
+<div><br/></div>
+<div>Test: Make TabChild::AllocPWebBrowserPersistDocumentChild return nullptr, and then try to save a page.</div>
+<div><br/></div>
+<div>Result: <b>No</b>, we still get a crash report, and the following error message:</div>
+<div><br/></div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0x200004,name=PBrowser::Msg_PWebBrowserPersistDocumentConstructor) Value error: message was deserialized, but contained an illegal value</div>
+<div><br/></div>
+<div>[Child 24092] ###!!! ABORT: Content child abort due to IPC error: file /Users/mikeconley/Projects/mozilla-central/dom/ipc/ContentChild.cpp, line 2005</div>
+<div>[Child 24092] ###!!! ABORT: Content child abort due to IPC error: file /Users/mikeconley/Projects/mozilla-central/dom/ipc/ContentChild.cpp, line 2005</div>
+<div><br/></div>
+<div>###!!! [Parent][MessageChannel] Error: (msgtype=0x200084,name=PBrowser::Msg_Destroy) Channel error: cannot send/recv</div>
+<div><br/></div>
+<div><br/></div>
+<div>Huh. So let's go back to the error messages that we were seeing:</div>
+<div><br/></div>
+<div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0xFFFB,name=???) Payload error: message could not be deserialized</div>
+<div><br/></div>
+<div>IPDL protocol error: Error deserializing 'data' (Shmem) member of 'SurfaceDescriptorShmem'</div>
+<div>IPDL protocol error: Error deserializing 'SurfaceDescriptor'</div>
+<div><br/></div>
+</div>
+<div>###!!! [Child][DispatchAsyncMessage] Error: (msgtype=0x800006,name=PLayerTransaction::Msg_PTextureConstructor) Value error: message was deserialized, but contained an illegal value</div>
+<div><br/></div>
+<div>Let's try to come up with a scenario here that could explain this.</div>
+<div><br/></div>
+<div>Where is the PTextureConstructor sent?</div>
+<div><br/></div>
+<div>Hm, a few places:</div>
+<div><br/></div>
+<div>ImageBridgeChild::CreateTexture and ShadowLayerForwarder::CreateTexture</div>
+<div><br/></div>
+<div>Reminds me of….. bug <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1134252">1134252</a>.</div>
+<div><br/></div>
+<div>That had an error message of "'(msgtype=0x200002,name=PBrowser::Msg_PRenderFrameConstructor) Value error: message was deserialized, but contained an illegal value'"</div>
+<div><br/></div>
+<div>And that was because the PARENT was returning nullptr for the constructor.</div>
+<div><br/></div>
+<div>* thread #25: tid = 0x630940, 0x00000001016bb474 XUL`base::KillProcess(process_id=24855, exit_code=&lt;unavailable&gt;, wait=false) + 20 at <a href="http://process_util_posix.cc:70">process_util_posix.cc:70</a>, name = 'Compositor', stop reason = breakpoint 1.2<br/>
+  * frame #0: 0x00000001016bb474 XUL`base::KillProcess(process_id=24855, exit_code=&lt;unavailable&gt;, wait=false) + 20 at <a href="http://process_util_posix.cc:70">process_util_posix.cc:70</a><br/>
+    frame #1: 0x00000001016d9424 XUL`mozilla::ipc::FatalError(aProtocolName=&lt;unavailable&gt;, aMsg=&lt;unavailable&gt;, aOtherPid=&lt;unavailable&gt;, aIsParent=&lt;unavailable&gt;) + 308 at ProtocolUtils.cpp:324<br/>
+    frame #2: 0x00000001017905e8 XUL`mozilla::layers::PLayerTransactionParent::Read(this=0x0000000000000000, v__=&lt;unavailable&gt;, msg__=&lt;unavailable&gt;, iter__=0x00000001129868b8) + 216 at PLayerTransactionParent.cpp:2423<br/>
+    frame #3: 0x000000010178c15a XUL`mozilla::layers::PLayerTransactionParent::Read(this=0x00000001240d0160, v__=0x0000000112986878, msg__=0x0000000112986b20, iter__=0x00000001129868b8) + 170 at PLayerTransactionParent.cpp:4576<br/>
+    frame #4: 0x000000010178b05b XUL`mozilla::layers::PLayerTransactionParent::OnMessageReceived(this=0x00000001240d0160, msg__=0x0000000112986b20) + 1227 at PLayerTransactionParent.cpp:425<br/>
+    frame #5: 0x00000001018f7758 XUL`mozilla::layers::PCompositorParent::OnMessageReceived(this=&lt;unavailable&gt;, msg__=0x0000000112986b20) + 232 at PCompositorParent.cpp:509<br/>
+    frame #6: 0x00000001016d6896 XUL`mozilla::ipc::MessageChannel::DispatchAsyncMessage(this=0x000000011c20ec68, aMsg=0x0000000112986b20) + 118 at MessageChannel.cpp:1382<br/>
+    frame #7: 0x00000001016d6011 XUL`mozilla::ipc::MessageChannel::DispatchMessage(this=0x000000011c20ec68, aMsg=&lt;unavailable&gt;) + 241 at MessageChannel.cpp:1302<br/>
+    frame #8: 0x00000001016d2d77 XUL`mozilla::ipc::MessageChannel::OnMaybeDequeueOne(this=0x000000011c20ec68) + 167 at MessageChannel.cpp:1273<br/>
+    frame #9: 0x00000001016b4524 XUL`MessageLoop::DeferOrRunPendingTask(MessageLoop::PendingTask const&amp;) [inlined] MessageLoop::RunTask(task=0x000000011c21f890, this=0x0000000112986d20) + 132 at <a href="http://message_loop.cc:364">message_loop.cc:364</a><br/>
+    frame #10: 0x00000001016b4513 XUL`MessageLoop::DeferOrRunPendingTask(this=0x0000000112986d20, pending_task=&lt;unavailable&gt;) + 115 at <a href="http://message_loop.cc:372">message_loop.cc:372</a><br/>
+    frame #11: 0x00000001016b483a XUL`MessageLoop::DoWork(this=0x0000000112986d20) + 170 at <a href="http://message_loop.cc:459">message_loop.cc:459</a><br/>
+    frame #12: 0x00000001016b5046 XUL`base::MessagePumpDefault::Run(this=0x0000000112ccb520, delegate=0x0000000112986d20) + 758 at <a href="http://message_pump_default.cc:34">message_pump_default.cc:34</a><br/>
+    frame #13: 0x00000001016b40ad XUL`MessageLoop::Run() [inlined] MessageLoop::RunInternal(this=&lt;unavailable&gt;) + 77 at <a href="http://message_loop.cc:234">message_loop.cc:234</a><br/>
+    frame #14: 0x00000001016b409e XUL`MessageLoop::Run() [inlined] MessageLoop::RunHandler(this=&lt;unavailable&gt;) at <a href="http://message_loop.cc:227">message_loop.cc:227</a><br/>
+    frame #15: 0x00000001016b409e XUL`MessageLoop::Run(this=&lt;unavailable&gt;) + 62 at <a href="http://message_loop.cc:201">message_loop.cc:201</a><br/>
+    frame #16: 0x00000001016bc43b XUL`base::Thread::ThreadMain(this=0x0000000112ccb430) + 187 at <a href="http://thread.cc:170">thread.cc:170</a><br/>
+    frame #17: 0x00000001016bc49a XUL`ThreadFunc(closure=&lt;unavailable&gt;) + 10 at <a href="http://platform_thread_posix.cc:39">platform_thread_posix.cc:39</a><br/>
+    frame #18: 0x00007fff8305d772 libsystem_c.dylib`_pthread_start + 327</div>
+<div><br/></div>
+<div>From jld:</div>
+<div><br/></div>
+<div>"From a quick look at the generated code, it looks as if the only cases where mozilla::ipc::FatalError is called if there's an out-of-range IPDL union discriminant or if a ParamTraits&lt;T&gt;::Read (i.e., deserialization) routine fails.  Most of the reasons that can happen mean the data stream is corrupt, but one possibility is a FallibleTArray when the receiver's allocation fails.</div>
+<div><br/></div>
+<div>It looks like the other cases (Recv* returning false, failed Alloc* on the receive side) just return errors from the OnMessageReceived method, which is probably where we're tapping in to do the paired minidump?"</div>
+<div><br/></div>
+<div>From billm:</div>
+<div><br/></div>
+<div>"I suspect the logic here has to do with whether it's reasonable to recover from the error or not. If we can't deserialize some data, then we're unlikely to be able to understand future messages from the child either, so we should kill it. Things like message handlers returning false are potentially recoverable.</div>
+<div><br/></div>
+<div>I'd suggest we add some sort of ability for individual protocols to override the FatalError behavior. However, the default behavior if you don't implement this method would be to MOZ_CRASH() (which would definitely send us a crash report). Then we would override the FatalError behavior for CrossProcessCompositorParent to do something reasonable. Maybe it could post a message to the main thread asking it to take a minidump and kill the child. We'll need to be careful to close the CompositorParent channel right away though so that we don't get any more bad messages coming in."</div>
+<div><br/></div>
+<div>Question:</div>
+<div><br/></div>
+<div>billm suggests using MOZ_CRASH within FatalError in order to definitely send a crash report. Since this code is presumably running in the parent process, is he suggesting we crash the parent here?</div>
+<div><br/></div>
+<div>Yes, yes he is. And that way, we can get an idea of how often this happens.</div>
+<div><br/></div>
+<div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:31:12 PM">2:31 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: hey - can I pick your brain a bit about bug 1191976? Perhaps jld wants to listen in too - he seems to know a lot about this stuff...</div>
+</div>
+<div><span title="Tuesday, August 18, 2015 2:33:14 PM">2:33 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: sure, just catching up on that bug</div>
+<div>
+<div><span title="Tuesday, August 18, 2015 2:33:20 PM">2:33 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; thanks</div>
+<div><span title="Tuesday, August 18, 2015 2:33:29 PM">2:33 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; "So, to be clear, we want a minidump from the process that saw FatalError."</div>
+<div><span title="Tuesday, August 18, 2015 2:33:33 PM">2:33 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; that's the browser right?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:33:46 PM">2:33 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; on the compositor thread</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:33:46 PM">2:33 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: in the case of this bug, yes - but (I believe) that can be any process.</div>
+</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:00 PM">2:34 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; like, FatalError is hit if serialization fails on either side</div>
+<div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:18 PM">2:34 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; so, I'm pretty sure FatalError could be hit on parent, content and plugin side.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:22 PM">2:34 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; That's a good point.</div>
+<div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:38 PM">2:34 PM</span></span> → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a> joined (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:38 PM">2:34 PM</span></span> <span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a> was promoted to admin (+a) by <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ChanServ" title="ChanServ (services@ircservices.mozilla.org)">ChanServ</a></div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:38 PM">2:34 PM</span></span> <span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a> was opped (+o) by <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ChanServ" title="ChanServ (services@ircservices.mozilla.org)">ChanServ</a></div>
+</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:34:48 PM">2:34 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; hmm, sounds like a simple MOZ_CRASH in place of that kill the other side code is what you want</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:00 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: which is what billm also suggested</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:08 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; Thought if a child process is the receiver, then there's no downside to MOZ_CRASH(), because it was going to do that anyway?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:08 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: but in the case of the parent process, this brings down the whole browse.r</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:20 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; s/ght/gh/</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:25 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; s/.r/r.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:28 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; yep</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:32 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: <a rel="noreferrer" target="_blank">https://crash-stats.mozilla.com/report/list?product=Firefox&amp;range_value=7&amp;range_unit=days&amp;date=2015-08-18&amp;signature=mozalloc_abort%28char+const*+const%29+|+NS_DebugBreak+|+mozilla%3A%3Aipc%3A%3AFatalError%28char+const*%2C+char+const*%2C+unsigned+long%2C+bool%29+|+mozilla%3A%3Adom%3A%3APContentChild%3A%3AFatalError%28char+const*+const%29+|+mozilla%3A%3Adom%3A%3APContentChild%3A%3ARead%2</a></div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:35:32 PM">2:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; 8mozilla%3A%3Adom%3A%3AIPCDataTransferIt...&amp;version=Firefox%3A42.0a2</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:36:14 PM">2:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: we're certain we're willing to make that trade-off?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:36:46 PM">2:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; do we have any sense for how often this happens in the wild?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:36:48 PM">2:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; because FatalError on the parent side should be recoverable, I'd think - in that, we kill the process that sent us the message, and spew out a minidump for our own process</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:36:57 PM">2:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: I don't think we do.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:37:04 PM">2:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; like, MOZ_CRASH'ing here would certainly give us an idea o fit</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:37:07 PM">2:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; s/o fit/of it</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:37:12 PM">2:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; ...gah. The important part of the stack is off the end of the "..." in that signature.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:37:14 PM">2:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; like, that's one way of finding out. :)</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:37:46 PM">2:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; jld: <a href="https://crash-stats.mozilla.com/report/index/e3ee109d-376e-42f3-8d61-503332150817" rel="noreferrer" target="_blank">https://crash-stats.mozilla.com/report/index/e3ee109d-376e-42f3-8d61-503332150817</a></div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:38:26 PM">2:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; jimm: No, not the URL being truncated on IRC (I pasted it back together), the "mozilla::dom::PContentChild::Read(mozilla::dom::IPCDataTransferIt..."</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:38:42 PM">2:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; ah - so it looks like if we hit FatalError in the child, that we're doing the right thing</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:38:45 PM">2:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; s/that/then</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:38:49 PM">2:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; ah sorry</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:38:51 PM">2:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; geez, I'm fat fingering like crazy</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:39:02 PM">2:39 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: in the case of the compositor crash, I think crashing the browser would be ok assuming you push it to try for a full test run and don't see anything ugly happen.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:39:51 PM">2:39 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; why do we think this is a problem on the compositor side vs. the main thread side?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:11 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; sounds like the data we received was messed up</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:30 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; oh, wait, this message came from the child?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:48 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; Yes - we receive a messed up message from the child that we can't deserialize</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:53 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; same question though..</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:55 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; hmm ok</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:40:55 PM">2:40 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; ...or, wait. IPCDataTransferItem is useful information.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:41:17 PM">2:41 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; So we're doing the right thing in killing the content process, I think. The new plan is to MOZ_CRASH instead.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:41:35 PM">2:41 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; I guess I'm just hesitant to MOZ_CRASH</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:41:38 PM">2:41 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; But it would be nice if there were more characters there, or fewer were taken up the stuff leafward of the actor's FatalError.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:42:17 PM">2:42 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; because I feel like there should be a good way, in the parent process FatalError case, to kill the content process still, and take a minidump from ourselves</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:42:27 PM">2:42 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and somehow convince about:tabcrashed to submit _that_ minidump</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:42:30 PM">2:42 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: how does crashing the browser help us diagnose?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:42:38 PM">2:42 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; I don't much like MOZ_CRASH()ing either. I guess if the child process is really compromised then there are easier ways to DoS the parent process.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:43:09 PM">2:43 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; mconley: And that was what I suggested in the bug: however we get a live-dump-of-self for paired minidumps, do that.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:43:14 PM">2:43 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: it's pretty brute force. It's a quick and dirty way of ensuring we get a minidump from the parent.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:43:40 PM">2:43 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jld: yeah, I think I'd like to lean that way if I can</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:43:43 PM">2:43 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; But I haven't tried going into the code to see how much of the important parts of that are thread-safe.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:44:03 PM">2:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm says that the CrashReporterParent is reasonably threadsafe</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:44:29 PM">2:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; noo</div>
+<div><span title="Tuesday, August 18, 2015 2:44:30 PM">2:44 PM</span> zz_miketaylr → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/miketaylr" title="miketaylr (miketaylr@moz-gi5.jjj.241.192.IP)">miketaylr</a></div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:44:36 PM">2:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; oh, sorry, misquoted</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:44:36 PM">2:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; not CrashReporterParent</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:45:46 PM">2:45 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; "the code in CrashReporterParent is a light wrapper around the CrashReporter apis which do most of the work, and I believe these routines are mostly multithread safe" &lt;-- so I was wrong, not CrashReporterParent, but the crash reporter backend.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:45:59 PM">2:45 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; yeah</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:46:30 PM">2:46 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: do we know what ipdl message this happen for?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:47:05 PM">2:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: for this particular bug, it's Msg_PTextureConstructor</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:47:34 PM">2:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: but the cause of this FatalError isn't particularly interesting - it's our reaction to the crash that's interesting</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:47:45 PM">2:47 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; *sigh*, s/crash/FatalError</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:16 PM">2:48 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; I just feel like we should get a sense for how common this is before we put a lot of effort into it</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:26 PM">2:48 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; making the crash reporting threadsafe isn't trivial</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:36 PM">2:48 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; yeah our handling there is messy.</div>
+<div><span title="Tuesday, August 18, 2015 2:48:43 PM">2:48 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; yeah, reading this stuff, I'm getting a sense of it. :/</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:50 PM">2:48 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; okay</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:51 PM">2:48 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; if it turns out we crash there a lot, we can revisit the decision</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:57 PM">2:48 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; billm: pretty sure CrashReporter apis can be called on any thread.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:48:59 PM">2:48 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; if we almost never crash there, we can leave it as is</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:01 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; ted: * ?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:08 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; ted: ^ ?</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:11 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; billm: okay, I think I'm pursuaded</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:17 PM">2:49 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; jimm: yes, but the stuff in between isn't</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:38 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; persuaded</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:45 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; I'm not suggesting calling ContentParent's KillHard there</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:49:55 PM">2:49 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; just copying a bit of the logic over</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:50:31 PM">2:50 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; The core crash reporting stuff *should* be fairly thread-safe, because any thread can crash.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:02 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; welp</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:07 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; I don't see how a browser stack helps us here though.. so I don't understand why we want to crash the browser.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:08 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; let's put the spaghetti in the machine</div>
+<div><span title="Tuesday, August 18, 2015 2:51:28 PM">2:51 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; unless we just want numbers</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:30 PM">2:51 PM</span></span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/bholley" title="bholley (bholley@moz-qpv0dk.ca.comcast.net)">bholley</a> quit (<a href="mailto:bholley@moz-qpv0dk.ca.comcast.net">bholley@moz-qpv0dk.ca.comcast.net</a>) Quit: My MacBook Pro has gone to sleep. ZZZzzz…</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:33 PM">2:51 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; jimm: we just want the numbers</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:41 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; ok :)</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:46 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; jimm: Because it shows us what we failed to deserialize.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:51 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: in the case of a FatalError in the parent process, it's because the minidump in the parent will (hopefully) tell us which protocol the bad message was sent over</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:53 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; MOZ_CRASH will give you that for sure!</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:51:55 PM">2:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; which is something, I guess</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:08 PM">2:52 PM</span></span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> whips up a MOZ_CRASH patch</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:11 PM">2:52 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; the child dump won't really tell us anything either I don't think</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:15 PM">2:52 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; it's just nicer for the user</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:19 PM">2:52 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; right</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:23 PM">2:52 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: thought we already new that</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:25 PM">2:52 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; which we should strive for</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:27 PM">2:52 PM</span></span> &lt;<span title="Admins">&amp;</span><a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/billm" title="billm (billm@moz-a8k9ll.mh2d.1ibb.0101.2620.IP)">billm</a>&gt; but if we almost never hit this, it's not worth the trouble</div>
+<div><span title="Tuesday, August 18, 2015 2:52:43 PM">2:52 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: me too, but you said "I don't see how a browser stack helps us here though"</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:52:55 PM">2:52 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; maybe I misunderstood</div>
+<div><span title="Tuesday, August 18, 2015 2:52:57 PM">2:52 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; MOZ_RELEASE_ASSERT()ing that we don't Write() bytes that won't be Read()able would also work, but there might be a performance cost, and it also won't help stuff like FallibleTArray OOM.</div>
+<div><span title="Tuesday, August 18, 2015 2:53:19 PM">2:53 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; alright, well, thanks for jamming with me on this one, folks. :)</div>
+<div><span title="Tuesday, August 18, 2015 2:54:11 PM">2:54 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; But right now we're not getting *any* reporting for child-&gt;parent Read() failure unless the user takes the initiative to file a bug, if I understand correctly?</div>
+<div><span title="Tuesday, August 18, 2015 2:54:22 PM">2:54 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; yep, and even then, the information would be scant</div>
+<div><span title="Tuesday, August 18, 2015 2:54:24 PM">2:54 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; no minidumps</div>
+<div><span title="Tuesday, August 18, 2015 2:55:05 PM">2:55 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; Yeah, this one had a usable STR, mercifully.</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:55:07 PM">2:55 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; hmm, thought we had stacks already. mike mentioned the message in question was Msg_PTextureConstructor</div>
+<div><span title="Tuesday, August 18, 2015 2:55:26 PM">2:55 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: I only found that out because of the logging we do in the FatalError</div>
+</div>
+<div><span title="Tuesday, August 18, 2015 2:56:02 PM">2:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and because it turns out that I can attach XCode to an opt build and get useful crash information. :)</div>
+<div>
+<div><span title="Tuesday, August 18, 2015 2:56:18 PM">2:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; I see so we need crash reports to get a better idea of when this happens. gotcha.</div>
+<div><span title="Tuesday, August 18, 2015 2:56:25 PM">2:56 PM</span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> nods</div>
+<div><span title="Tuesday, August 18, 2015 2:56:43 PM">2:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; crash away!</div>
+<div><span style=""><span title="Tuesday, August 18, 2015 2:56:47 PM">2:56 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; when, and how frequently</div>
+<div><span title="Tuesday, August 18, 2015 2:56:53 PM">2:56 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; let's crash this mutha</div>
+<div><span title="Tuesday, August 18, 2015 2:57:30 PM">2:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; mconley: what's the bug number? I can keep an eye on things after you go on pto.</div>
+<div><span title="Tuesday, August 18, 2015 2:57:41 PM">2:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; Maybe also useful: MOZ_DIAGNOSTIC_ASSERT, which asserts on all nightly/aurora builds (and debug builds of any train).</div>
+<div><span title="Tuesday, August 18, 2015 2:57:52 PM">2:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jimm: bug 1191976</div>
+<div><span title="Tuesday, August 18, 2015 2:57:57 PM">2:57 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jimm" title="jimm (jmathies@moz-bpco9b.dhcp.embarqhsd.net)">jimm</a>&gt; thxc</div>
+<div><span title="Tuesday, August 18, 2015 2:58:10 PM">2:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jld" title="jld (jld@moz-onnk26.xlerb.net)">jld</a>&gt; I don't know that it's the right answer here, but it's a tool we have if we don't want to crash beta/release builds.</div>
+<div><span title="Tuesday, August 18, 2015 2:58:18 PM">2:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; jld: hmmm - yes, that sounds appropriate</div>
+</div>
+<div><span title="Tuesday, August 18, 2015 2:58:23 PM">2:58 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; at least, the behaviour</div>
+<div><br/></div>
+<div>Ok, using MOZ_DIAGNOSTIC_ASSERT.</div>
+<div><br/></div>
+<div>Bah, let's just use MOZ_CRASH. Eff it.</div>
+<div><br/></div>
+<div>Also, adding annotations as per billm's request.</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4b930d32cacd">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=4b930d32cacd</a></div>
+</body></html>

@@ -1,0 +1,242 @@
+---
+layout: post
+title:  "Bug 1213650 - Reloading (F5) loads about:blank instead of current page"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1213650">
+ Bug 1213650 - Reloading (F5) loads about:blank instead of current page
+</a>
+<div>
+ Okay, I think I know how this is working...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Initial browser is non-remote by default.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We attempt to load about:home, and compute that we need to do a remoteness switch on about:home. Parent does remoteness switch, which starts a  navigateAndRestore on the initial browser. This starts a browser flush.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Flush finishes. We start to restore the history (which is basically about:blank) for the newly remote browser by sending down a message with the history to restore.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ User puts in remote URL to load and presses ENTER. This sends down a message to load the URI.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Content starts restoring the content by loading about:home, but this is suddenly cancelled with the newly entered URL from the user.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Mossop’s patch interprets the cancellation of that about:home load, and calls restoreTabContent again, but without loadArguments… this will cause us to restore the current history entry (which I guess is “about:blank”?)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Content starts loading URL...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AHHH - navigateAndRestore looks like the culprit here. Multiple calls can come into it before the first tab flush finishes - and so we end up attempting two restores. Making this thing stash the last loadArguments seems to work - and I have a regression test!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hm… that didn’t fix it. Shit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, added logging on slow-mo machine. Here’s what I’ve found out:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ContentRestore.restoreTabContent is called with load arguments of
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “uri”: “about:home”,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “flags”: 0,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “referrer”: null,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “referrerPolicy”: 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And get this - the tab data entries array is:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “url”: “about:blank”,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “charset”: “”,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “ID”: 1,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “docshellID”: 5,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “docIdentifier”: 1,
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  “persist”: false
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ restoreTabContentStarted gets called, starts loading the document
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AND THEN the new URI gets sent down, so we see a stop request
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So restoreTabContentStarted completes with the abort state
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And THAT triggers a recall to restoreTabContent with the same old values, except no load arguments.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ YES! Finally a test case on my Windows box! THANK GOODNESS.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Backout push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c405d9412f68">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c405d9412f68
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay! Movement on this. Apparently this is still an issue with bug 1175267 backed out, but its rarer. My patch for this bug put the issue back into the “rare” bucket. I’ve filed bug 1226657 about the rare bucket, with the following info:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ "This presents exactly like
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1213650" title="NEW - Reloading (F5) loads about:blank instead of current page">
+  bug 1213650
+ </a>
+ , but seems to be much rarer. The conclusion that we came to in
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1213650" title="NEW - Reloading (F5) loads about:blank instead of current page">
+  bug 1213650
+ </a>
+ is that
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1175267" title="REOPENED - about:addons page turns blank when opening XPI file">
+  bug 1175267
+ </a>
+ (which was originally identified as the regressing bug for
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1213650" title="NEW - Reloading (F5) loads about:blank instead of current page">
+  bug 1213650
+ </a>
+ ) exacerbated a pre-existing problem, and made it more likely to occur.
+ <br/>
+ <br/>
+ This test is for the more unlikely (but still possible) case.
+ <br/>
+ <br/>
+</div>
+<div>
+ I've written a test case, which I'll attach to this bug."
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Sweet! Landed on integration.
+</div>

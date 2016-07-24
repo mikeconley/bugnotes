@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-09-22 22:00:14 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1141041"/><meta name="updated" content="2015-10-13 14:24:00 +0000"/><title>Bug 1141041 - [e10s] Opening the "View" &gt; "Page Style" menu in remote browser causes unsafe CPOW usage warnings</title></head><body>
+<div>So the problem is that we're using a CPOW to populate the menupopup via a "syncHandler" defined in tab-content.js.</div>
+<div><br/></div>
+<ol>
+<li>See if there's a way that we can delay the opening of the popup until we can get an async message with some Stylesheet results back from the content.</li>
+<li>Anytime content has finished loading or notices a new stylesheet has been added, it should inform the parent with a list of those stylesheets, which the parent can then cache. The parent can then synchronously access that cache when we attempt to open the popup.</li>
+<li>We have some code that captures context menu clicks in the content process - could we put the Page Style stuff in the context menu? This would mean we can use pre-existing infrastructure to send content data up to the parent.</li>
+</ol>
+<div><br/></div>
+<div>Let's look at solution 2.</div>
+<div><br/></div>
+<div>In order for solution 2 to be possible, I need to do the following:</div>
+<div><br/></div>
+<ol>
+<li>I need some way of finding out when all subframes on a page are done loading, and then scan them for stylesheets to send up to the parent.</li>
+<li>I need some way of detecting when a new stylesheet has been added, or when an old one has been removed.</li>
+</ol>
+<div><br/></div>
+<div>There are some stylesheet event notifications, but they're only fired when styleSheetChangeEventsEnabled is set to true on the document. That property, styleSheetChangeEventsEnabled, was added in <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=839103">https://bugzilla.mozilla.org/show_bug.cgi?id=839103</a>.</div>
+<div><br/></div>
+<div>This puts us in a bit of a pickle, because if there is indeed a performance regression when firing these events, which necessitated only flipping it on for the documents that DevTools cares about… well, then, I guess we can't just go and flip it on for every document.</div>
+<div><br/></div>
+<ol>
+<li>Spin a try build with the StyleSheet events always firing, and see if there are any notable regressions in Dromaeo and tp5.</li>
+</ol>
+<div><br/></div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=48206c424625">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=48206c424625</a></div>
+<div>Always fire events: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f80b9f6eea40">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f80b9f6eea40</a></div>
+<div>Comparison: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=48206c424625&amp;newProject=try&amp;newRevision=f80b9f6eea40">https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=48206c424625&amp;newProject=try&amp;newRevision=f80b9f6eea40</a></div>
+<div><br/></div>
+<div>Bad idea: Poll the content process for the stylesheets. This wouldn't be amazing for performance, since we'd be scheduling some DOM operations every poll, and this would scale linearly per tab.</div>
+<div><br/></div>
+<div>Another part of Gecko must be informed when a stylesheet is added, because we update the style and repaint, so something must know about it. Can we hook into that?</div>
+<div><br/></div>
+<div>Is it possible that the StyleSheet events are being fired before DOMContentLoaded is finished? If so, we might be able to reduce the overhead by not firing those events until after the page has been loaded, as StyleSheet events are really only interesting after the page load.</div>
+<div><br/></div>
+<div><b>It appears as if we're firing StyleSheetAdded events while the DOM is still loading, which might be hampering performance. </b></div>
+<div><br/></div>
+<div>So let's see if there's a performance regression on Dromaeo and Tp5 when always firing the events, and if so, let's try to only fire StyleSheetAdded when the DOM has finished loading and see if that addresses it.</div>
+<div><br/></div>
+<div>
+<div>Baseline: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=48206c424625">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=48206c424625</a></div>
+</div>
+<div>Always fire events: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f80b9f6eea40">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=f80b9f6eea40</a></div>
+<div>Always fire events AFTER DOMContentLoaded: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a55327f2ab56">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=a55327f2ab56</a></div>
+<div>Comparison between Always fire events and Always fire events AFTER DOMContentLoaded: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=f80b9f6eea40&amp;newProject=try&amp;newRevision=a55327f2ab56">https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=f80b9f6eea40&amp;newProject=try&amp;newRevision=a55327f2ab56</a></div>
+<div>Comparison between Baseline and Always fire events AFTER DOMContentLoaded: <a href="https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=48206c424625&amp;newProject=try&amp;newRevision=a55327f2ab56">https://treeherder.mozilla.org/perf.html#/compare?originalProject=try&amp;originalRevision=48206c424625&amp;newProject=try&amp;newRevision=a55327f2ab56</a></div>
+<div><br/></div>
+<div>If so, then the solution is pretty straight-forward: As laid out in (2), just scan the top-level document and then subframes recursively for appropriate stylesheets when the DOM has finished loading, and then send those up to the parent. Any time StyleSheetAdded or StyleSheetRemoved, update the list and send it up to the parent (alternatively, instead of updating the list, just do the removal / addition to the cache).</div>
+<div><br/></div>
+<div>When the parent needs to open the Page Style menu popup, just read synchronously from the cache. Bobs your uncle!</div>
+<div><br/></div>
+<div>Other considerations:</div>
+<div><br/></div>
+<div>This is a really niche feature, and other browsers like Chromium and Safari don't seem to support it. Do we really want to burn a whole lot of engineering time trying to make it work without CPOWs? It might be worth measuring how often this item is actually used. It looks like we collect clicks on Page Style menu and children for Linux and Windows. Might be worth investigating how often it's used.</div>
+<div><br/></div>
+<div>Actually. Let's think about this for a second.</div>
+<div><br/></div>
+<div>This StyleSheetAdded event thing… and the performance regression bits. I think what we've got here is the intersection of two niche functions of the browser / web. Like, Page Style is (imo) niche. Dynamically added stylesheets are (imo) also kinda niche. The intersection of the two is therefore super niche.</div>
+<div><br/></div>
+<div>I suspect I can get away with making Page Style work with just the stylesheets that are on the page after page load, and then file follow-ups for the other cases.</div>
+<div><br/></div>
+<div>Gijs pointed me at DOMLinkAdded, DOMLinkRemoved!</div>
+<div><br/></div>
+<div>These are enabled by default!</div>
+<div><br/></div>
+<div>Let's try this route.</div>
+<div><br/></div>
+<div><input type="checkbox"/>When a tab has finished loading, scan all documents for their stylesheets, and send the list up to the parent for it to cache</div>
+<div><br/></div>
+<div>Is DOMLinkAdded fired for every &lt;link&gt; node when the DOM is first being loaded, or is it fired only after the DOM has finished loading?</div>
+<div><br/></div>
+<div>Hypothesis: DOMLinkAdded is fired every time, even during DOM load</div>
+<div><br/></div>
+<div>Test: Add a breakpoint in the Browser Content Toolbox for the DOMLinkAdded event, and see if we hit it by just loading a page.</div>
+<div><br/></div>
+<div>Result: Yes, I do get DOMLinkAdded fired in ContentLinkHandler during DOMContentLoaded for every &lt;link&gt; node!</div>
+<div><br/></div>
+<div>I don't appear, however, to be getting DOMLinkAdded events for stylesheets in subframes...</div>
+<div><br/></div>
+<div>I've got a local test folder that I can use called <b>css-test</b>.</div>
+<div><br/></div>
+<div>Hypothesis: DOMLinkAdded is never fired for stylesheets.</div>
+<div><br/></div>
+<div>Test: … purely from observation.</div>
+<div><br/></div>
+<div>NOT hasNonEmptyAttribute = HasEmptyAttribute</div>
+<div><br/></div>
+<div>Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1210074">https://bugzilla.mozilla.org/show_bug.cgi?id=1210074</a> for not firing DOMLinkAdded, DOMLinkRemoved, DOMLinkChanged for stylesheets! Let's see what happens.</div>
+<div><br/></div>
+<div>Bah… I don’t think I want this solution anymore. I’m worried about firing so many events, and how this will affect pageload performance.</div>
+<div><br/></div>
+<div>Alright. Time to bite the bullet. Let’s go with the async menupopup thing.</div>
+<div><br/></div>
+<div>Let’s make it so that when we send a message down to the child, we hold a weak reference to the browser’s permanentKey. When a response comes back up, make sure the popup is open, and the target’s permanentKey matches the weakref, and then do the population.</div>
+<div><br/></div>
+<div>GAHHHH…. a problem. The menuitems are being properly inserted, but the menu glue stuff that we do for OS X doesn’t appear to be working… like, it looks like it’s not prepared for the case where the items in the menu will be populated after the menu has opened. Boooo...</div>
+<div><br/></div>
+<div>*sigh*.</div>
+<div><br/></div>
+<div>Okay, so let’s try just sending up the cache on pageshow, and not worrying about dynamically added alternative stylesheets.</div>
+<div><br/></div>
+<div>The one wrinkle is that I might be breaking addon-compat for consumers of getAllStyleSheets()… so flagging.</div>
+<div><br/></div>
+<div>Ahh, failing tests with my patch:</div>
+<div><br/></div>
+<div>
+<div>503 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 1 with rel="alternate stylesheet" shows up in page style menu -</div>
+<div>508 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 3 with rel="stylesheet alternate" shows up in page style menu -</div>
+<div>510 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 4 with rel=" alternate stylesheet " shows up in page style menu -</div>
+<div>512 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 5 with rel="alternate stylesheet" shows up in page style menu -</div>
+<div>514 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 6 with rel="stylesheet" shows up in page style menu -</div>
+<div>515 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 6 with rel="stylesheet" is selected -</div>
+<div>516 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 7 with rel="foo stylesheet" shows up in page style menu -</div>
+<div>519 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 9 with rel="alternate STYLEsheet" shows up in page style menu -</div>
+<div>521 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 10 with rel="alternate stylesheet" shows up in page style menu -</div>
+<div>523 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 11 with rel="alternate stylesheet" and media="all" shows up in page style menu -</div>
+<div>525 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 12 with rel="alternate stylesheet" and media="ALL " shows up in page style menu -</div>
+<div>527 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 13 with rel="alternate stylesheet" and media="screen" shows up in page style menu -</div>
+<div>529 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 14 with rel="alternate stylesheet" and media=" Screen" shows up in page style menu -</div>
+<div>534 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 18 with rel="alternate stylesheet" and media="all,screen" shows up in page style menu -</div>
+<div>536 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 19 with rel="alternate stylesheet" and media="all, screen" shows up in page style menu -</div>
+<div>543 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 25 with rel="alternate stylesheet" and media="only screen" shows up in page style menu -</div>
+<div>545 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | link 26 with rel="alternate stylesheet" and media="screen and (min-device-width: 1px)" shows up in page style menu -</div>
+</div>
+<div>548 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_page_style_menu.js | all valid links found - Got 16, expected 0</div>
+<div><br/></div>
+<div>Ah, patch was causing test failure because we were reacting to the load event, which happens before pageshow, which is the event that we use to populate the menu. Switching the test to wait for pageshow fixes it. \o/</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Account for the possibility that the stylesheet URI is a massive dataURI...</div>
+<div><input checked="true" type="checkbox"/>Consider closing bug 213289!</div>
+<div><input type="checkbox"/><br/></div>
+<div><br/></div>
+</body></html>

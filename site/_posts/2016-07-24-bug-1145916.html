@@ -1,0 +1,1973 @@
+---
+layout: post
+title:  "Bug 1145916 - printing multiple copies doesn&apos;t work with e10s"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1145916">
+ Bug 1145916 - printing multiple copies doesn't work with e10s
+</a>
+<div>
+ Let's get started.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Got a debug build going on here.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's see if we can confirm this bug...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, can confirm! Let's see what's up!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ahhhhh shit - I think I know what's up.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsPrintSettingsGTK
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  settingsGTK(do_QueryInterface(settings));
+  <br/>
+  NS_ENSURE_STATE(settingsGTK);
+  <br/>
+  <br/>
+  nsresult rv
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  nsPrintOptions
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  DeserializeToPrintSettings(data, settings);
+  <br/>
+  NS_ENSURE_SUCCESS(rv, rv);
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Instead of re-using the GtkPrintSettings that nsIPrintSettings is
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // wrapping, we'll create a new one to deserialize to and replace it
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // within nsIPrintSettings.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  GtkPrintSettings
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  newGtkPrintSettings
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  gtk_print_settings_new();
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   for
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  uint32_t
+ </span>
+ <span style="font: 12.0px Courier">
+  i
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  0
+ </span>
+ <span style="font: 12.0px Courier">
+  ; i
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  data.GTKPrintSettings().Length();
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ++
+ </span>
+ <span style="font: 12.0px Courier">
+  i) {
+  <br/>
+  CStringKeyValue pair
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  data.GTKPrintSettings()[i];
+  <br/>
+  gtk_print_settings_set(newGtkPrintSettings,
+  <br/>
+  pair.key().get(),
+  <br/>
+  pair.value().get());
+  <br/>
+  }
+  <br/>
+  <br/>
+  settingsGTK
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  SetGtkPrintSettings(newGtkPrintSettings);
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // nsPrintSettingsGTK is holding a reference to newGtkPrintSettings
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  g_object_unref(newGtkPrintSettings);
+  <br/>
+  newGtkPrintSettings
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  nullptr;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   <span style="font: 12.0px Courier; color: #008f00">
+    <b>
+     return
+    </b>
+   </span>
+   NS_OK;
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   <br/>
+  </span>
+ </span>
+</div>
+<div>
+ So after we call DeserializeToPrintSettings on the parent class,
+ <b>
+  we throw the settings it may have stored in the GtkPrintSettings away
+ </b>
+ , because we create a new GtkPrintSettings instead.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Wait. Waaiiiit. Doesn't that mean that we're not properly serializing the number of copies? Like, we should be passing this massive key/value store from the GtkPrintSettings down… and shouldn't that contain the number of copies?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So maybe it's not in the group of things being serialized by the parent? Let's check...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ No, we're sending everything correctly. What the hell?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Oh cripes, we can't even do multiple copies correctly in single process?? WTF??
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hrm. gw280 can reproduce this. Shit. :/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ohhhhh. Damn it. PDFWriter doesn't let me do copies. Well shit.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Luckily, XCode ships with a Printer Simulator! I have to go to XCode &gt; Open Developer Tool &gt; Printer Simulator to get it registered… then I have to add the printer in the System Preferences thing under Printers.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so now I have a new simulated printer that can hopefully do copies.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I can simulate this now, after adding the Simulated Printers as network printers in my Ubuntu VM (needed to find my host machine IP address relative to my VM, which was listed via ifconfig as the inet address under vmnet1).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So here's what simulated-inkjet tells me when I try to print 5 pages from non-e10s
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:05 -0400] 1
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  5
+ </span>
+ - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:05 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:06 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:07 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:09 -0400] total 1 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:12 -0400] total 2 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:17 -0400] total 3 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 127 [24/Jul/2015:11:42:25 -0400] total 5 - localhost Nightly Start Page - -
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And here's what I get when I try to do 6 pages from e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ simulated-inkjet mike 128 [24/Jul/2015:11:42:50 -0400] 1
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  1
+ </span>
+ - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 128 [24/Jul/2015:11:42:50 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 128 [24/Jul/2015:11:42:51 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 128 [24/Jul/2015:11:42:52 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 128 [24/Jul/2015:11:42:54 -0400] total 1 - localhost Nightly Start Page - -
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That highlighted number… I think that's supposed to be the number of copies. I'll confirm that right now.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'll do non-e10s with 15 copies. If the number I get in that second slot is 15, I think that's a bingo.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:06 -0400] 1
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  15
+ </span>
+ - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:06 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:08 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:09 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:11 -0400] total 0 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:14 -0400] total 1 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:19 -0400] total 2 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:27 -0400] total 3 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:28 -0400] total 4 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:29 -0400] total 4 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:31 -0400] total 4 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:34 -0400] total 5 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:39 -0400] total 6 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:47 -0400] total 8 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:48 -0400] total 8 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:49 -0400] total 8 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:51 -0400] total 9 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:54 -0400] total 9 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:54:59 -0400] total 11 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:07 -0400] total 13 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:08 -0400] total 13 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:09 -0400] total 13 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:11 -0400] total 14 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:14 -0400] total 15 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:19 -0400] total 15 - localhost Nightly Start Page - -
+</div>
+<div>
+ simulated-inkjet mike 129 [24/Jul/2015:12:55:27 -0400] total 15 - localhost Nightly Start Page - -
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, confirmed. What the fuck?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0x9cb0a3d "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  InputSlot
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9a268e0 "") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0x9a2ddfd "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  number-up
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9f4d558 "1") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0xa0067e5 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  job-sheets
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9d9ed60 "none,none") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0x9dc3b3d "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cupsPrintQuality
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x99d4cc0 "Normal") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0xa6c237d "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  MediaType
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x99a6890 "auto") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0xa1d7cad "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  job-priority
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9fda268 "50") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0x9a2de15 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  PageSize
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9a281b0 "Letter") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 5, gtk_cups_request_encode_option (request=request@entry=0x9aa3ae8, option=option@entry=0xa64387d "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  ColorModel
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9c91c08 "RGB") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xaa5aab5 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  InputSlot
+ </span>
+ ", value=value@entry=0xca93c50 "") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ <b>
+  Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xdae3e15 "
+  <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+   copies
+  </span>
+  ", value=value@entry=0xe6c4938 "5") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+ </b>
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xcabdf95 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  ColorModel
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0xa7306c8 "RGB") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xa79e235 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cupsPrintQuality
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0xe2aaac8 "Normal") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xd9aa26d "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  MediaType
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0xc3c4ed8 "auto") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xb1d0355 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  job-priority
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0xaf38128 "50") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xdae3e25 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  PageSize
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0x9ba1bc8 "Letter") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xa7306dd "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  job-sheets
+ </span>
+ ",
+</div>
+<div>
+ value=value@entry=0xc7c2228 "none,none") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ Breakpoint 1, gtk_cups_request_encode_option (request=request@entry=0xbe835a0, option=option@entry=0xab48245 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  number-up
+ </span>
+ ", value=value@entry=0xa85ff30 "1") at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkcupsutils.c:485
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WELL THERE'S YOUR PROBLEM RIGHT THERE.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We're, for some reason, not encoding the "copies" option. Huh. Okay, why?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Looking at each call to add_cups_options, which foreach's the settings:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9bcac28 "print-at", value=0x9dde2d8 "now", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa5b6870 "cover-after", value=0x9f862a0 "none", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9f7afd0 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-InputSlot
+ </span>
+ ", value=0xa027120 "", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x99a6fc8 "reverse", value=0x9e0b0b0 "false", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa27d048 "print-pages", value=0x99bce18 "all", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa0e46b0 "paper-width", value=0xa727a70 "215.8", '9' &lt;repeats 12 times&gt;, "8", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9e4b9a8 "print-at-time", value=0x99ba0a0 "", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa139ce0 "paper-height", value=0x9c814c8 "279.3", '9' &lt;repeats 12 times&gt;, "8", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9c57c58 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-number-up
+ </span>
+ ", value=0xa725060 "1", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9c7f280 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-job-sheets
+ </span>
+ ", value=0x9f623c8 "none,none", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa00c298 "scale", value=0x9ac7ea0 "100", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa0471c0 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-cupsPrintQuality
+ </span>
+ ", value=0x9a4a7e0 "Normal", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa5bc118 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-MediaType
+ </span>
+ ", value=0x9a2de88 "auto", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9ec2710 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-job-priority
+ </span>
+ ", value=0x9a6d520 "50", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9fd0060 "default-source", value=0x9a04270 "", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9ec4dc8 "collate", value=0xa2f02a0 "false", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa0269b0 "media-type", value=0xa722008 "auto", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9db3af8 "
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  cups-PageSize
+ </span>
+ ", value=0xa6fb4a0 "Letter", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9efd698 "page-set", value=0x9fa0f80 "all", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9c4b048 "
+ <b>
+  n-copies
+ </b>
+ ", value=0x9b00138 "5", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x98e58a0 "cover-before", value=0x9f67170 "none", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0x9d80288 "cups-ColorModel", value=0xa127c90 "RGB", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa448960 "number-up", value=0x9b29d50 "1", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa63aa40 "paper-format", value=0xa0f8d40 "na_letter", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 6, add_cups_options (key=0xa197aa0 "printer", value=0x9f754b8 "simulated-inkjet", user_data=0xa338c80)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ non-e10s:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd931db8 "print-at",
+</div>
+<div>
+ value=0xa6d9bd8 "now", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0x9f4d110 "cover-after",
+</div>
+<div>
+ value=0xb7c2008 "none", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xadef990 "cups-InputSlot",
+</div>
+<div>
+ value=0xb7c2038 "", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd87cab0 "reverse",
+</div>
+<div>
+ value=0xb7c2048 "false", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xb7c2018 "print-pages",
+</div>
+<div>
+ value=0xaffa4f8 "all", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xb7c2028 "paper-width",
+</div>
+<div>
+ value=0xb7c1868 "215.8", '9' &lt;repeats 12 times&gt;, "8", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd89dd88 "print-at-time",
+</div>
+<div>
+ value=0xa874b68 "", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xa132938 "paper-height",
+</div>
+<div>
+ value=0xa1328e0 "279.3", '9' &lt;repeats 12 times&gt;, "8", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xc0d8a70 "paper-format",
+</div>
+<div>
+ value=0xb7c1dd8 "na_letter", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  Breakpoint 2, add_cups_options (key=0xb7c1a00 "
+  <b>
+   n-copies
+  </b>
+  ", value=0xaf792b0 "5",
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  user_data=0xd931d98)
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  Breakpoint 2, add_cups_options (key=0xad3c958 "
+  <b>
+   cups-copies
+  </b>
+  ",
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  value=0xb7c1c18 "5", user_data=0xd931d98)
+ </span>
+</div>
+<div>
+ <span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;">
+  at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+ </span>
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xb7c1ec8 "cups-ColorModel",
+</div>
+<div>
+ value=0xe5703b0 "RGB", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xc62cb28 "cups-cupsPrintQuality",
+</div>
+<div>
+ value=0xa132848 "Normal", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd9315f8 "cups-MediaType",
+</div>
+<div>
+ value=0xa51d340 "auto", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xec4ef88 "cups-job-priority",
+</div>
+<div>
+ value=0xa1327c8 "50", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xe570318 "default-source",
+</div>
+<div>
+ value=0xe570740 "", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xa132888 "collate",
+</div>
+<div>
+ value=0xd79b9c0 "false", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xa132808 "media-type",
+</div>
+<div>
+ value=0xc314d20 "auto", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xea92aa8 "cups-PageSize",
+</div>
+<div>
+ value=0xd79b980 "Letter", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xa6d9d60 "number-up",
+</div>
+<div>
+ value=0xd79b970 "1", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd79b9d0 "cover-before",
+</div>
+<div>
+ value=0xc874f70 "none", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xb7c1e50 "cups-job-sheets",
+</div>
+<div>
+ value=0xb7f6990 "none,none", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xc62c6b0 "printer",
+</div>
+<div>
+ value=0xc314d30 "simulated-inkjet", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xa132928 "page-set",
+</div>
+<div>
+ value=0xa1ee348 "all", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xb7f69a0 "cups-number-up",
+</div>
+<div>
+ value=0xa7cb200 "1", user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ Breakpoint 2, add_cups_options (key=0xd9315d8 "scale", value=0xec4ef78 "100",
+</div>
+<div>
+ user_data=0xd931d98)
+</div>
+<div>
+ at /build/buildd/gtk+2.0-2.24.23/modules/printbackends/cups/gtkprintbackendcups.c:549
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ OK, here's the problem:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   static
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  void
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #0433ff">
+  cups_printer_prepare_for_print
+ </span>
+ <span style="font: 12.0px Courier">
+  (GtkPrinter
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  printer,
+  <br/>
+  GtkPrintJob
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  print_job,
+  <br/>
+  GtkPrintSettings
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  settings,
+  <br/>
+  GtkPageSetup
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  page_setup)
+  <br/>
+  {
+  <br/>
+  GtkPageSet page_set;
+  <br/>
+  GtkPaperSize
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  paper_size;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   const
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  char
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  *
+ </span>
+ <span style="font: 12.0px Courier">
+  ppd_paper_name;
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  double
+ </span>
+ <span style="font: 12.0px Courier">
+  scale;
+  <br/>
+  GtkPrintCapabilities  capabilities;
+  <br/>
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   capabilities
+   <span style="font: 12.0px Courier; color: #797979">
+    =
+   </span>
+   cups_printer_get_capabilities (printer);
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ ^-- That's the GTK code for getting a print job fired off. And then we get the capabilities of the printer...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that in the content process, we can't seem to get the capabilities of the printer!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So when we get to this part:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (capabilities
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  GTK_PRINT_CAPABILITY_COPIES)
+  <br/>
+  {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (gtk_print_settings_get_n_copies (settings)
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  1
+ </span>
+ <span style="font: 12.0px Courier">
+  )
+  <br/>
+  gtk_print_settings_set_int (settings,
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "cups-copies"
+ </span>
+ <span style="font: 12.0px Courier">
+  ,
+  <br/>
+  gtk_print_settings_get_n_copies (settings));
+  <br/>
+  print_job
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  num_copies
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  1
+ </span>
+ <span style="font: 12.0px Courier">
+  ;
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   <br/>
+  </span>
+ </span>
+</div>
+<div>
+ We never enter this block, since the capabilities are unknown, so we never set cups-copies, which is what we need.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Question: Why aren't the capabilities known?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hypothesis… the way we're enumerating printers somehow sidesteps our knowing what our target printers capabilities are… ???
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Test: Add a breakpoint in the child process at the beginning of the printing enumeration, and once just before we kick off the print job. When we hit the first, set a breakpoint in cups_request_avahi_printer_info_cb, and see if we hit that before we hit the second breakpoint we added.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Result: Interesting! We never hit cups_request_avih_printer_info_cb in the child process during that whole process. Wow! What about in the parent? In the parent, we hit it when we show the dialog!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, more information… when we enumerate the parent, we
+ <i>
+  do
+ </i>
+ actually query for all of the printers, and fill out the capabilities for each one correctly...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ But, it's almost as if the GtkPrinter we get through the enumerator isn't connected to the right PrinterSetupInfo? OR, we don't copy the PrinterSetupInfo to the printer? Is that how it's arranged?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok… one variation I've noticed.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In the parent process, in avahi_create_browsers, we succeed in attaching signal handlers… in the content process, not so much. g_bus_get_finish is getting an G_IO_ERROR_CANCELLED error, so we never attach some signal handlers.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I suspect this is because gtk_print_backend_cups_dispose is being fired before avahi_create_browsers can attach in the content process, and otherwise in the parent. Why????
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok, so if gtk_print_backend_cups_dispose is being fired supposedly early in the child (after the printer enumeration is done), then when is it firing in the parent?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yeah - the parent seems to call avahi_create_browsers really early - right near the very start.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Good order:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Dialog is opening… cups_get_printer_list, avahi_create_browsers…. dialog renders.
+</div>
+<div>
+ Printer is chosen and dialog is closed. gtk_print_backend_cups_dispose
+</div>
+<div>
+ nsDeviceContextSpecGTK::StartPrintJob
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Dialog goes away… cups_get_printer_list, nsDeviceContextSpecGTK::StartPrintJob, then gtk_print_backend_cups_dispose, and then avahi_create_browsers. Ah hah.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ AH HAH
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ It looks like calling gtk_print_job_send is not really allowed when you're still in the process of enumerating printers. So now I'm doing it in a runnable outside of that loop.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ That way, we get this order:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ cups_Get_printer_list, gtk_print_backend_cups_dispose, avahi_create_browser (which still errors out…?), and then nsDeviceContextSpecGTK::StartPrintJob.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I don't actually fully understand what's happened here, except that it's probably not a good idea to try to kick off a print job within a printer enumeration loop, because things might not be "ready".
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Uh, okay. Welp, patch time.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So karlt wants some more explanation of why this works.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Question: WHY DOES MY PATCH WORK?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think it's because it makes it so that avahi_create_browsers will still get called for the printer that we g_object_ref after the enumerator has exited.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When we stop the enumeration of the GTK printers, it looks like we go through every item of the printer list that GTK created, and destroy the backends.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ When we start the print job from within the enumerator, we're using a printer that has a backend that's about to be destroyed once the enumerator finishes.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What I know is that it looks like gtk_print_backend_cups_dispose is called before we can call avahi_create_browser, and that seems to be the key to hearing about whether or not a printer backend can do copies.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In single-process mode, avahi_create_browser is called long before gtk_print_backend_cups_dispose, since dispose is called once the dialog is closed. avahi_create_browser is called asynchronously after we get the list of printers to populate the dialog with.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Thesis: avahi_create_browser is called too late in multi-process mode, and avahi_create_browser is needed…
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We need it to call avahi_service_browser_signal_handler, which calls avahi_service_resolver_cb, which calls avahi_connection_test_cb, which calls cups_request_avahi_printer_info, which is necessary in order to determine whether or not the printer can do copies.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ How come deferring the print job start to an event helps?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hypothesis: the printer backend is being destroyed before I can use it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Test: Set a breakpoint in nsDeviceContextSpecGTK::PrinterEnumerator at the point where we're about to kick off the job, and make note of the printer backend memory address. Set a breakpoint in gtk_print_backend_cups_finalize and see if we ever enter it with that particular address.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Result: No, but it's being disposed of via gtk_print_backend_destroy, which calls dispose on a backend, which breaks its reference to the printer (and cancels any pending inquiries!).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ok… I think I'm starting to understand.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here is the order of events.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We kick off enumerating the printers, which does a bunch of setup with signals (like printer-added), and kicks off a bunch of things to figure out what printers are available, and what the capabilities of those printers are.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Eventually, for each printer, we reach cups_request_printer_list_cb, after we've gotten the list of all of the printers from CUPS. For each printer, if it's "new" (we don't hold a reference to it in a cache I guess?), we fire "printer-added", which is what the printer enumerator is waiting for.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So we then run nsDeviceContextSpecGTK::PrinterEnumerator with the printer. The problem is that we haven't fully populated the capabilities of that printer yet! Look (from
+ <a href="https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n3119">
+  https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n3119
+ </a>
+ ):
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  if (gtk_printer_is_new (printer))
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  {
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  g_signal_emit_by_name (backend, "printer-added", printer);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  gtk_printer_set_is_new (printer, FALSE);
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  }
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  #if 0
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  /* Getting printer info with separate requests overwhelms cups
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  * when the printer list has more than a handful of printers.
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  */
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  cups_request_printer_info (cups_backend, gtk_printer_get_name (printer));
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  #endif
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;state = info-&gt;state;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;ipp_version_major = info-&gt;ipp_version_major;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;ipp_version_minor = info-&gt;ipp_version_minor;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;supports_copies = info-&gt;supports_copies;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;supports_collate = info-&gt;supports_collate;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  GTK_PRINTER_CUPS (printer)-&gt;supports_number_up = info-&gt;supports_number_up;
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  <br/>
+ </span>
+</div>
+<div>
+ So the nsDeviceContextSpecGTK::PrinterEnumerator is working with a printer that's not fully fleshed out!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ WTF. How come the printer is new? Is the printer "new" in single-process as well?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Yes! We do! Ok, I think I've solved this m ystery...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Wednesday, July 29, 2015 6:57:42 PM">
+   6:57 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: ping
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 6:58:57 PM">
+   6:58 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/karlt" title="karlt (karl@moz-l7l922.xtra.co.nz)">
+   karlt
+  </a>
+  &gt; mconley: hi
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 6:59:17 PM">
+   6:59 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: hi! I think I've untangled this printer story. Can I run my theory by you and see if it makes sense?
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 6:59:27 PM">
+   6:59 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/karlt" title="karlt (karl@moz-l7l922.xtra.co.nz)">
+   karlt
+  </a>
+  &gt; mconley: sure
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:00:16 PM">
+   7:00 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: cool. So one thing that distinguishes printing with e10s from non-e10s is that when we send the printer down to the child in multi-process mode, we have to pass the name down, and then gtk_enumerate_printers our way to success
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:01:00 PM">
+   7:01 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: when we do that, we're getting GTK to query the OS for every printer it can find, and handing them to us as it finds them
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:02:01 PM">
+   7:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; looking at the CUPS backend, it looks like when a printer is "discovered", we fire a "printer-added" signal on the printing backend - that's what gtk_printers_enumerate (I had the order wrong in my last sentence) is listening for
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:02:11 PM">
+   7:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: so far so good?
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:02:20 PM">
+   7:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/karlt" title="karlt (karl@moz-l7l922.xtra.co.nz)">
+   karlt
+  </a>
+  &gt; mconley: yes, makes sense
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:02:26 PM">
+   7:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: ok, so here's the problem:
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:02:38 PM">
+   7:02 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; here's where we emit the printer-added signal in the CUPS backend:
+  <a href="https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n3119" rel="noreferrer" target="_blank">
+   https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n3119
+  </a>
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:03:14 PM">
+   7:03 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; so GTK dispatches the signal, and our nsDeviceContextSpecGTK::PrinterEnumerator will execute before we move to line 3121, right?
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:03:23 PM">
+   7:03 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; execute for the one printer we just found
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:04:09 PM">
+   7:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; if that's the case, the printers capabilities have not yet been fleshed out - notice back in gtkprintbackendcups.c, on linees 3131-3139 is where we actually set up the state of the thing
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:04:43 PM">
+   7:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; so with our current code, we call nsDeviceContextSpecGTK::StartPrintJob on a GtkPrinter that's not been fully fleshed out yet, capability-wise
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:04:53 PM">
+   7:04 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/karlt" title="karlt (karl@moz-l7l922.xtra.co.nz)">
+   karlt
+  </a>
+  &gt; mconley: glib signal emission is usually synchronous, so it seems likely that 3121 has not run
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:05:31 PM">
+   7:05 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; karlt: so I think that's why dispatching the Event in my patch works - we're able to go back to gtkprintbackendcups.c, and finish setting up the capabilities of the printer
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:05:39 PM">
+   7:05 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; before we send it off to go print a thing
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:07:08 PM">
+   7:07 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; the behaviour seems really inconsistent - here's an alternative approach that the backend uses to get information about the printer:
+  <a href="https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n2485" rel="noreferrer" target="_blank">
+   https://git.gnome.org/browse/gtk+/tree/modules/printbackends/cups/gtkprintbackendcups.c?id=3.10.8#n2485
+  </a>
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:07:15 PM">
+   7:07 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; notice how we fire printer-added after we've set the state
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:08:39 PM">
+   7:08 PM
+  </span>
+  →
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/jcarpenter" title="jcarpenter (jcarpenter@moz-u3dg2t.sfo1.mozilla.com)">
+   jcarpenter
+  </a>
+  joined (
+  <a href="mailto:jcarpenter@moz-u3dg2t.sfo1.mozilla.com">
+   jcarpenter@moz-u3dg2t.sfo1.mozilla.com
+  </a>
+  )
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:08:53 PM">
+   7:08 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/karlt" title="karlt (karl@moz-l7l922.xtra.co.nz)">
+   karlt
+  </a>
+  &gt; mconley: yes, i think you've found a bug in cups_request_printer_list_cb
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:09:02 PM">
+   7:09 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; \o/
+ </div>
+ <div>
+  <span title="Wednesday, July 29, 2015 7:09:04 PM">
+   7:09 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; ?
+ </div>
+</div>
+<div>
+ <span title="Wednesday, July 29, 2015 7:09:06 PM">
+  7:09 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+  mconley
+ </a>
+ &gt; :)
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So I should land the workaround with the Event, and I should report the bug to the GTK maintainers.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hey, we made it!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I've filed a GTK bug:
+ <a href="https://bugzilla.gnome.org/show_bug.cgi?id=753041">
+  https://bugzilla.gnome.org/show_bug.cgi?id=753041
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ And I've got a new patch up for review. \o/
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Woo! Landed! WE DID IT!
+</div>

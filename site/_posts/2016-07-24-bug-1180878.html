@@ -1,0 +1,121 @@
+---
+layout: post
+title:  "Bug 1180878 - [e10s] Can&apos;t Print to PDF if folder name contains spaces"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1180878">
+ Bug 1180878 - [e10s] Can't Print to PDF if folder name contains spaces
+</a>
+<div>
+ Yes! I can reproduce this! It looks like we're sending the job to the printer that is selected in the dialog even though we said we wanted to save it as a PDF.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So something has gone awry.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Note that this works if there is no space in the name, as Felipe correctly pointed out. So I wonder if somehow we're screwing up serializing the directory name that we're supposed to be saving to?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Relevant field in NSPrintInfo:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <b>
+   NSPrintJobSavingURL
+  </b>
+ </div>
+ <div>
+  <br/>
+ </div>
+</div>
+<div>
+ "An NSURL containing the location to which the job file will be saved when the
+ <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/occ/instm/NSPrintInfo/jobDisposition">
+  jobDisposition
+ </a>
+ is
+ <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSPrintInfo_Class/index.html#//apple_ref/c/data/NSPrintSaveJob">
+  NSPrintSaveJob
+ </a>
+ ."
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I stored this in toFileName in the PrintData struct.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ HYPOTHESIS TIME:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ We're not correctly serializing the toFileName from the parent when the parent has sent a filename with a space in it.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Test: Attach a debugger and see what the parent is sending up through toFileName when we have a space in the folder, and see what the NSURL is that the child constructs when deserializing the PrintData to the NSPrintInfo dictionary.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Our hypothesis was almost correct. The real problem is that we're not DESERIALIZING correctly.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The NSURL that goes in is:
+</div>
+<div>
+ jobSavingURL    NSURL *    @"file://localhost/Users/mikeconley/Projects/Felipe%20Test/Nightly%20Start%20Page.pdf"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The NSURL that gets constructed in the child is:
+</div>
+<div>
+ jobSavingURL    NSURL *    @"file://localhost/Users/mikeconley/Projects/Felipe%2520Test/Nightly%2520Start%2520Page.pdf"
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So it's an escaping problem!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The solution is to assume that when we're deserializing an NSURL, that it is already percent encoded and doesn't need to be re-encoded again.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

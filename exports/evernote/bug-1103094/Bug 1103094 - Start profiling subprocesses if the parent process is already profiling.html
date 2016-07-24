@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="Needs export, QUARTERLY GOAL"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-08-10 15:56:03 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1103094"/><meta name="updated" content="2015-11-26 23:36:13 +0000"/><title>Bug 1103094 - Start profiling subprocesses if the parent process is already profiling</title></head><body>
+<div>This is blocking bug <a title="NEW - Make profile dumping work with e10s" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1182595">1182595</a>, which is preventing us from getting profiles for various talos tests on our talos machines (and locally).</div>
+<div><br/></div>
+<div>So time to solve this.</div>
+<div><br/></div>
+<div>My idea is to send down a struct with profiler data when the ContentChild sends SendGetXPCOMProcessAttributes.</div>
+<div><br/></div>
+<div>That's assuming I can determine what the profile settings are in the parent at the time of creation of a content process while the profiler is already running.</div>
+<div><br/></div>
+<div>Ooooohhh - it looks like I added an XPCOM interface that exposes the things I want. I suppose I can maybe get an nsIProfilerStartParams from nsIProfiler if I add a getter?</div>
+<div><br/></div>
+<div>Yes! I think I can do that.</div>
+<div><br/></div>
+<div>Ok, game plan:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Expose a way of getting start params from nsIProfiler</div>
+<div><input checked="true" type="checkbox"/>Add a reference to the features string to GeckoSampler, I guess</div>
+<div><input type="checkbox"/><br/></div>
+<div>Huh - it looks like GeckoSampler doesn't hold on to the features string, but flips a bunch of internal settings. I should modify it to hold on to the starting string as well.</div>
+<div><br/></div>
+<div>Same for things like the entry size, the feature count, the thread name filters, and the filter count.</div>
+<div><br/></div>
+<div>Ah, the good news is that the Sampler class, which GeckoSampler extends, exposes the entry size, interval, etc. I just need to expose the thread names and features.</div>
+<div><br/></div>
+<div>Grawr - I thought mozilla_sampler_get_features would be useful, but it's not - it returns a static list of _supported_ features, not the current active features.</div>
+<div><br/></div>
+<div>So I guess I need to expose something better. Actually, what might be useful is to have a Gecko-only (so ifdef'd out for SPS_STANDALONE) method that returns an nsIProfilerStartParams from platform.cpp...</div>
+<div><br/></div>
+<div>So here's a problem - the GeckoSampler converts a const char** into a mozilla::Vector&lt;std::string&gt; (which, according to <a href="http://www.cplusplus.com/reference/string/string/">http://www.cplusplus.com/reference/string/string/</a>, is char).</div>
+<div><br/></div>
+<div>Then we need extract the vectors again and turn them back into an nsTArray&lt;nsCString&gt;, which seems rather silly.</div>
+<div><br/></div>
+<div>Why can't nsIProfilerStartParams use mozilla::Vector&lt;std::string&gt;?</div>
+<div><br/></div>
+<div>Ohhhh… one thing I just learned is that you get at the char* of a std::string via .c_str(). That's handy.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Create a new struct that can be passed through IPC that both PContent.ipdl and PPluginModule.ipdl can use</div>
+<div><input checked="true" type="checkbox"/>Update the start profiler messages to use that new struct</div>
+<div><input checked="true" type="checkbox"/>Update SendGetXPCOMProcessAttributes and the parent receiver to pass the struct down</div>
+<div><br/></div>
+<div>AHHHHHH  SHIT, there's more to this.</div>
+<div><br/></div>
+<div>It looks like the tps profiles aren't being gathered because the content process exits before we send a message down to gather the profiles.</div>
+<div><br/></div>
+<div>So we have to solve that problem now too. I'm now less confident that the patch I wrote here is necessary to fix this problem (though it's still useful to fix).</div>
+<div><br/></div>
+<div>General idea:</div>
+<div><br/></div>
+<ul>
+<li>Tie lifetime of ProfileGatherer in the parent to the window of time in which we're profiling.</li>
+<li>If a ContentParent starts up while we're already profiling, grab a reference to the ProfileGatherer</li>
+<li>If a ContentParent notices that we've stopped profiling, have it drop the reference to ProfileGatherer.</li>
+<li>If a ContentParent notices that we've started profiling, have it grab a reference to the ProfileGatherer.</li>
+<li>If a ContentChild is shutting down and we're profiling, blast up a profile to the parent, and have ContentParent notify the ProfileGatherer.</li>
+<li>Extend ProfileGatherer so that it can accept an array of ended-process profiles. Have a 5 profile cap on this.</li>
+<li>When the actual gathering starts, have ProfileGatherer dump out the ended-process profiles as well as the ones for already-existing profiles, and then drop the ended-process profiles.
+<ul>
+<li>Alternatively, smartly drop any profiles that are outside of our sampling window.</li>
+</ul>
+</li>
+<li><br/></li>
+</ul>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Expose ProfileGatherer as an nsISupports on nsIProfiler</div>
+<div><input checked="true" type="checkbox"/>Make ProfileGatherer be alive during the profiling window</div>
+<div><input checked="true" type="checkbox"/>Make new ContentParents and PluginModuleParents </div>
+<div><br/></div>
+<div>Actually, I've opened a new bug to do this work. This is <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1193838">bug 1193838</a>.</div>
+<div><br/></div>
+<div>Got review!</div>
+<div><br/></div>
+<div>Try push: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36ac5b643861"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36ac5b643861">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=36ac5b643861</a></div>
+<div>And another using DebugOnly: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ff5986f8f93b"/><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ff5986f8f93b">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=ff5986f8f93b</a></div>
+<div><br/></div>
+<div>Lessons: DebugOnly&lt;nsresult&gt; rv for MOZ_ASSERTs.</div>
+</body></html>

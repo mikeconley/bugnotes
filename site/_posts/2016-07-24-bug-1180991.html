@@ -1,0 +1,126 @@
+---
+layout: post
+title:  "Bug 1180991 - [e10s] Page Info: Media preview is not shown the first time on multi-process Nightly"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1180991">
+ Bug 1180991 - [e10s] Page Info: Media preview is not shown the first time on multi-process Nightly
+</a>
+<div>
+ Good STR, I can reproduce. So what’s going wrong here?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Huh… and when I set a breakpoint in pageinfo.js’s makePreview, the bug goes away. Smells like a race!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ahhh… the image is being set properly, but in the cases where the image doesn’t show, it looks like the width and the height aren’t being set properly. Interesting...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Also, this seems to only apply to images of type Background. Interesting...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ah, heh, yep -
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1180991#c8">
+  jimicy already noticed this
+ </a>
+ . Should have read the bug all the way through.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, I think I’ve solved this one.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The thing is that in single-process, the image sources have been loaded in the same process, so the cache is able to set things like the naturalHeight and naturalWidth on the preview image immediately.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ In multi-process, images are loaded in a separate process, which means that we have to hit some async part of the cache. naturalWidth and naturalHeight are 0 on the preview image, and we just roll with that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So part of the solution is to get the naturalWidth and naturalHeight from the child.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ One wrinkle though, is the favicon. Favicons aren’t actually loaded by the content process - they’re loaded by the parent process. So in that case, we want to go with the old technique.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ #aux-nav .other-apps a {
+</div>
+<div>
+ padding-left:24px;
+</div>
+<div>
+ background-repeat:no-repeat;
+</div>
+<div>
+ background-position:left 4px;
+</div>
+<div>
+ background-image:url(../../img/app-icons/16/sprite.png?33db7a2)
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay… there’s still a problem here. The problem is that background images that are not displayed (example, in a display:none block) are not shown. Interesting.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The problem is that for those images, they’re not yet loaded - they load
+ <b>
+  after
+ </b>
+ the fact. Okay, I guess one could make the media node pumping more async.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Conclusion: I think we should RESOLVE this bug and file a new bug for this special-case. I think the new bug should not block e10s, even if it’s a regression.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ To be honest, I think a lot of the PageInfo mechanism can be rewritten.
+</div>
+<div>
+ <br/>
+</div>

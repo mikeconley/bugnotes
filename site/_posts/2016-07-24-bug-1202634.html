@@ -1,0 +1,518 @@
+---
+layout: post
+title:  "Bug 1202634 - [e10s] links with target=_blank in private browsing popup open in non-private window"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1202634">
+ Bug 1202634 - [e10s] links with target=_blank in private browsing popup open in non-private window
+</a>
+<div>
+ Yikes, this is bad. We should get a test written for this!
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I need to better understand how private browsing is applied. It seems to have to do with load contexts. And we've got load contexts in several places:
+</div>
+<div>
+ <br/>
+</div>
+<ol>
+ <li>
+  nsDocShell implements nsILoadContext
+ </li>
+ <li>
+  LoadContext implements nsILoadContext - see this documentation:
+ </li>
+</ol>
+<div>
+ <br/>
+</div>
+<div>
+ <code>
+  /**
+  <br/>
+ </code>
+ <code>
+  * Class that provides nsILoadContext info in Parent process.  Typically copied
+  <br/>
+ </code>
+ <code>
+  * from Child via SerializedLoadContext.
+  <br/>
+ </code>
+ <code>
+  *
+  <br/>
+ </code>
+ <code>
+  * Note: this is not the "normal" or "original" nsILoadContext.  That is
+  <br/>
+ </code>
+ <code>
+  * typically provided by nsDocShell.  This is only used when the original
+  <br/>
+ </code>
+ <code>
+  * docshell is in a different process and we need to copy certain values from
+  <br/>
+ </code>
+ <code>
+  * it.
+  <br/>
+ </code>
+ <code>
+  *
+  <br/>
+ </code>
+ <code>
+  * Note: we also generate a new nsILoadContext using LoadContext(uint32_t aAppId)
+  <br/>
+ </code>
+ <code>
+  * to separate the safebrowsing cookie.
+ </code>
+</div>
+<div>
+ <code>
+  */
+ </code>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Interesting… so we have a special LoadContext  for multi-process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  00000011011001110
+ </span>
+</div>
+<div>
+ <span style="font-family: 'Andale Mono';">
+  10000000000000000
+ </span>
+</div>
+<div>
+ <code>
+  const unsigned long CHROME_PRIVATE_WINDOW         = 0x00010000;
+ </code>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So, two cases - window was opened from content (via TabParent::RecvCreateWindow), or window was opened from parent (ContentParent::CreateBrowserOrApp).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I think we actually only care about enforcement in the former - because the user can choose to open windows of whatever type from the PARENT process. It's the requests from the content process that we have to police.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Back in bug 1114299, I made it so that we don't accept the private browsing or remoteness chrome flags from content, because it appeared as if the parent was doing the right thing and figuring out whether or not the opened window from content should be private, or remote, or both.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ What I didn't realize is that TabParent's get their own special nsILoadContext's, and that the construction of these nsILoadContext's rely on the chromeFlags that are passed into the TabParent constructor. When those TabParent's are created from content for a pop-up window, because we don't pass up the remoteness/private browsing chrome flags, the TabParent LoadContext gets the wrong values. This appears to be the root of bug 1202634.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I don't know if it's wise to relax the restrictions, and allow the remote / private browsing flags from content again. If we want to keep that restriction, that means that I'm going to need a way for the TabParent constructor to understand that content has requested a new window should be opened, and for the TabParent constructor to somehow get the appropriate flags from the parent process. If that's the approach, it's not clear to me where to do that.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Here's where we send the message to construct the TabParent from TabChild:
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/dom/ipc/TabChild.cpp#1181">
+  https://dxr.mozilla.org/mozilla-central/rev/9ed17db42e3e46f1c712e4dffd62d54e915e0fac/dom/ipc/TabChild.cpp#1181
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Would it be advisable to have nsIContentParent somehow realize that this is a PopupIPCTabContext, and use the information from that context to set the right private browsing / remoteness flags on the created TabParent in nsIContentParent::AllocPBrowserParent?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I'm only mildly confident about this. :/ I've feedback?'d billm on my patch.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I've written a regression test! And tested that it indeed fails without my patch. Phew.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Try push:
+ <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7f49da4f23e9">
+  https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=7f49da4f23e9
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ So billm's given this r+ on this, but I want to make sure I understand how the top-level nsDocShell in a newly created popup knows to be in private browsing mode...
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ahhhh -
+ <a href="https://dxr.mozilla.org/mozilla-central/rev/e5effeb8e57ceddf679f7784faab0c2cebb1e1e6/embedding/components/windowwatcher/nsWindowWatcher.cpp#907">
+  here's the relevant code:
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Otherwise, propagate the privacy status of the parent window, if
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // available, to the child.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  isPrivateBrowsingWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  (chromeFlags
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_NON_PRIVATE_WINDOW)) {
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIDocShellTreeItem
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  parentItem;
+  <br/>
+  GetWindowTreeItem(aParent, getter_AddRefs(parentItem));
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsILoadContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  parentContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  do_QueryInterface(parentItem);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (parentContext) {
+  <br/>
+  isPrivateBrowsingWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  parentContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  UsePrivateBrowsing();
+  <br/>
+  }
+  <br/>
+  }
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // We rely on CalculateChromeFlags to decide whether remote (out-of-process)
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // tabs should be used.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #c01e51">
+  bool
+ </span>
+ <span style="font: 12.0px Courier">
+  isRemoteWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !!
+ </span>
+ <span style="font: 12.0px Courier">
+  (chromeFlags
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_REMOTE_WINDOW);
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (isNewToplevelWindow) {
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIDocShellTreeItem
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  childRoot;
+  <br/>
+  newDocShellItem
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  GetRootTreeItem(getter_AddRefs(childRoot));
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsILoadContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  do_QueryInterface(childRoot);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (childContext) {
+  <br/>
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  SetPrivateBrowsing(isPrivateBrowsingWindow);
+  <br/>
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  SetRemoteTabs(isRemoteWindow);
+  <br/>
+  }
+  <br/>
+  }
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   else
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (windowIsNew) {
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsILoadContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  do_QueryInterface(newDocShellItem);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (childContext) {
+  <br/>
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  SetPrivateBrowsing(isPrivateBrowsingWindow);
+  <br/>
+  childContext
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  SetRemoteTabs(isRemoteWindow);
+  <br/>
+  }
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Okay, that makes me feel a bit better (though this whole new-window-opening thing is really, really, really complex).
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's land this puppy.
+</div>

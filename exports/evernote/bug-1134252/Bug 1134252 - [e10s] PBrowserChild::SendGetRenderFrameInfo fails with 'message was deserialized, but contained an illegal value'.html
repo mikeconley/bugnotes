@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-07-20 17:13:05 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1134252"/><meta name="updated" content="2015-07-23 16:16:47 +0000"/><title>Bug 1134252 - [e10s] PBrowserChild::SendGetRenderFrameInfo fails with 'message was deserialized, but contained an illegal value'</title></head><body>
+<div>Okie dokie, here we go.</div>
+<div><br/></div>
+<div><img src="Bug%201134252%20-%20%5Be10s%5D%20PBrowserChild%3A%3ASendGetRenderFrameInfo%20fails%20with%20'message%20was%20deserialized,%20but%20contained%20an%20illegal%20value'.resources/8189594F-D6BE-476C-B2CF-129172E9A9F5.gif" height="200" width="200"/></div>
+<div><br/></div>
+<div>So something is going wrong in the messaging between PBrowserChild and PBrowserParent, involving the SendGetRenderFrameInfo message.</div>
+<div><br/></div>
+<div>'(msgtype=0x200002,name=PBrowser::Msg_PRenderFrameConstructor) Value error: message was deserialized, but contained an illegal value'</div>
+<div><br/></div>
+<div>Actually, it seems like it's the Msg_PRenderFrameConstructor message.  Huh.</div>
+<div><br/></div>
+<div>The child sends this message, and the parent flips out and kills the child.</div>
+<div><br/></div>
+<div>Ok, in TabChild::ProvideWindowCommon, we've got this:</div>
+<div><br/></div>
+<div><code>  PRenderFrameChild* <a>renderFrame</a> = <a>newChild</a><a>-&gt;</a>SendPRenderFrameConstructor();</code><br/>
+<code>  <a>newChild</a><a>-&gt;</a>SendGetRenderFrameInfo(<a>renderFrame</a>,</code><br/>
+<code>                                   &amp;<a>textureFactoryIdentifier</a>,</code></div>
+<div><code>                                   &amp;<a>layersId</a>);</code></div>
+<div><br/></div>
+<div>That SendPRenderFrameConstructor bit is, I think async, but that next line is sync.</div>
+<div><br/></div>
+<div>That first bit fails, and so we kill the child, which is stuck waiting for results on the second.</div>
+<div><br/></div>
+<div>So something is going wrong in that construction there.</div>
+<div><br/></div>
+<div><b>Hypothesis</b></div>
+<div><b><br/></b></div>
+<div>TabParent::AllocPRenderFrameParent is returning nullptr, which causes the child abort.</div>
+<div><br/></div>
+<div>Test: Alter ContentParent::AllocPScreenManagerParent so that it returns a nullptr, to see if we get a similar message.</div>
+<div><br/></div>
+<div>Result: WE DO. I think it's highly likely that this is the problem here...</div>
+<div><br/></div>
+<div><b>Hypothesis</b></div>
+<div><b><br/></b></div>
+<div>There is a window of time between TabParent::RecvCreateWindow and TabParent::AllocPRenderFrameParent where either:</div>
+<div><br/></div>
+<ol>
+<li>The window has already been destroyed by the time we received TabParent::AllocPRenderFrameParent</li>
+<li>The frame element can't seem to get resolved to a frame loader.</li>
+</ol>
+<div><br/></div>
+<div>I think (1) is probably our best bet - suppose we're opening a new popup window… and the parent runs TabParent::RecvCreateWindow, and the window starts to be constructed, and that's all good, and then we send the result back down to the child, which starts to respond immediately and sends a sync message up to the parent… but maybe within that time, the user closed the window? Is that possible?</div>
+<div><br/></div>
+<div>Let's see if we can trigger it! I'll open windows in the content process, and then close them in the parent as soon as they open.</div>
+<div><br/></div>
+<div>Hrm. No luck reproducing just yet. :/</div>
+<div><br/></div>
+<div>So, I think I need to think about the lifetime of RenderFrameParent, and what occurs if allocating the RFP in the parent fails.</div>
+<div><br/></div>
+<div>Here's what I'm thinking...</div>
+<div><br/></div>
+<div>Instead of returning nullptr in AllocPRenderFrameParent, always return the RenderFrameParent, even if success was false… but if success was false, then in the child, we'll realize that we can't get a layer ID, and then we'll delete the RenderFrameParent/Child pair. And then… well, we're in kind of a weird state then.</div>
+<div><br/></div>
+<div>And how do I test this is working correctly? Well… I can make it so that we always fail to create a RenderFrameParent correctly. This will probably be interesting.</div>
+<div><br/></div>
+<div>Let's see what happens!</div>
+<div><br/></div>
+<div>billm likes it, and he's assuaged my fears - if the mFrameLoader doesn't exist, we are screwwwwwed - and the cases where this probably happens is when the tab has gone away. The frameloader can't not exist when still being set-up - it's only in teardown when this can occur.</div>
+<div><br/></div>
+<div>So this is probably occurring when a tab is opened and closed extremely quickly.</div>
+<div><br/></div>
+<div>So let's land this puppy!</div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>

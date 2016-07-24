@@ -1,0 +1,156 @@
+---
+layout: post
+title:  "Bug 1181630 - [e10s] Printing doesn&apos;t work in e10s mode when no printers installed (in Print &amp; Scan system pref panel)"
+date:   2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1181630">
+ Bug 1181630 - [e10s] Printing doesn't work in e10s mode when no printers installed (in Print &amp; Scan system pref panel)
+</a>
+<div>
+ Removing printers:
+ <a href="https://support.apple.com/en-us/HT201539">
+  https://support.apple.com/en-us/HT201539
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I've put the following files into ~/Projects:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ cupsd.conf
+</div>
+<div>
+ cupsd.conf.default
+</div>
+<div>
+ snmp.conf
+</div>
+<div>
+ InstalledPrinters.plist
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The first three belong to /private/etc/cups
+</div>
+<div>
+ The last belongs to /Library/Printers
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ After clearing out all of my printers, I can reproduce the issue.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <img height="138" src="assets/1181630-486CA536-F198-4B44-A2EE-9A8C50B1C7E8.png" width="343"/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ First question:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ At what point do we spawn this error?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Let's attach a debugger to both the parent and child process, and set breakpoints on nsPrintEngine::ShowPrintErrorDialog, since that's probably where this dialog is coming from.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The child is the one spawning this dialog! Something wrong is occurring in DoCommonPrint, because it's returning an NS_ERROR_FAILURE nsresult return value.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Question: What's going wrong in nsPrintEngine::DoCommonPrint?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Answer:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font-style: normal; font-variant: normal; font-weight: normal;">
+  <span style="font-size: 11px;">
+   <span style="font-family: Menlo;">
+    nsCOMPtr&lt;nsIWebBrowserPrint&gt; wbp(do_QueryInterface(mDocViewerPrint));
+   </span>
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   rv = printPromptService-&gt;ShowPrintDialog(domWin, wbp,
+  </span>
+ </span>
+</div>
+<div>
+ <span style="font-size: 11px;">
+  <span style="font-family: Menlo;">
+   mPrt-&gt;mPrintSettings);
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The return value from ShowPrintDialog is NS_ERROR_FAILURE.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Question: Why is ShowPrintDialog returning NS_ERROR_FAILURE in the content process when there are no printers?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Answer: This is because the parent is returning NS_ERROR_FAILURE when the content process attempts to show the print settings dialog.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Question: Why is the parent returning NS_ERROR_FAILURE when showing the print settings dialog?
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Answer: This is because when deserializing the PrintData from the child, we check to make sure that a printer exists for the printer name passed up. If we cannot find a printer, we return NS_ERROR_FAILURE.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>

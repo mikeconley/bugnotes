@@ -1,0 +1,919 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-10-08 16:26:36 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1209689"/><meta name="updated" content="2015-11-24 18:03:33 +0000"/><title>Bug 1209689 - Crashed tab indicates all tabs have crashed and every tab loads the crashed tab page</title></head><body>
+<div>So we’ve got this oop-browser-crashed event… does this fire from every &lt;xul:browser&gt;, even if it hadn’t restored yet?</div>
+<div><br/></div>
+<div>Let’s find out.</div>
+<div><br/></div>
+<div>Yes, the events do fire. And that means that the message manager and frameloader from each becomes invalidated.</div>
+<div><br/></div>
+<div>Right now we’ve got a problem with the TabSwitcher. The TabSwitcher is attempting to set the docShell active on the unrestored tab when we switch to it, but at that point, the frame loaders don’t exist.</div>
+<div><br/></div>
+<div>I think what we should do is expose whether or not a browser is crashed by an attribute on the &lt;xul:browser&gt; itself.</div>
+<div><br/></div>
+<div>When a tab crashes, set the &lt;xul:tab&gt; crashed attribute to “true”, and set the &lt;xul:browser&gt; crashed attribute to “true”.<br/></div>
+<div>When a tab crashes, but the &lt;xul:browser&gt; is not yet restored (browser.__SS_restoreState == TAB_STATE_NEEDS_RESTORE), do <b>not</b> set the &lt;xul:tab&gt; crashed attribute, but <b>do</b> set the &lt;xul:browser&gt; crashed attribute to “true”.</div>
+<div>When switching tabs, don’t set the docshell to be active when switching tabs if the … well, I ...</div>
+<div><br/></div>
+<div>Huh. All this special casing. Only set the &lt;xul:tab&gt; crashed attribute to true if the tab is unrestored, only set the docshell active if the &lt;xul:browser&gt; is unrestored...</div>
+<div><br/></div>
+<div>It seems like I should be able to connect these somehow.</div>
+<div><br/></div>
+<div>The old code depended on the about:tabcrashed pages being browsed away from in order to remove browsers from the _crashedBrowsers WeakMap. We’ll need to centralize the logic to account for the possibility of restoration or just flat-out browsing away.</div>
+<div><br/></div>
+<div>I also seem to be adding in a lot of checks for whether or not the browser is in the crashed-but-restorable state. That doesn’t smell good. :(</div>
+<div><br/></div>
+<div>There are so many points (like in updateBrowserRemoteness) where we do this check to see if the browser is remote, and then do one thing or another… but we’ve got this new “crashed but restorable” state… blah.</div>
+<div><br/></div>
+<div>Okay, idea:</div>
+<div><br/></div>
+<div>Browsers that are restorable must be non-remote. Only upon restoring do we choose to make them remote. That way, they cannot “crash”. This eliminates the state of being crashed but restorable.</div>
+<div><br/></div>
+<div>Let’s try it! I’m going to stash all of this shit code I just wrote to get here and start from scratch.</div>
+<div><br/></div>
+<div>So the first step is that we force every tab to be non-remote when we restore a windows tabs.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Re-write regression test to account for changes</div>
+<div><br/></div>
+<div>Bunch of sessionstore test failures to look at now. :(</div>
+<div><br/></div>
+<div>1934 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_463205.js | value was restored - Got , expected foobar</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_463205.js:test_check_urls_before_restoring:23</div>
+<div>    self-hosted:InterpretGeneratorResume:762</div>
+<div>    self-hosted:next:720</div>
+<div>    Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>    Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>   </div>
+<div>The problem here in this test seems to be the transition from remote to non-remote tabs. We start by opening up an about:blank tab, which will run in a “remote” tab in e10s. Then we restore the tab to a chrome:// URL which makes it non-remote. When we do that, I think we fail to restore the form fields properly. Or something.</div>
+<div><br/></div>
+<div>Also, debugging, this looks like maybe some kind of race…</div>
+<div><br/></div>
+<div>So break it down into small steps:</div>
+<div><br/></div>
+<ol>
+<li>A background tab browser is remote</li>
+<li>The background tab browser is restored to a non-remote page with some form history</li>
+<li>The background tab, even when selected, does not get that form history.</li>
+</ol>
+<div><br/></div>
+<div>The change I made to restoreTab seems to be introducing the problem.</div>
+<div><br/></div>
+<div>This bit:</div>
+<div><br/></div>
+<div><span style="font: 12.0px Courier">  </span> <span style="font: 12.0px Courier; color: #008f00"><b>if</b></span> <span style="font: 12.0px Courier">(restoreImmediately</span> <span style="font: 12.0px Courier; color: #797979">||</span> <span style="font: 12.0px Courier">tabbrowser.selectedBrowser</span> <span style="font: 12.0px Courier; color: #797979">==</span> <span style="font: 12.0px Courier">browser) {<br/>
+      tabbrowser.updateBrowserRemotenessByURL(browser, uri);</span></div>
+<div><span style="font-size: 12px;"><span style="font-family: Courier;">    }</span></span></div>
+<div><br/></div>
+<div>Before, that wasn’t in a brace.</div>
+<div><br/></div>
+<div>Why did I add that? Well, I wanted to make it so that when we’re doing a window restore, that we don’t flip remoteness of all of the background tabs. Like, I wanted unrestored tabs to be non-remote.</div>
+<div><br/></div>
+<div>And I think the problem is because we _do_ do the remoteness switch, but after the point where we’ve queued a message to the page, so it gets cut off, and that’s why the form history stuff doesn’t show up.</div>
+<div><br/></div>
+<div>So how do I reconcile this?</div>
+<div><br/></div>
+<div>Is the test testing something realistic? Like, do we care about this breakage? Maybe, yeah - there are a few cases where we might use the form history stuff for non-remote pages, like about:tabcrashed after <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1212065">bug 1212065</a>.</div>
+<div><br/></div>
+<div>More precise formulation of the problem:</div>
+<div><br/></div>
+<div>When we have a remote background tab browser, and we call setTabState on it to a non-remote page, it’ll do a remoteness switch too late to actually have the state manifested in the content.</div>
+<div><br/></div>
+<div>In fact, this line I’ve highlighted, where we only sometimes update the remoteness, that’s introducing all of the test failures, full stop. So I’m in a pretty critical section of code, and I think I need some help.</div>
+<div><br/></div>
+<div>When the browser detects that it needs to switch remoteness from a URI load, it’ll call SessionStore.navigateAndRestore in order to preserve history.</div>
+<div><br/></div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:20:47 PM">1:20 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; My idea is that if we restore a window with more than one tab, then the unrestored background tabs be made non-remote - deferring the remoteness switch until the tab is selected</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:20:59 PM">1:20 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; that way, background, unrestored tabs cannot crash</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:21:09 PM">1:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and that seems to work</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:21:23 PM">1:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; ("cannot crash", when the content process crashes. Of course the main process can crash.)</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:21:32 PM">1:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; here's the test that is failing: <a href="https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/test/browser_463205.js" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/test/browser_463205.js</a></div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:21:50 PM">1:21 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; well, one of the tests that are failing, but I think this illustrates the problem I've introduced nicely</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:22:20 PM">1:22 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; here's the chunk that's introduced the problem: <a href="https://reviewboard.mozilla.org/r/22503/diff/1#0.18" rel="noreferrer" target="_blank">https://reviewboard.mozilla.org/r/22503/diff/1#0.18</a></div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:22:47 PM">1:22 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; where I don't set the remoteness if the browser isn't selected, or if we've not been asked to restore immediately</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:23:32 PM">1:23 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; What in that test fails?</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:23:45 PM">1:23 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; the test fails with --e10s, because when it creates that first about:blank, it's in a non-remote background tab as I've set it up</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:24:41 PM">1:24 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; (the rest of this is my interpretation of what's happening) - then it starts to actually load about:blank which causes the tab to go remote, since about:blank can load in the content process</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:25:06 PM">1:25 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; then the test points the browser at a chrome URL, which causes a remoteness flip</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:25:23 PM">1:25 PM</span></span> davidb|afk → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/davidb" title="davidb (davidb@66.207.193.21)">davidb</a></div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:26:08 PM">1:26 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; promiseTabState calls setTabState, which is going to eventually restoreTab, but the tab is background so it doesn't update the remoteness, and the form history goes down to the remote about:blank browser</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:26:17 PM">1:26 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; but then the browser tries to load the chrome URI, decides it needs to flip remoteness</div>
+<div><span title="Tuesday, October 20, 2015 1:26:21 PM">1:26 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; So. The chunk you point at creates a tab, but that test wouldn't ever go through that because it creates its own tab and just restores state to it</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:27:07 PM">1:27 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; I think it is the last chunk that is the problem</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:27:28 PM">1:27 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; <a href="https://reviewboard.mozilla.org/r/22503/diff/1#0.18" rel="noreferrer" target="_blank">https://reviewboard.mozilla.org/r/22503/diff/1#0.18</a> &lt;-- this last chunk, where I flip the remoteness in the conditional?</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:27:47 PM">1:27 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; I would guess so</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:28:03 PM">1:28 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; yeah, getting rid of the conditional fixes the failing tests</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:28:09 PM">1:28 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; like, without a doubt, it's that change in logic that's introducing the problem</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:28:19 PM">1:28 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Let me think for a moment</div>
+<div><span title="Tuesday, October 20, 2015 1:28:23 PM">1:28 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; k</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:33:05 PM">1:33 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: What is the pref for making tabs wait to load?</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:33:21 PM">1:33 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; Mossop: browser.sessionstore.restore_on_demand</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:34:42 PM">1:34 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Ok</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:35:31 PM">1:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: So I think I can see how you might make this work but I don't know if it will break other things</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:35:51 PM">1:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; I guess that's kinda my fear too</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:35:51 PM">1:35 PM</span></span> ⇐ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/davidb" title="davidb (davidb@66.207.193.21)">davidb</a> quit (davidb@66.207.193.21) Connection closed</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:35:52 PM">1:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; like</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:35:54 PM">1:35 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; It also might be a bunch of work</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:36:11 PM">1:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; I'm worried this is one of those assumption changes that will break things subtly</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:36:11 PM">1:36 PM</span></span> → <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/davidb" title="davidb (davidb@66.207.193.21)">davidb</a> joined (davidb@66.207.193.21)</div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;"><span style=""><span title="Tuesday, October 20, 2015 1:36:33 PM">1:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: You need to move the browser remoteness switch down to here <a href="https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#3032" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#3032</a> so it happens just before a tab is getting restored</span></div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:36:43 PM">1:36 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; But that also means moving the history restore down to there too</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:37:01 PM">1:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Which means background tabs won't have their history available until they are restored</div>
+<div><span title="Tuesday, October 20, 2015 1:37:08 PM">1:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Maybe that isn't a problem?</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:37:23 PM">1:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; OR you could just re-restore the history after switching the remoteness I guess</div>
+<div><span title="Tuesday, October 20, 2015 1:37:34 PM">1:37 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Maybe that might work</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:37:40 PM">1:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; let me try some of this stuff</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:37:43 PM">1:37 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; thanks for the tips</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:38:02 PM">1:38 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; I'm starting to get more familiar with SessionStore, but parts are still quite new to me</div>
+<div>
+<div><span title="Tuesday, October 20, 2015 1:40:54 PM">1:40 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: Actually...</div>
+<div><span title="Tuesday, October 20, 2015 1:41:07 PM">1:41 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; mm?</div>
+<div><span style="background-color: rgb(255, 250, 165);-evernote-highlight:true;"><span style=""><span title="Tuesday, October 20, 2015 1:41:22 PM">1:41 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: Background tabs get their content restored here: <a href="https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#3101" rel="noreferrer" target="_blank">https://dxr.mozilla.org/mozilla-central/source/browser/components/sessionstore/SessionStore.jsm#3101</a> so that is where you would need to do the remoteness shift and re-restore history</span></div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:41:43 PM">1:41 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; Or at least queued tabs I guess. Maybe background tabs get restored elsewhere. This is very confusing</div>
+<div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:44:30 PM">1:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; well</div>
+<div><span title="Tuesday, October 20, 2015 1:44:35 PM">1:44 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; there's like, two different kind of restorations it seems</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:44:39 PM">1:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; there's restoring the tabs</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:44:42 PM">1:44 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; and there's restoring the tab content</div>
+<div><span title="Tuesday, October 20, 2015 1:45:50 PM">1:45 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/felipe" title="felipe (sid284@moz-pg42p0.0j4i.jtu0.0101.2620.IP)">felipe</a>&gt; i wonder if we could fix the root of the problem which is that unrestored tabs actually have about:blank loaded in the child. But I imagine there are tons of assumptions around that</div>
+<div><span title="Tuesday, October 20, 2015 1:46:32 PM">1:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; mconley: Looks like restoreTab restores history then for the current tab restores content and other tabs go into a queue (which never runs if restore_on_demand is set). The queue restores tab content where I linked. Not sure where restore_on_demand tabs get restored</div>
+<div><span title="Tuesday, October 20, 2015 1:46:53 PM">1:46 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; Mossop: onTabSelect</div>
+<div><span title="Tuesday, October 20, 2015 1:47:26 PM">1:47 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; felipe: if you could have the unrestored tabs load something else, what would they load?</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:48:26 PM">1:48 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/felipe" title="felipe (sid284@moz-pg42p0.0j4i.jtu0.0101.2620.IP)">felipe</a>&gt; mconley: I was wondering if there's a browser that can have "nothing" loaded.. or if we could make unrestored tabs not have a browser until they are loaded</div>
+<div><span title="Tuesday, October 20, 2015 1:49:12 PM">1:49 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; hmmm... that rings a bell. I think I'm actually Cc'd on a long-standing bug to delay browser instantiation on unrestored background tabs</div>
+</div>
+<div><span title="Tuesday, October 20, 2015 1:49:15 PM">1:49 PM</span> — <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a> looks for it</div>
+<div>
+<div><span title="Tuesday, October 20, 2015 1:49:56 PM">1:49 PM</span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; bug 906076</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:51:03 PM">1:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/Mossop" title="Mossop (sid73@moz-dpj2bo.scl3.mozilla.com)">Mossop</a>&gt; I don't know if that would make this any easier, you'd still need to muck with session restore in the same way for that too</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:51:23 PM">1:51 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">mconley</a>&gt; true - and it looks like this patch needs quite a bit more hammering out anyways</div>
+</div>
+<div><span style=""><span title="Tuesday, October 20, 2015 1:53:05 PM">1:53 PM</span></span> &lt;<a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/felipe" title="felipe (sid284@moz-pg42p0.0j4i.jtu0.0101.2620.IP)">felipe</a>&gt; yeah.. nice to see that there's an attempt in progress in that bug! that looks like a much wider change</div>
+<div><br/></div>
+<div>Okay… I think I see what I need to do.</div>
+<div><br/></div>
+<div>I need to defer the flipping of the remoteness (and _all_ communication through the browser’s message manager) until we restore the tab content. Let’s try that.</div>
+<div><br/></div>
+<div>GARRR. There’s a problem with that too.</div>
+<div><br/></div>
+<div>SessionStore only shows us the tab titles on unrestored tabs after the history has been restored in each tab.</div>
+<div><br/></div>
+<div>So we actually have to restore the history in each tab. DAMN IT.</div>
+<div><br/></div>
+<div>Okay, let’s think about that...</div>
+<div><br/></div>
+<div>What we really want to do, I guess, is to restore the history for all tabs ever, but make sure that they all stay non-remote.</div>
+<div><br/></div>
+<div>Once the history has been updated, <b>and we hear back that the history has been updated,</b> can we flip the remoteness and then restore the content.</div>
+<div><br/></div>
+<div>Let’s try that.</div>
+<div><br/></div>
+<div>So what should the order of events be here?:</div>
+<div><br/></div>
+<ol>
+<li>We restoreTabs in all windows</li>
+<li>Each tab gets SessionStore:restoreHistory sent down to it so that we display the tab titles correctly? The selected browser gets restoreTabContent called on it.</li>
+<li>restoreTabContent will update the remoteness on the selected browser as appropriate, and then send down the restoreTabContent message?</li>
+</ol>
+<div><br/></div>
+<div>And how does this relate to navigateAndRestore?</div>
+<div><br/></div>
+<div>What exactly is navigateAndRestore doing, and can I abstract some of that work out into doing whatever it is that I need restoreTabContent to do now?</div>
+<div><br/></div>
+<div>Question:  Why do we wait until we get a restoreHistoryComplete message back from the child before updating the tab title? If there’s no good reason, maybe we can avoid sending the SessionStore:restoreHistory down to unrestored tabs until we restoreTabContent. Is that true?</div>
+<div><br/></div>
+<div>If so, what would that look like?</div>
+<div><br/></div>
+<ol>
+<li>Move setting the tab title into restoreTab so that it occurs immediately</li>
+<li>Move the restoration of history so that it occurs just before restoring content? Or combine these two?</li>
+</ol>
+<div><br/></div>
+<div>Man… this is hard. I’d need to consult with ttaubert, I think.</div>
+<div><br/></div>
+<div>While I’m waiting to talk to ttaubert, let’s keep thinking about this.</div>
+<div><br/></div>
+<div>It seems silly to send down the history to the tabs that’ll just convert to remote on selection.</div>
+<div><br/></div>
+<div>What if we revert the change so that unrestored tabs are still remote…but when they crash, instead of sending them to about:tabcrashed, we send them to about:blank, and then restore each of them?</div>
+<div><br/></div>
+<div>I want to fully understand the test failure in browser_463205.js.</div>
+<div><br/></div>
+<div>Logging messages:</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Restore a tab (but not restore its content)</div>
+<div><input checked="true" type="checkbox"/>Update the remoteness from remote to non-remote for the chrome URI</div>
+<div><input checked="true" type="checkbox"/>Restore the tab content<br/></div>
+<div><br/></div>
+<ol>
+<li>A remote browser is opened at about:blank</li>
+<li>We set tab state on that remote browser and say that it’s supposed to be pointed at a chrome URI, and we send down form data along with it</li>
+<li>The tab state is received by the remote browser, and it attempts to navigate to the chrome URI, and queues up the job of setting the form data once the page has loaded.</li>
+<li>The content process realizes that it cannot view the chrome URI and sends a message to the parent saying to flip the remoteness</li>
+<li>The parent asks the child for all of its history. This occurs before the page has loaded and the form data filled out? That’s why the form data is empty.</li>
+<li>The parent receives the data including the empty form data, and then does the remoteness flip, and sends down the new history data.</li>
+</ol>
+<div><br/></div>
+<div>I believe the race is: between steps 3-5, the content process is holding onto the form data in some intermediary variable but will not have that information sent back up to the parent in 5 before the page has finished loading. So the form history data is lost.</div>
+<div><br/></div>
+<div>Actually, now that I think about it, I don’t think it’s much of a race, since the content process has no chance of filling in the form history stuff because the chrome URI cannot possibly be loaded in the content process, so it’s not possible to read the form in the content to persist history.</div>
+<div><br/></div>
+<div><b>There is NO RACE HERE.</b> At least, that’s my current hypothesis.</div>
+<div><br/></div>
+<div>We could potentially fix this by having content-SessionStore fish out the aborted form data that we were going to restore with out from the content process.</div>
+<div><br/></div>
+<div>Let’s look at these other failing tests to see if they’re hitting the same problem of attempting to grab formdata from a unrestored URI that cannot be loaded in the content process.</div>
+<div><br/></div>
+<div><br/></div>
+<div>SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>1935 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_467409-backslashplosion.js | Uncaught exception - at chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_467409-backslashplosion.js:60 - TypeError: formdata is undefined</div>
+<div>Stack trace:</div>
+<div>    checkState@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_467409-backslashplosion.js:60:3</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    listener@chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:500:7</div>
+<div>    ssi_sendTabRestoredNotification@resource:///modules/sessionstore/SessionStore.jsm:3708:5</div>
+<div>    receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:806:9</div>
+<div>    Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>    Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>    SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>    Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>    Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>    SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>1936 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_467409-backslashplosion.js | Found an unexpected tab at the end of test run: about:sessionrestore -</div>
+<div>1937 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 2, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:102</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div>1938 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 2, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:103</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div>1939 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 2, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:231</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div>1940 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 2, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:232</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div>1941 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | [test_setBrowserState] window3 busy event count correct - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:test_setBrowserState/&lt;:292</div>
+<div>chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:966</div>
+<div>null:null:0</div>
+<div>1942 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | [test_setBrowserState] window3 ready event count correct - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:test_setBrowserState/&lt;:294</div>
+<div>chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:966</div>
+<div>null:null:0</div>
+<div>1943 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | [test_setBrowserState] window900 busy event count correct - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:test_setBrowserState/&lt;:292</div>
+<div>chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:966</div>
+<div>null:null:0</div>
+<div>1944 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | [test_setBrowserState] window900 ready event count correct - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:test_setBrowserState/&lt;:294</div>
+<div>chrome://mochikit/content/browser-test.js:testScope/test_executeSoon/&lt;.run:966</div>
+<div>null:null:0</div>
+<div>1945 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:353</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div>1946 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_615394-SSWindowState_events.js | undefined assertion name - Got 4, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_615394-SSWindowState_events.js:onSSTabRestored:354</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:ssi_sendTabRestoredNotification:3708</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:806</div>
+<div>null:null:0</div>
+<div><br/></div>
+<div>These failures are because we’re increasing the amount of times that we are restoring tabs - we restore them once to load them the first time, and restore them again in order to flip their remoteness properly. Sometimes we seem to fire the ready / busy events 4 times instead of 1. I don’t know why that is.</div>
+<div><br/></div>
+<div>1947 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_aboutSessionRestore.js | Test timed out -</div>
+<div>1948 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_aboutSessionRestore.js | Found a tab after previous test timed out: about:sessionrestore -</div>
+<div>1949 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_broadcast.js | A promise chain failed to handle a rejection:  - at chrome://mochikit/content/browser-test.js:761 - TypeError: this.SimpleTest.isExpectingUncaughtException is not a function</div>
+<div>Stack trace:</div>
+<div>Tester_execTest/&lt;@chrome://mochikit/content/browser-test.js:761:34</div>
+<div>Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>1950 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_broadcast.js | Test timed out -</div>
+<div>1951 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_formdata_format.js | This test contains no passes, no fails and no todos. Maybe it threw a silent exception? Make sure you use waitForExplicitFinish() if you need it. -</div>
+<div>SUITE-END | took 206s</div>
+<div>MacBook-Pro-3:mozilla-central mikeconley$ ./mach mochitest browser/components/sessionstore/test/browser_463205.js</div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div>In an ideal world, all of the backgrounds browsers that are unrestored would be non-remote so that they can’t crash. The remoteness would be flipped on demand. When the parent asks the child to flush its state back up to the parent, the child should be able to remember any form history for unloaded pages because the page couldn’t be loaded? What?</div>
+<div><br/></div>
+<div>content-SessionStore.js when loading the document can determine that the document being loaded is going to cause a remoteness switch. In that event, can it stuff the form data it was going to restore into the FormDataListener?</div>
+<div><br/></div>
+<div>Add a way for things to register for onPendingRemotenessSwitch or something onto the ContentRestore instance, and then if before the load it’s clear that we’re going to be flipping remoteness, to signal all of those listeners with the data we were going to restore the content with...</div>
+<div><br/></div>
+<div>Attack plan to propose to Mossop or ttaubert or both:</div>
+<div><br/></div>
+<ol>
+<li>In content-SessionStore.js, notice when we’re going to flip remoteness on a page load during content restore and queue up messages for formdata, scroll, etc for stuff we were never able to restore before the flip. That should fix browser_463205.js, browser_467409-backslashplosion.js and browser_formdata_format.js</li>
+<li>Update the SSWindowState events test to account for the fact that we will restore background tabs in e10s mode.</li>
+</ol>
+<div><br/></div>
+<div><br/></div>
+<div>All background browsers are about:blank in the parent process. We restore each of them so that they show their favicons and tab titles right away.</div>
+<div><br/></div>
+<div>The user clicks on one to load on demand.</div>
+<div><br/></div>
+<div>We should then notice that this browser has the wrong remoteness setting. So we then flush the history back up, merge it with the fields that couldn’t possibly have been set (like formdata, etc), and then blast that down to the newly remote browser before loading content.</div>
+<div><br/></div>
+<div>IDEA:</div>
+<div><br/></div>
+<div>restoreTabContent is the choke point, and where all of the action, I think needs to happen. Basically, I think what we can do is determine if the tab content is going to necessitate a remoteness switch. If so, we should then flip the remoteness, re-send the history out of the TabStateCache, send a new epoch, send the load arguments… and THEN send the restoreTabContent message.</div>
+<div><br/></div>
+<div>So this works, but for some reason, now when remoteness is flipped from navigateAndRestore, I get the following error:</div>
+<div><br/></div>
+<div>Full message: TypeError: frameLoader.tabParent is null</div>
+<div>Full stack: set_docShellIsActive@chrome://global/content/bindings/remote-browser.xml:229:13</div>
+<div>updateBrowserRemoteness@chrome://browser/content/tabbrowser.xml:1552:1</div>
+<div>updateBrowserRemotenessByURL@chrome://browser/content/tabbrowser.xml:1605:1</div>
+<div>SessionStoreInternal.restoreTabContent@resource:///modules/sessionstore/SessionStore.jsm:3056:9</div>
+<div>restoreTab@resource:///modules/sessionstore/SessionStore.jsm:3022:7</div>
+<div>navigateAndRestore/&lt;@resource:///modules/sessionstore/SessionStore.jsm:2299:7</div>
+<div>Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:96:5</div>
+<div>resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:34:5</div>
+<div>receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:692:11</div>
+<div><br/></div>
+<div>Why?</div>
+<div><br/></div>
+<div>Hrm… everything is behaving how I’d expect. Like the browser is reattached to the DOM… why is this not working?</div>
+<div><br/></div>
+<div>AHH. Okay.</div>
+<div><br/></div>
+<div>The problem is that when we have a non-remote browser and have nodefaultsrc set on it, flipping the remoteness on it when it hasn’t yet loaded a document will fail spectacularly. Like, I think it’s like:</div>
+<div><br/></div>
+<div>A new about:blank tab is loaded with nodefaultsrc, because then we load about:newtab in it.</div>
+<div>navigateAndRestore causes us to do a remoteness switch on it.</div>
+<div>Now we have a non-remote browser with nodefaultsrc on it. And then we click on a tile.</div>
+<div>And that causes navigateAndRestore to occur again, and this causes a remoteness switch, and we explode.</div>
+<div><br/></div>
+<div>And this bug wasn’t introduced by the remoteness switch, interestingly… it must be something else.</div>
+<div><br/></div>
+<div>Let me make sure I have this down right - because I think I got the steps wrong before.</div>
+<div><br/></div>
+<div>When the user clicks on the New Tab button, we eventually call loadOneTab, passing in about:newtab. This calls addTab, which notices that about:newtab cannot be actually opened in the content process, so the initial browser that is created is <b>non-remote.</b></div>
+<div><b><br/></b></div>
+<div>That newly created browser then loads up some content, easy peasy. No need to restore it or anything.</div>
+<div><br/></div>
+<div>Then, when the user clicks on a link in the about:newtab page, the DocShell checks to see if it can be loaded in another process - which it can! This sends a signal to the parent to do a remoteness switch, which puts us into navigateAndRestore.</div>
+<div><br/></div>
+<div>Here’s the stack frame in the GOOD case when we set the TabParent:</div>
+<div><br/></div>
+<div>* thread #1: tid = 0x14b5c4, 0x0000000103bc7ed3 XUL`nsFrameLoader::TryRemoteBrowser(this=0x000000011fe93ae0) + 1603 at nsFrameLoader.cpp:2266, queue = 'com.apple.main-thread', stop reason = breakpoint 7.1</div>
+<div>  * frame #0: 0x0000000103bc7ed3 XUL`nsFrameLoader::TryRemoteBrowser(this=0x000000011fe93ae0) + 1603 at nsFrameLoader.cpp:2266</div>
+<div>    frame #1: 0x0000000103bc82a6 XUL`nsFrameLoader::ShowRemoteFrame(this=0x000000011fe93ae0, size=0x00007fff5fbeee38, aFrame=0x000000012c58b020) + 134 at nsFrameLoader.cpp:785</div>
+<div>    frame #2: 0x0000000103bcb04a XUL`nsFrameLoader::Show(this=0x000000011fe93ae0, marginWidth=-1, marginHeight=-1, scrollbarPrefX=1, scrollbarPrefY=1, frame=0x000000012c58b020) + 202 at nsFrameLoader.cpp:656</div>
+<div>    frame #3: 0x0000000106445345 XUL`nsSubDocumentFrame::ShowViewer(this=0x000000012c58b020) + 245 at nsSubDocumentFrame.cpp:175</div>
+<div>    frame #4: 0x0000000106472c1c XUL`AsyncFrameInit::Run(this=0x000000011ff207c0) + 76 at nsSubDocumentFrame.cpp:86</div>
+<div>    frame #5: 0x0000000103906ad6 XUL`nsContentUtils::RemoveScriptBlocker() + 502 at nsContentUtils.cpp:5194</div>
+<div>    frame #6: 0x0000000103b88020 XUL`nsDocument::EndUpdate(this=0x000000012c02ba00, aUpdateType=1) + 176 at nsDocument.cpp:4937</div>
+<div>    frame #7: 0x0000000105c3e795 XUL`mozilla::dom::XULDocument::EndUpdate(this=0x000000012c02ba00, aUpdateType=1) + 37 at XULDocument.cpp:3185</div>
+<div>    frame #8: 0x000000010391d6fc XUL`mozAutoDocUpdate::~mozAutoDocUpdate(this=0x00007fff5fbef160) + 76 at mozAutoDocUpdate.h:40</div>
+<div>    frame #9: 0x0000000103919e95 XUL`mozAutoDocUpdate::~mozAutoDocUpdate(this=0x00007fff5fbef160) + 21 at mozAutoDocUpdate.h:38</div>
+<div>    frame #10: 0x0000000103c3260c XUL`nsINode::ReplaceOrInsertBefore(this=0x000000012f070560, aReplace=false, aNewChild=0x000000012f06fca0, aRefChild=0x0000000000000000, aError=0x00007fff5fbef5d8) + 5356 at nsINode.cpp:2303</div>
+<div><br/></div>
+<div>and in the bad case?</div>
+<div><br/></div>
+<div>Ah, well, we definitely don’t get there. Interesting. Why not?</div>
+<div><br/></div>
+<div>We never get as far as nsFrameLoader::Show for some reason… why not?</div>
+<div><br/></div>
+<div>The browser that we’re flipping remoteness on is maybe in a weird state or something?</div>
+<div><br/></div>
+<div>Here’s where we init the nsSubDocumentFrame in the good case:</div>
+<div><br/></div>
+<div>* thread #1: tid = 0x14f11c, 0x0000000106444b3f XUL`nsSubDocumentFrame::Init(this=0x000000012dcd0a10, aContent=0x000000012018cea0, aParent=0x00000001350ed538, aPrevInFlow=0x0000000000000000) + 31 at nsSubDocumentFrame.cpp:106, queue = 'com.apple.main-thread', stop reason = breakpoint 8.1</div>
+<div>  * frame #0: 0x0000000106444b3f XUL`nsSubDocumentFrame::Init(this=0x000000012dcd0a10, aContent=0x000000012018cea0, aParent=0x00000001350ed538, aPrevInFlow=0x0000000000000000) + 31 at nsSubDocumentFrame.cpp:106</div>
+<div>    frame #1: 0x00000001062023a0 XUL`nsCSSFrameConstructor::InitAndRestoreFrame(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aContent=0x000000012018cea0, aParentFrame=0x00000001350ed538, aNewFrame=0x000000012dcd0a10, aAllowCounters=true) + 256 at nsCSSFrameConstructor.cpp:4685</div>
+<div>    frame #2: 0x000000010620a596 XUL`nsCSSFrameConstructor::ConstructFrameFromItemInternal(this=0x000000012a65fa40, aItem=0x000000012018f380, aState=0x00007fff5fbf67e8, aParentFrame=0x00000001350ed538, aFrameItems=0x00007fff5fbf4ae0) + 2630 at nsCSSFrameConstructor.cpp:3697</div>
+<div>    frame #3: 0x000000010620eed4 XUL`nsCSSFrameConstructor::ConstructFramesFromItem(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aIter=0x00007fff5fbf4520, aParentFrame=0x00000001350ed538, aFrameItems=0x00007fff5fbf4ae0) + 564 at nsCSSFrameConstructor.cpp:5868</div>
+<div>    frame #4: 0x0000000106243d15 XUL`nsCSSFrameConstructor::ConstructFramesFromItemList(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aItems=0x00007fff5fbf4760, aParentFrame=0x00000001350ed538, aFrameItems=0x00007fff5fbf4ae0) + 293 at nsCSSFrameConstructor.cpp:10189</div>
+<div>    frame #5: 0x0000000106202d97 XUL`nsCSSFrameConstructor::ProcessChildren(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aContent=0x000000012018e160, aStyleContext=0x000000012eb76a40, aFrame=0x00000001350ed538, aCanHaveGeneratedContent=true, aFrameItems=0x00007fff5fbf4ae0, aAllowBlockStyles=false, aPendingBinding=0x0000000000000000, aPossiblyLeafFrame=0x00000001350ed538) + 2375 at nsCSSFrameConstructor.cpp:10389</div>
+<div>    frame #6: 0x000000010620acc5 XUL`nsCSSFrameConstructor::ConstructFrameFromItemInternal(this=0x000000012a65fa40, aItem=0x000000012018f100, aState=0x00007fff5fbf67e8, aParentFrame=0x00000001350ede88, aFrameItems=0x00007fff5fbf52f0) + 4469 at nsCSSFrameConstructor.cpp:3808</div>
+<div>    frame #7: 0x000000010620eed4 XUL`nsCSSFrameConstructor::ConstructFramesFromItem(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aIter=0x00007fff5fbf4d30, aParentFrame=0x00000001350ede88, aFrameItems=0x00007fff5fbf52f0) + 564 at nsCSSFrameConstructor.cpp:5868</div>
+<div>    frame #8: 0x0000000106243d15 XUL`nsCSSFrameConstructor::ConstructFramesFromItemList(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aItems=0x00007fff5fbf4f70, aParentFrame=0x00000001350ede88, aFrameItems=0x00007fff5fbf52f0) + 293 at nsCSSFrameConstructor.cpp:10189</div>
+<div>    frame #9: 0x0000000106202d97 XUL`nsCSSFrameConstructor::ProcessChildren(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aContent=0x000000012018e200, aStyleContext=0x000000012ea64588, aFrame=0x00000001350ede88, aCanHaveGeneratedContent=true, aFrameItems=0x00007fff5fbf52f0, aAllowBlockStyles=false, aPendingBinding=0x0000000000000000, aPossiblyLeafFrame=0x00000001350ede88) + 2375 at nsCSSFrameConstructor.cpp:10389</div>
+<div>    frame #10: 0x000000010620acc5 XUL`nsCSSFrameConstructor::ConstructFrameFromItemInternal(this=0x000000012a65fa40, aItem=0x000000012018f060, aState=0x00007fff5fbf67e8, aParentFrame=0x0000000135599ec0, aFrameItems=0x00007fff5fbf5b00) + 4469 at nsCSSFrameConstructor.cpp:3808</div>
+<div>    frame #11: 0x000000010620eed4 XUL`nsCSSFrameConstructor::ConstructFramesFromItem(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aIter=0x00007fff5fbf5540, aParentFrame=0x0000000135599ec0, aFrameItems=0x00007fff5fbf5b00) + 564 at nsCSSFrameConstructor.cpp:5868</div>
+<div>    frame #12: 0x0000000106243d15 XUL`nsCSSFrameConstructor::ConstructFramesFromItemList(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aItems=0x00007fff5fbf5780, aParentFrame=0x0000000135599ec0, aFrameItems=0x00007fff5fbf5b00) + 293 at nsCSSFrameConstructor.cpp:10189</div>
+<div>    frame #13: 0x0000000106202d97 XUL`nsCSSFrameConstructor::ProcessChildren(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aContent=0x000000012018e340, aStyleContext=0x000000012ea3a3c8, aFrame=0x0000000135599ec0, aCanHaveGeneratedContent=true, aFrameItems=0x00007fff5fbf5b00, aAllowBlockStyles=false, aPendingBinding=0x0000000000000000, aPossiblyLeafFrame=0x0000000135599ec0) + 2375 at nsCSSFrameConstructor.cpp:10389</div>
+<div>    frame #14: 0x000000010620acc5 XUL`nsCSSFrameConstructor::ConstructFrameFromItemInternal(this=0x000000012a65fa40, aItem=0x000000012018efc0, aState=0x00007fff5fbf67e8, aParentFrame=0x00000001350edbc8, aFrameItems=0x00007fff5fbf6310) + 4469 at nsCSSFrameConstructor.cpp:3808</div>
+<div>    frame #15: 0x000000010620eed4 XUL`nsCSSFrameConstructor::ConstructFramesFromItem(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aIter=0x00007fff5fbf5d50, aParentFrame=0x00000001350edbc8, aFrameItems=0x00007fff5fbf6310) + 564 at nsCSSFrameConstructor.cpp:5868</div>
+<div>    frame #16: 0x0000000106243d15 XUL`nsCSSFrameConstructor::ConstructFramesFromItemList(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aItems=0x00007fff5fbf5f90, aParentFrame=0x00000001350edbc8, aFrameItems=0x00007fff5fbf6310) + 293 at nsCSSFrameConstructor.cpp:10189</div>
+<div>    frame #17: 0x0000000106202d97 XUL`nsCSSFrameConstructor::ProcessChildren(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aContent=0x000000012018e660, aStyleContext=0x000000012ec372d8, aFrame=0x00000001350edbc8, aCanHaveGeneratedContent=true, aFrameItems=0x00007fff5fbf6310, aAllowBlockStyles=false, aPendingBinding=0x000000011d9f68c0, aPossiblyLeafFrame=0x00000001350edbc8) + 2375 at nsCSSFrameConstructor.cpp:10389</div>
+<div>    frame #18: 0x000000010620acc5 XUL`nsCSSFrameConstructor::ConstructFrameFromItemInternal(this=0x000000012a65fa40, aItem=0x000000012018ee80, aState=0x00007fff5fbf67e8, aParentFrame=0x000000012ecc8150, aFrameItems=0x00007fff5fbf6690) + 4469 at nsCSSFrameConstructor.cpp:3808</div>
+<div><br/></div>
+<div>    frame #19: 0x000000010620eed4 XUL`nsCSSFrameConstructor::ConstructFramesFromItem(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aIter=0x00007fff5fbf6560, aParentFrame=0x000000012ecc8150, aFrameItems=0x00007fff5fbf6690) + 564 at nsCSSFrameConstructor.cpp:5868</div>
+<div><br/></div>
+<div>    frame #20: 0x0000000106243d15 XUL`nsCSSFrameConstructor::ConstructFramesFromItemList(this=0x000000012a65fa40, aState=0x00007fff5fbf67e8, aItems=0x00007fff5fbf66b0, aParentFrame=0x000000012ecc8150, aFrameItems=0x00007fff5fbf6690) + 293 at nsCSSFrameConstructor.cpp:10189</div>
+<div><br/></div>
+<div>    frame #21: 0x00000001062153d3 XUL`nsCSSFrameConstructor::ContentAppended(this=0x000000012a65fa40, aContainer=0x000000012ec4c040, aFirstNewContent=0x000000012018e660, aAllowLazyConstruction=true) + 3251 at nsCSSFrameConstructor.cpp:7189</div>
+<div><br/></div>
+<div>    frame #22: 0x00000001062bf181 XUL`PresShell::ContentAppended(this=0x000000012b9ea980, aDocument=0x000000012ba83a00, aContainer=0x000000012ec4c040, aFirstNewContent=0x000000012018e660, aNewIndexInContainer=13) + 417 at nsPresShell.cpp:4308</div>
+<div><br/></div>
+<div><br/></div>
+<div>AH HAH. OH MY GOD I’VE FIGURED IT OUT.</div>
+<div><br/></div>
+<div>The browser has the “pending” attribute applied to it when we attempt to flip the remoteness. <b>You cannot flip the remoteness of a browser that is not being displayed!</b></div>
+<div><br/></div>
+<div>HOORAY! It works! WOOOOOOOOOOO</div>
+<div><br/></div>
+<div>Except now I’ve got 4 new test failures. But they’re different, and everything else passes! So, forward progress!</div>
+<div><br/></div>
+<div>22 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_replace_load.js | correct URL loaded - Got about:mozilla, expected about:mozilla#fooobar</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:testSwitchToTab&lt;:41</div>
+<div>    @chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:16:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:314:40</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    Task_spawn@resource://gre/modules/Task.jsm:164:12</div>
+<div>    TaskImpl_handleResultValue@resource://gre/modules/Task.jsm:381:1</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:322:13</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    Task_spawn@resource://gre/modules/Task.jsm:164:12</div>
+<div>    Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>    Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>    SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>23 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_replace_load.js | three history entries - Got 2, expected 3</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:testSwitchToTab&lt;:50</div>
+<div>    @chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:16:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:314:40</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    Task_spawn@resource://gre/modules/Task.jsm:164:12</div>
+<div>    TaskImpl_handleResultValue@resource://gre/modules/Task.jsm:381:1</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:322:13</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    Task_spawn@resource://gre/modules/Task.jsm:164:12</div>
+<div>    Tester_execTest@chrome://mochikit/content/browser-test.js:754:9</div>
+<div>    Tester.prototype.nextTest&lt;/&lt;@chrome://mochikit/content/browser-test.js:676:7</div>
+<div>    SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;@chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:735:59</div>
+<div>24 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_replace_load.js | correct URL loaded - Got about:mozilla, expected about:mozilla?foo=bar</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:testSwitchToTab&lt;:41</div>
+<div>    @chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:17:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:314:40</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    receiveMessage@resource://testing-common/ContentTask.jsm:94:7</div>
+<div>25 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_replace_load.js | three history entries - Got 2, expected 3</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:testSwitchToTab&lt;:50</div>
+<div>    @chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_replace_load.js:17:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:314:40</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    receiveMessage@resource://testing-common/ContentTask.jsm:94:7</div>
+<div><br/></div>
+<div>Create remote about:blank browser.</div>
+<div>setTabState causes a restoreTab at about:mozilla</div>
+<div>We send state down to the content process</div>
+<div>We attempt to switch to the tab to about:mozilla#fooobar</div>
+<div>But then the browser doesn’t have the right URL (expected: about:mozilla#fooobar, and got about:mozilla).</div>
+<div><br/></div>
+<div>Is it a race? Doesn’t look like it - looks like honest to goodness full-time breakage.</div>
+<div><br/></div>
+<div>This test was added for <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1100223">bug 1100223</a>. Let’s take a look at the fix in that bug that this test tests for.</div>
+<div><br/></div>
+<div>Ahhhhhhh I see.</div>
+<div><br/></div>
+<div>In this case, a loadURI is sent to the browser, and then the selectedIndex is flipped.</div>
+<div><br/></div>
+<div>This is a problem.</div>
+<div><br/></div>
+<div>If an unrestored tab has loadURI called on it, I’m guessing it’ll do the work of asking for the restore. However, when we switch tabs, we might do a remoteness switch.</div>
+<div><br/></div>
+<div>How does this behave with non-e10s? Let’s use the debugger and look at restoreTabContent...</div>
+<div><br/></div>
+<div>Ah… in the non-e10s case, restoreTabContent is never called. In the e10s case, it is I guess because we’re doing navigateAndRestore from the initial about:blank?</div>
+<div><br/></div>
+<div>Ohhhhh this is interesting. We’re entering restoreTabContent because it looks to us as if the browser needs restoring. And… yet, the tab’s restore state is… not defined. So how did we get here? Interesting!</div>
+<div><br/></div>
+<div>Now that’s an honest-to-goodness mystery. How the hell are we getting there?</div>
+<div><br/></div>
+<div>LET’S FIND OUT!!!!!</div>
+<div><br/></div>
+<div>I’m going to make __SS_restoreState a getter / setter on browsers that dump stacks. That might illuminate what the heck is going on here.</div>
+<div><br/></div>
+<div>Wait… why doesn’t restoreTabContent get called for the non-e10s case? I think that’s where the real mystery is. I’m certain restoreTab is… right?</div>
+<div><br/></div>
+<div>Ah… it IS some kind of race. Something to do with TabRestoreQueue?</div>
+<div><br/></div>
+<div>Ok, I can solve this by flushing the TabStateFlusher before restoring the content….</div>
+<div><br/></div>
+<div><br/></div>
+<div>AAAAND NOW MORE TEST FAILURES. DAMN IT.</div>
+<div><br/></div>
+<div>1976 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 1 - # tabs that need to be restored - Got 0, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:37</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1977 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 1 - # tabs that are restoring - Got 6, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:38</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1978 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 2 - # tabs that need to be restored - Got 0, expected 2</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:37</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1979 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 2 - # tabs that are restoring - Got 5, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:38</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1980 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 3 - # tabs that need to be restored - Got 0, expected 1</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:37</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1981 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_586068-cascade.js | load 3 - # tabs that are restoring - Got 4, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_586068-cascade.js:test/promiseRestoringTabs&lt;/&lt;:38</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.onRestored:368</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/head.js:gProgressListener.observe:362</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1982 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring 3 tabs concurrently - Got 8, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:39</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1983 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring max. 3 tabs concurrently -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:41</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1984 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring max. 3 tabs concurrently -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:41</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1985 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring max. 3 tabs concurrently -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:41</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1986 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring max. 3 tabs concurrently -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:41</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1987 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_595601-restore_hidden.js | restoring 3 tabs concurrently - Got 4, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:test_loadTabs/&lt;:39</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.onRestored:81</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_595601-restore_hidden.js:TabsProgressListener.observe:76</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1988 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_636279.js | restoring 3 tabs concurrently - Got 4, expected 3</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_636279.js:test/onReady/&lt;:36</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_636279.js:TabsProgressListener.onRestored:98</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_636279.js:TabsProgressListener.observe:93</div>
+<div>resource:///modules/sessionstore/SessionStore.jsm:receiveMessage:801</div>
+<div>1989 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_682507.js | second tab should have not 'pending' attribute -</div>
+<div>Stack trace:</div>
+<div>chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_682507.js:test:12</div>
+<div>chrome://mochikit/content/browser-test.js:Tester_execTest:783</div>
+<div>chrome://mochikit/content/browser-test.js:Tester.prototype.nextTest&lt;/&lt;:676</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:SimpleTest.waitForFocus/waitForFocusInner/focusedOrLoaded/&lt;:735</div>
+<div>SUITE-END | took 108s</div>
+<div><br/></div>
+<div>I’m now less confident that I want to use TabStateFlusher to ensure that the state has been properly set… let’s see here.</div>
+<div><br/></div>
+<div>A remote browser is created pointed at about:blank.</div>
+<div>setTabState is called, and via the message sent from restoreTab, the child realizes that it’s supposed to be loading in the a non-remote browser, so calls navigateAndRestore, passing the about:mozilla#fooobar URI argument with it.</div>
+<div><br/></div>
+<div>navigateAndRestore flushes the TabStateFlusher, and we return to the event loop...</div>
+<div>The tab is then selected?</div>
+<div><br/></div>
+<div>Assumptions that I had wrong:</div>
+<div><br/></div>
+<ol>
+<li>I thought the “select” events on e10s tabs would be fired only after the frame was ready. This is false. Therefore, <b>the TabSelect events fire synchronously on tab selection</b>.</li>
+</ol>
+<div><br/></div>
+<div>THEORY:</div>
+<div><br/></div>
+<div>navigateAndRestore is determined to be the right call in the parent process on tab switch. We kick off navigateAndRestore, which kicks off the async TabStateFlusher.flush operation.</div>
+<div><br/></div>
+<div>THEN, we flip the tabs, and synchronously decide that the tab content needs to be restored, so we call into restoreTabContent.</div>
+<div><br/></div>
+<div>restoreTabContent realizes that the tab needs to have its remoteness flipped, does it, and then resends down the history and then the command to restore content, minus the load arguments that had been sent to navigateAndRestore.</div>
+<div><br/></div>
+<div>So that’s why we don’t load up about:mozilla#fooobar</div>
+<div><br/></div>
+<div>So what are we going to do about it?</div>
+<div><br/></div>
+<div>Hm… let me try adding a TAB_STATE_WILL_RESTORE state for __SS_restoreState, to guard against the TabSelect event handler trying to call restoreTabContent when we’ve got a Flush pending..</div>
+<div><br/></div>
+<div>OH MY GOD IT WORKS. ALL TESTS PASS.</div>
+<div><br/></div>
+<div>Now let’s try with no —e10s...</div>
+<div><br/></div>
+<div>Pass! Let’s clean it up and post it for review!</div>
+<div><br/></div>
+<div>AH GOD DAMN IT. I have to make some slight alterations.</div>
+<div><br/></div>
+<div>We want to only show about:tabcrashed for selected tabs. What about the other tabs that had crashed properly? Well, great question...</div>
+<div><br/></div>
+<div>First off, I guess we don’t care about multiple processes at this point, so I can avoid that case. Just assume a single content process.</div>
+<div><br/></div>
+<div>(But what if we’re viewing a non-remote browser at the time of the crash?… I’ve needinfo’d phlsa).</div>
+<div><br/></div>
+<div>Let’s ignore the above problem for a second. Let’s pretend we’re looking at a remote browser - the common case. What do we do?</div>
+<div><br/></div>
+<div>Well, for the selected browser, we just do what we’ve always done.</div>
+<div><br/></div>
+<div>If the browser that crashed is not selected, we should flip its remoteness to false, and then restore it so that it’s in the TAB_STATE_NEEDS_RESTORE state.</div>
+<div><br/></div>
+<div>So who’s responsible for that? tabbrowser.xml or SessionStore?</div>
+<div><br/></div>
+<div>What should SessionStore be doing? Hum… I guess it could take care of the unselected tab states.</div>
+<div><br/></div>
+<div>And tabbrowser.xml takes care of the crashed tab state.</div>
+<div><br/></div>
+<div>Well, fuck it, let’s try it.</div>
+<div><br/></div>
+<div>The work that I did previously in this bug fixed it in a way that was not exactly up to specification. Should I completely blow away that work, or should I build on it?</div>
+<div><br/></div>
+<div>I shouldn’t try to build on it just so that I don’t throw away work. I should make sure it’s the best solution.</div>
+<div><br/></div>
+<div>One way of doing that is to pretend that I hadn’t written those patches, and think about how I would approach fixing the <b>actual</b> problem and see if the solution I had originally written is part of that.</div>
+<div><br/></div>
+<div>So let’s do that. Let’s pretend I haven’t written a thing.</div>
+<div><br/></div>
+<div>So now the background tabs are all remote again.</div>
+<div><br/></div>
+<div>The simplest solution is, in tabbrowser.xml, when we see oop-browser-crashed event, for the tabs that are not selected, flip remoteness to false, and then immediately revive them. Otherwise, show about:tabcrashed.</div>
+<div><br/></div>
+<div>Let’s see if that works.</div>
+<div><br/></div>
+<div>Yay, it works!</div>
+<div><br/></div>
+<div>But I think there are edge-cases with the crashed tab count and WeakSet.</div>
+<div><br/></div>
+<div>_crashedBrowsers is to make sure we know who can revive.</div>
+<div>_crashedTabCount is just so we know what kind of buttons to show.</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Move responsibility of tracking how many browsers are in about:tabcrashed into TabCrashReporter.</div>
+<div><input checked="true" type="checkbox"/>“SessionStore:crashedTabRevived” was originally sent up from content-sessionStore because it was expected that every tab would be crashed, and we needed to know when each is revived (in case they browsed away)… I think we can just do that with an unload handler in aboutTabCrashed.js<br/></div>
+<div><br/></div>
+<div>2005 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | Test timed out -</div>
+<div>2006 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | Found a tab after previous test timed out: data:text/html;charset=utf-8,&lt;a%20href=%23&gt;clickme&lt;/a&gt; -</div>
+<div>2007 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_crashedTabs.js | Second tab should be crashed too. - Got , expected true</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:test_revive_tab_from_session_store:239</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:96:5</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:34:5</div>
+<div>    receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:686:11</div>
+<div>2008 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_crashedTabs.js | Second tab should still be crashed though. - Got , expected true</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:test_revive_tab_from_session_store:245</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:96:5</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:34:5</div>
+<div>    receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:686:11</div>
+<div>2009 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_crashedTabs.js | Second tab should be crashed too. - Got , expected true</div>
+<div>Stack trace:</div>
+<div>    chrome://mochikit/content/browser-test.js:test_is:940</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:test_revive_all_tabs_from_session_store:290</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    onMessage@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:93:9</div>
+<div>2010 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_crashedTabs.js | Restore All button should not be hidden -</div>
+<div>Stack trace:</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:test_hide_restore_all_button:384</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:319:13</div>
+<div>    promise callback*TaskImpl_handleResultValue@resource://gre/modules/Task.jsm:388:7</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:322:13</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    test_close_tab_after_crash@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:334:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:330:41</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:96:5</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:34:5</div>
+<div>    receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:686:11</div>
+<div>2011 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_crashedTabs.js | Restore Tab button should not have the primary class -</div>
+<div>Stack trace:</div>
+<div>    chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:test_hide_restore_all_button:385</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:319:13</div>
+<div>    promise callback*TaskImpl_handleResultValue@resource://gre/modules/Task.jsm:388:7</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:322:13</div>
+<div>    TaskImpl@resource://gre/modules/Task.jsm:275:3</div>
+<div>    createAsyncFunction/asyncFunction@resource://gre/modules/Task.jsm:249:14</div>
+<div>    test_close_tab_after_crash@chrome://mochitests/content/browser/browser/components/sessionstore/test/browser_crashedTabs.js:334:9</div>
+<div>    TaskImpl_run@resource://gre/modules/Task.jsm:330:41</div>
+<div>    Handler.prototype.process@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:934:23</div>
+<div>    this.PromiseWalker.walkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:813:7</div>
+<div>    Promise*this.PromiseWalker.scheduleWalkerLoop@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:744:11</div>
+<div>    this.PromiseWalker.schedulePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:776:7</div>
+<div>    this.PromiseWalker.completePromise@resource://gre/modules/Promise.jsm -&gt; resource://gre/modules/Promise-backend.js:711:7</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:96:5</div>
+<div>    resolve@resource:///modules/sessionstore/TabStateFlusher.jsm:34:5</div>
+<div>    receiveMessage@resource:///modules/sessionstore/SessionStore.jsm:686:11</div>
+<div>SUITE-END | took 147s</div>
+<div><br/></div>
+<div>The following tests failed:</div>
+<div>1966 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | uncaught exception - TypeError: frameLoader.tabParent is null at chrome://global/content/bindings/remote-browser.xml:229</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:simpletestOnerror:1517</div>
+<div>1967 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | uncaught exception - TypeError: frameLoader.tabParent is null at chrome://global/content/bindings/remote-browser.xml:229</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:simpletestOnerror:1517</div>
+<div>1968 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | Test timed out -</div>
+<div>1969 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_async_flushes.js | Found a tab after previous test timed out: about:blank -</div>
+<div>1970 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_cleaner.js | uncaught exception - Error: Not a number at chrome://browser/content/tabview.js:7937</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:simpletestOnerror:1517</div>
+<div>resource://gre/modules/TelemetrySession.jsm:Impl.observe/&lt;:1740</div>
+<div>1971 INFO TEST-UNEXPECTED-FAIL | browser/components/sessionstore/test/browser_cleaner.js | uncaught exception - Error: Not a number at chrome://browser/content/tabview.js:7937</div>
+<div>Stack trace:</div>
+<div>chrome://mochikit/content/tests/SimpleTest/SimpleTest.js:simpletestOnerror:1517</div>
+<div>resource://gre/modules/TelemetrySession.jsm:Impl.observe/&lt;:1740</div>
+<div>SUITE-END | took 275s</div>
+<div><br/></div>
+<div>363 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_bug880101.js | Received onLocationChange for correct URL - Got about:blank, expected <a href="http://example.com/browser/browser/base/content/test/general/dummy_page.html">http://example.com/browser/browser/base/content/test/general/dummy_page.html</a></div>
+<div><br/></div>
+<div>465 INFO TEST-UNEXPECTED-FAIL | browser/base/content/test/general/browser_openPromptInBackgroundTab.js | Ta-dah, the other tab should now be selected again! -</div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Spin out separate bug for aboutTabCrashed refactor. Done - <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1220929">bug 1220929</a>.</div>
+<div><br/></div>
+<div>How come this is all broken when browser.sessionstore.restore_on_demand is false? Fuck. :(</div>
+<div><br/></div>
+<div>Browser tabs are all in the crashed state, still looking “remote” even through the frameloaders have gone away.</div>
+<div><br/></div>
+<div>Ahhhhh - I think it’s because we’re attempting to flip remoteness back to true for the restored tabs before the actors have been fully torn down.</div>
+<div><br/></div>
+<div>We should probably wait until the old process and all its actors have fully gone away before attempting to restore.</div>
+<div><br/></div>
+<div>Ah, wait. Speaking with Mossop and felipe, what we really want to do is to restore on demand in the reviving case EVEB if the user has browser.sessionstore.restore_on_demand to false.</div>
+<div><br/></div>
+<div><input type="checkbox"/>Check felipe’s Tab Groups thing:</div>
+<div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:26 </span><span style="color: rgb(255, 0, 136);">(felipe) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: if forceOnDemand is true, shouldn't we just be jumping the first block?  (like forcing restoreImmediatelly to false)</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:26 </span><span style="color: rgb(0, 136, 0);">kev has joined (kev@<span style="text-decoration: underline; word-break: break-all;"><a href="http://moz-cfhap5.mtv2.mozilla.com">moz-cfhap5.mtv2.mozilla.com</a></span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:27 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>felipe: the problem is that if we're restoring immediately by default via prefs, TabRestoreQueue.add(tab) followed by this.restoreNextTab(); will cause us to restore immediately.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:28 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>because TabRestoreQueue.add puts the tab into the queue, and then restoreNextTab will get the next tab in the queue (which is the one we just added), and call restoreTabContent on it.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:28 </span><span style="color: rgb(255, 0, 136);">(felipe) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: and where does the behavior differ if with the standard pref setting? (i.e., restore on demand = true)</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:28 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>does restoreNextTab simply decide not to restore it?</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:29 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>felipe: then in TabRestoreQueue, even though we've added it to the queue, it won't emit the tab when we call TabRestoreQueue.shift() in it, since the queue will check the user preference</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:29 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>and make sure that the tab is not emitted on shift</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:31 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>ok</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:31 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>I thought it would be the caller of .shift() who should check that</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:31 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>but I see it now that it simply returns nothing</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:32 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking </span><span style="color: rgb(0, 136, 0);">nods</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:32 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>it's kinda confusing</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:32 </span><span style="color: rgb(0, 136, 0);">milan_ has joined (milan@<span style="text-decoration: underline; word-break: break-all;">moz-agc7lr.3t38.sij7.f0c8.2607.IP</span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:32 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>although it feels this is the first situation where we would not be adding a tab to the queue. I wonder if that has other consequences</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:34 </span><span style="color: rgb(0, 136, 0);">jimm-lunch is now known as jimm</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:34 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>but it looks like .remove() should be fine being called when the tab is not on the list</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:34 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>*on any of the lists</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(238, 238, 238); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:35 </span><span style="color: rgb(255, 0, 136);">(felipe) </span><strong style="color: rgb(255, 0, 255); font-weight: bold;">mconley|livehacking: do you know if onTabShow/onTabHide, and its counterparts hiddenToVisible/visibleToHidden are meant for tab groups?</strong></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:36 </span><span style="color: rgb(0, 136, 0);">milan has left IRC (Ping timeout: 121 seconds)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:36 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>felipe: onTabShow and onTabHide are definitely not just for tab groups. hiddenToVisible and visibleToHidden might be - Gijs would probably know better, since he's the one working on removing Tab Groups</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:36 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>I think hiddenToVisible/visibleToHidden will throw the error when this situation happen</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:37 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>hm.</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(0, 136, 0);">rocketman has left IRC (Connection closed)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(0, 136, 0);">rocketman_ has joined (rocketman@<span style="text-decoration: underline; word-break: break-all;">moz-uo1.brn.208.62.IP</span>)</span></div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:38 </span><span style="color: rgb(0, 136, 0);">rocketman_ is now known as rocketman</span></div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:39 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>i.e. a crashed tab is not added to the queue, then its hidden by calling tabbrowser.hideTab(tab), which will move it from visible to hidden</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:39 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>maybe it won't cause any problems, specially with the tab groups removal</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:39 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>but it's worth checking</div>
+<div style="padding: 0px 4px 1px; clear: both; background-color: rgb(231, 231, 231); color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;"><span style="color: rgb(0, 68, 136);">13:39 </span><span style="color: rgb(255, 0, 255); font-weight: bold;">(mconley|livehacking) </span>alright, can do</div>
+<div style="padding: 0px 4px 1px; clear: both; color: rgb(0, 0, 0); font-family: Monaco; font-size: 12px; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: auto; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: auto; word-spacing: 0px; -webkit-text-stroke-width: 0px;">
+<div><span style="color: rgb(0, 68, 136);">13:40 </span><span style="color: rgb(255, 0, 136);">(felipe) </span>ok cool</div>
+</div>
+</div>
+<div><br/></div>
+<div>Trypush: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bcc57ba9ffc5">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=bcc57ba9ffc5</a></div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5fc94725dce8">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=5fc94725dce8</a></div>
+<div><br/></div>
+<div>DO BEFORE LANDING</div>
+<div><input checked="true" type="checkbox"/>See if Loop work invalidates the normalizeURL thing I put into RemotePageManager before landing</div>
+<div>Yeah kinda - I can replace what I’ve got.</div>
+<div><br/></div>
+<div>Let’s land this puppy once the try results come in green! (I’ve suffered enough backout this week)</div>
+<div><br/></div>
+<div><br/></div>
+<div><br/></div>
+<div><input checked="true" type="checkbox"/>Add footgun guard to see if browser is visible before flipping remoteness? Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1227602">bug 1227602</a></div>
+<div><input checked="true" type="checkbox"/>File a follow-up about icons disappearing when background tabs crash. Filed <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1227630">bug 1227630</a></div>
+<div><input checked="true" type="checkbox"/><s>File a follow-up about not being able to restore initial browser tab</s> This actually got fixed in my patches for bug 1171708<br/></div>
+<div><br/></div>
+</body></html>

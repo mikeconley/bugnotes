@@ -1,0 +1,708 @@
+---
+layout: post
+title: "Bug 1095236 - [e10s] window.open(..., ..., &quot;dialog=1&quot;) breaks with e10s enabled"
+date: 2016-07-24
+tags:
+---
+
+<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1095236">
+ Bug 1095236 - [e10s] window.open(..., ..., "dialog=1") breaks with e10s enabled
+</a>
+<div>
+ So here’s what a debug build spews out when I try
+ <a href="http://jsfiddle.net/as03ohoc/39/">
+  the test case
+ </a>
+ :
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ The test case is just a link that runs this script:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ function windowopen(){
+</div>
+<div>
+ window.open('http://www.example.com', 'test', 'dialog=yes');
+</div>
+<div>
+ }
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ [Child 15455] ###!!! ASSERTION: attempted to open a new window with no WindowCreator: 'mWindowCreator', file /Users/mikeconley/Projects/mozilla-central/embedding/components/windowwatcher/nsWindowWatcher.cpp, line 731
+</div>
+<div>
+ [Child 15455] WARNING: NS_ENSURE_SUCCESS(rv, rv) failed with result 0x80004005: file /Users/mikeconley/Projects/mozilla-central/dom/base/nsGlobalWindow.cpp, line 12275
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Ugh, so here’s the relevant piece of OpenWindowInternal:
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Now check whether it's ok to ask a window provider for a window.  Don't
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // do it if we're opening a dialog or if our parent is a chrome window or
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // if we're opening something that has modal, dialog, or chrome flags set.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIDOMChromeWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  chromeWin
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  do_QueryInterface(aParent);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  aDialog
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  chromeWin
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  !
+ </span>
+ <span style="font: 12.0px Courier">
+  (chromeFlags
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  (nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_MODAL
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  |
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_OPENAS_DIALOG
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  |
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  nsIWebBrowserChrome
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  CHROME_OPENAS_CHROME))) {
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIWindowProvider
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  provider
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  do_GetInterface(parentTreeOwner);
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (provider) {
+  <br/>
+  NS_ASSERTION(aParent,
+ </span>
+ <span style="font: 12.0px Courier; color: #c8352b">
+  "We've _got_ to have a parent here!"
+ </span>
+ <span style="font: 12.0px Courier">
+  );
+  <br/>
+  <br/>
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIDOMWindow
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  newWindow;
+  <br/>
+  rv
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  provider
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  ProvideWindow(aParent, chromeFlags, aCalledFromJS,
+  <br/>
+  sizeSpec.PositionSpecified(),
+  <br/>
+  sizeSpec.SizeSpecified(),
+  <br/>
+  uriToLoad, name, features,
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  windowIsNew,
+  <br/>
+  getter_AddRefs(newWindow));
+  <br/>
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (NS_SUCCEEDED(rv)) {
+  <br/>
+  GetWindowTreeItem(newWindow, getter_AddRefs(newDocShellItem));
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (windowIsNew
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &amp;&amp;
+ </span>
+ <span style="font: 12.0px Courier">
+  newDocShellItem) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // Make sure to stop any loads happening in this window that the
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // window provider might have started.  Otherwise if our caller
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // manipulates the window it just opened and then the load
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // completes their stuff will get blown away.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+  nsCOMPtr
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &lt;
+ </span>
+ <span style="font: 12.0px Courier">
+  nsIWebNavigation
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  &gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  webNav
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  =
+ </span>
+ <span style="font: 12.0px Courier">
+  <br/>
+  do_QueryInterface(newDocShellItem);
+  <br/>
+  webNav
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  -&gt;
+ </span>
+ <span style="font: 12.0px Courier">
+  Stop(nsIWebNavigation
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ::
+ </span>
+ <span style="font: 12.0px Courier">
+  STOP_NETWORK);
+  <br/>
+  }
+  <br/>
+  }
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   else
+  </b>
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   if
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  (rv
+ </span>
+ <span style="font: 12.0px Courier; color: #797979">
+  ==
+ </span>
+ <span style="font: 12.0px Courier">
+  NS_ERROR_ABORT) {
+  <br/>
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // NS_ERROR_ABORT means the window provider has flat-out rejected
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // the open-window call and we should bail.  Don't return an error
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // here, because our caller may propagate that error, which might
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // cause e.g. window.open to throw!  Just return null for our out
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #4f9192">
+  <i>
+   // param.
+   <br/>
+  </i>
+ </span>
+ <span style="font: 12.0px Courier">
+ </span>
+ <span style="font: 12.0px Courier; color: #008f00">
+  <b>
+   return
+  </b>
+ </span>
+ <span style="font: 12.0px Courier">
+  NS_OK;
+  <br/>
+  }
+  <br/>
+  }
+  <br/>
+  }
+ </span>
+</div>
+<div>
+ <span style="font-size: 12px;">
+  <span style="font-family: Courier;">
+   }
+  </span>
+ </span>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Hrm. So we special-case DIALOG’s, and then try to open them with a window creator. Great.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Is there a good reason why web content can open up dialogs? According to
+ <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/open?redirectlocale=en-US&amp;redirectslug=DOM%2Fwindow.open">
+  https://developer.mozilla.org/en-US/docs/Web/API/Window/open?redirectlocale=en-US&amp;redirectslug=DOM%2Fwindow.open
+ </a>
+ , Gecko is the only engine that obeys that directive.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:33:00 PM">
+   5:33 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+   overholt
+  </a>
+  &gt; mconley: an intent to unship would be cool but there's no formal process
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:33:26 PM">
+   5:33 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ehsan" title="ehsan (ehsan@moz-gcn12j.ckpj.s0pt.0450.2001.IP)">
+   ehsan
+  </a>
+  &gt; mconley: yes, please send an intent email
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:33:35 PM">
+   5:33 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; overholt: is there a template or something somewhere?
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:33:43 PM">
+   5:33 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; I'm new and inexperienced
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:34:02 PM">
+   5:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+   overholt
+  </a>
+  &gt; mconley: no template for unshipping, sorry
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:34:28 PM">
+   5:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; hmmm
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:34:31 PM">
+   5:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; alright
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:34:47 PM">
+   5:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; overholt: suppose I send one - do I have to wait some number of days before I land the patches?
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:34:53 PM">
+   5:34 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; or can I just signal intent and drop the bomb?
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:37:06 PM">
+   5:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+   overholt
+  </a>
+  &gt; mconley: again, no rules but I'd wait at least until, say, Tuesday, if that's acceptable
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:37:27 PM">
+   5:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; otay
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:37:29 PM">
+   5:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/mconley" title="mconley (sid32@moz-7kf488.0j4i.jtu0.0101.2620.IP)">
+   mconley
+  </a>
+  &gt; overholt: thanks yo
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:37:37 PM">
+   5:37 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/khuey" title="khuey (khuey@moz-no0.93r.245.63.IP)">
+   khuey
+  </a>
+  &gt; hey overholt is back
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:37:47 PM">
+   5:37 PM
+  </span>
+  —
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+   overholt
+  </a>
+  is
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:38:08 PM">
+   5:38 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+   overholt
+  </a>
+  &gt; But at this very moment has to go afk for a bit
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:38:11 PM">
+   5:38 PM
+  </span>
+  &lt;
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/qDot" title="qDot (qdot@moz-rl6ai4.typefuck.com)">
+   qDot
+  </a>
+  &gt; More important question, is overholt actually awake and aware?
+ </div>
+ <div>
+  <span title="Thursday, October 08, 2015 5:40:15 PM">
+   5:40 PM
+  </span>
+  ⇐
+  <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/ferjm" title="ferjm (textual@moz-uqth6o.dynamicIP.rima-tde.net)">
+   ferjm
+  </a>
+  quit (
+  <a href="mailto:textual@moz-uqth6o.dynamicIP.rima-tde.net">
+   textual@moz-uqth6o.dynamicIP.rima-tde.net
+  </a>
+  ) Quit: Textual IRC Client:
+  <a href="http://www.textualapp.com" rel="noreferrer" target="_blank">
+   www.textualapp.com
+  </a>
+ </div>
+</div>
+<div>
+ <span title="Thursday, October 08, 2015 5:40:30 PM">
+  5:40 PM
+ </span>
+ &lt;
+ <a href="https://irccloud.mozilla.com/#%21/ircs://irc1.dmz.scl3.mozilla.com:6697/overholt" title="overholt (sid152@moz-ul7or7.0j4i.jtu0.0101.2620.IP)">
+  overholt
+ </a>
+ &gt; :) I would say yes
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ <input checked="true" type="checkbox"/>
+ Send out Intent to Unship
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Subject: Intent to unship: dialog=1 for window.open from web content
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ One of the arguments to window.open is a “feature string” that is used to do things like set the size of the newly opened window, to set whether or not it is resizable, etc.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Gecko currently supports a “dialog” feature that is really only evident on Windows platforms. This dialog feature essentially hides the minimize, maximize and restore buttons in the window titlebar. It also hides the “command” icon (that’s the program icon usually visible in the top-left corner of a popup window on Windows). Note that it doesn’t disable the minimizing / maximizing capabilities of the window, it just hides the buttons. Right-clicking on the titlebar brings up a popup that allows the user to control the window.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ From what I can tell, this is a super old feature, and Gecko is the only web engine to support it. All other engines just ignore that setting.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Bug 1095236 was filed because when an e10s-enabled Gecko encounters a window.open with “dialog=1” or “dialog=yes” in the feature string, it failed to open the window. I didn’t find enough cause for Gecko to keep supporting the feature when I posted to dev-platform earlier in the week, so I have prepared patches that cause Gecko to ignore the feature as well for both e10s and non-e10s. This will allow this window.open calls to work with e10s-enabled Gecko again.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Note that this does not disable the dialog=1 feature when window.open is called from privileged code from the parent process.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ Patches are available in the bug:
+ <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1095236">
+  https://bugzilla.mozilla.org/show_bug.cgi?id=1095236
+ </a>
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ I’ll be landing these patches early next week in mozilla-central unless I hear a really compelling argument not to.
+</div>
+<div>
+ <br/>
+</div>
+<div>
+ -Mike
+</div>

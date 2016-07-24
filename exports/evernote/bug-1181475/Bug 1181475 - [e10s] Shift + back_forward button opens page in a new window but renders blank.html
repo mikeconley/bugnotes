@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><meta name="exporter-version" content="Evernote Mac 6.7.1 (453574)"/><meta name="keywords" content="M8, Needs export"/><meta name="author" content="mconley@mozilla.com"/><meta name="created" content="2015-07-14 22:41:46 +0000"/><meta name="source" content="desktop.mac"/><meta name="source-url" content="https://bugzilla.mozilla.org/show_bug.cgi?id=1181475"/><meta name="updated" content="2015-07-31 03:49:16 +0000"/><title>Bug 1181475 - [e10s] Shift + back/forward button opens page in a new window but renders blank</title></head><body>
+<div>This seems to be because the docshell on the newly created browser window is inactive when it should be active. This is because with non-e10s, when we swap docshells, adding a docshell X as a child to another active docshell Y makes X be active. We don't get that automatic behaviour with e10s.</div>
+<div><br/></div>
+<div>Huh… so forcing the docshell to be enabled after a remote frameloader swap doesn't appear to be enough. :( Other stuff is up.</div>
+<div><br/></div>
+<div>It seems… racy…?</div>
+<div><br/></div>
+<div>It just flat out doesn't seem to work, despite having the docShell be active.</div>
+<div><br/></div>
+<div>What is the missing piece?</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div><b><br/></b></div>
+<div>The TabStateFlusher flush Promise is not resolving before we tear the new tab out and swap the frameloaders, and this is introducing the non-determinism.</div>
+<div><br/></div>
+<div><b>Test:</b></div>
+<div><b><br/></b></div>
+<div>Add two second delay before calling replaceTabWithWindow in duplicateTabIn in browser.js.</div>
+<div><br/></div>
+<div><b>Result:</b></div>
+<div><br/></div>
+<div>Always won the race - content loaded every time.</div>
+<div><br/></div>
+<div>This bolsters the hypothesis that it is SessionStore.duplicateTab kicking off a Promise that does not resolve in time.</div>
+<div><br/></div>
+<div><b>Hypothesis:</b></div>
+<div><b><br/></b></div>
+<div>When the TabStateFlusher flush Promise resolves before the new browser window can call swapBrowsersAndCloseOther, then the race is won, and the content is shown.</div>
+<div><br/></div>
+<div>When the TabStateFlusher flush Promise resolves AFTER the new browser window calls swapBrowsersAndCloseOther, the race is lost, and the content is somehow not shown.</div>
+<div><br/></div>
+<div><b>Test:</b></div>
+<ul>
+<li>We can delay the TabStateFlusher flush Promise resolution.</li>
+<li>We can delay the calling of swapBrowsersAndCloseOther</li>
+</ul>
+<div><br/></div>
+<div><b>Result:</b></div>
+<div><br/></div>
+<div>When delaying the swapBrowsersAndCloseOther, we reliably displayed the content. When we kept that delay, but added an additional delay to the TabStateFlusher flush Promise resolution, we reliably failed to display the content.</div>
+<div><br/></div>
+<div><b>CONCLUSION:</b></div>
+<div><b><br/></b></div>
+<div>Something in the resolution handler for SessionStore.duplicateTab is necessary in order for duplicateTabIn to work properly, and it's not occurring fast enough.</div>
+<div><br/></div>
+<div>Question?: Why is this not affecting non-e10s?</div>
+<div><br/></div>
+<div>Answer: I believe this is because with non-e10s we're just winning the race more often.</div>
+<div><br/></div>
+<div>Ideas for solutions:</div>
+<div><br/></div>
+<ol>
+<li>Add a new method to SessionStore that is like… duplicateTabAsync that returns a Promise that resolves with the newTab, then have browser.js wait for that resolution before calling replaceTabWithWindow</li>
+</ol>
+<div><br/></div>
+<div>From Mossop:</div>
+<div><br/></div>
+<div>"This code is a little inefficient. Create a new tab in the current window, create a new window, swap tab into the new window. We can make it better and fix this bug at the same time, no SessionStore changes required:<br/>
+<br/>
+1. Create new window<br/>
+2. Duplicate tab into new window</div>
+<div>3. Close new window's initial tab"</div>
+<div><br/></div>
+<div>Ah! Easy peasy! Mossop even gave me r+ before my try build came in!</div>
+<div><br/></div>
+<div><a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=56bff499d891">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=56bff499d891</a></div>
+<div><br/></div>
+<div>Huh. Some perma orange. Wtf.</div>
+<div><br/></div>
+<div>Huh… I thought opening a browser window would go through nsXULWindow::CreateNewContentWindow, which (I believe) spins a nested event loop until the XUL has all finished loading. That's not the case.</div>
+<div><br/></div>
+<div>This try build is better: <a href="https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c27b4c9ee0fd">https://treeherder.mozilla.org/#/jobs?repo=try&amp;revision=c27b4c9ee0fd</a></div>
+<div><br/></div>
+<div><br/></div>
+</body></html>
