@@ -2,8 +2,8 @@
 title: "Mike Conley's Bug Notes"
 email: mconley@mozilla.com
 description: "A place where I publish my raw, unedited notes on completed bugs."
-baseurl: "http://people.mozilla.org/~mconley2/bugnotes"
-url: "http://people.mozilla.org/~mconley2/bugnotes"
+baseurl: "https://people.mozilla.org/~mconley2/bugnotes"
+url: "https://people.mozilla.org/~mconley2/bugnotes"
 twitter_username: mike_conley
 github_username:  mikeconley
 
